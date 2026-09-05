@@ -1,12 +1,5 @@
 import type { Metadata, Viewport } from "next"
-import localFont from "next/font/local"
 import "./globals.css"
-
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-})
 
 export const metadata: Metadata = {
   title: "ramu. — Smoothie Sales System",
@@ -38,9 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={`${geistSans.className} antialiased bg-[#FAF9F6] text-zinc-900`}>
+      <body className="font-sans antialiased bg-[#FAF9F6] text-zinc-900">
         {children}
       </body>
     </html>
   )
 }
+
