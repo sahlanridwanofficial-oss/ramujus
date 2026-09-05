@@ -15,8 +15,8 @@ export default function Logo({
   alt = 'ramu.',
   priority = true,
 }: LogoProps) {
-  // Official ramu. logo ratio is ~3.71:1 (1024 / 276)
-  const width = Math.round(height * 3.71)
+  // Official ramu. logo ratio is ~4.65:1 (1024 / 220)
+  const width = Math.round(height * 4.65)
 
   return (
     <div className={`inline-flex items-center select-none ${className}`}>
