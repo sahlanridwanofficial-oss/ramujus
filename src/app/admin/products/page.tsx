@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
 import {
   Loader2, Plus, Package, ToggleLeft, ToggleRight,
-  Pencil, X, Check
+  Pencil, X, Check, AlertCircle
 } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { PRODUCT_CATEGORIES } from '@/lib/constants'
@@ -25,6 +25,7 @@ export default function ProductsPage() {
     name: '', description: '', price: '', category: 'smoothie'
   })
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => { loadProducts() }, [])
@@ -50,15 +51,19 @@ export default function ProductsPage() {
 
   async function toggleAvailability(product: Product) {
     const updated = !product.is_available
+    setSaveError(null)
     setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_available: updated } : p))
 
-    try {
-      await supabase
-        .from('products')
-        .update({ is_available: updated })
-        .eq('id', product.id)
-    } catch {
-      // ignore
+    const { error } = await supabase
+      .from('products')
+      .update({ is_available: updated })
+      .eq('id', product.id)
+
+    if (error) {
+      // Kembalikan tampilan ke keadaan sebenarnya agar admin tidak mengira
+      // perubahannya tersimpan.
+      setProducts(prev => prev.map(p => p.id === product.id ? { ...p, is_available: product.is_available } : p))
+      setSaveError(`Gagal mengubah status ${product.name}. Perubahan tidak tersimpan.`)
     }
   }
 
@@ -73,28 +78,29 @@ export default function ProductsPage() {
       category: form.category,
     }
 
-    try {
-      if (editingId) {
-        await supabase.from('products').update(productData).eq('id', editingId)
-      } else {
-        await supabase.from('products').insert({
+    // Versi lama menyisipkan produk ke state lokal saat penyimpanan gagal,
+    // sehingga admin melihat produk "tersimpan" padahal tidak ada di database.
+    const { error } = editingId
+      ? await supabase.from('products').update(productData).eq('id', editingId)
+      : await supabase.from('products').insert({
           ...productData,
           sort_order: products.length + 1,
         })
-      }
-    } catch {
-      // optimistic update for demo
-      if (editingId) {
-        setProducts(prev => prev.map(p => p.id === editingId ? { ...p, ...productData, image_url: null, is_available: true, sort_order: p.sort_order, created_at: '' } : p))
-      } else {
-        setProducts(prev => [...prev, { id: 'temp-' + Date.now(), ...productData, image_url: null, is_available: true, sort_order: prev.length + 1, created_at: '' }])
-      }
+
+    setSaving(false)
+
+    if (error) {
+      setSaveError(
+        editingId
+          ? 'Gagal menyimpan perubahan produk. Perubahan tidak tersimpan.'
+          : 'Gagal menambahkan produk. Produk tidak tersimpan.'
+      )
+      return
     }
 
     setForm({ name: '', description: '', price: '', category: 'smoothie' })
     setShowForm(false)
     setEditingId(null)
-    setSaving(false)
     loadProducts()
   }
 
@@ -142,6 +148,16 @@ export default function ProductsPage() {
           <span>{showForm ? 'Batal' : 'Tambah Menu Baru'}</span>
         </button>
       </div>
+
+      {saveError && (
+        <div
+          role="alert"
+          className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-xs text-[#be1a1a] font-semibold"
+        >
+          <AlertCircle className="w-4 h-4 shrink-0 mt-px" />
+          <span className="leading-relaxed">{saveError}</span>
+        </div>
+      )}
 
       {/* Form Drawer / Card */}
       {showForm && (

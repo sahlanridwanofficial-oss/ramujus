@@ -68,18 +68,17 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Fallback: using anon client signUp
+    // 2. Fallback: using anon client signUp.
+    //    Peran TIDAK dikirim lewat metadata — trigger handle_new_user
+    //    selalu menetapkan 'driver', karena metadata dapat dipalsukan
+    //    oleh siapa pun yang memegang anon key.
     if (supabaseUrl && anonKey) {
       const supabase = createClient(supabaseUrl, anonKey)
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          data: {
-            full_name,
-            phone,
-            role: 'driver'
-          }
+          data: { full_name, phone }
         }
       })
 
@@ -89,22 +88,19 @@ export async function POST(request: Request) {
 
       return NextResponse.json({
         success: true,
-        message: 'Mitra driver berhasil didaftarkan.',
+        message: 'Mitra driver berhasil didaftarkan. Driver perlu memverifikasi email sebelum dapat masuk.',
         user: authData?.user
       })
     }
 
-    // 3. Fallback for demo / offline environment
-    return NextResponse.json({
-      success: true,
-      message: 'Mitra driver berhasil ditambahkan (Demo Mode).',
-      user: {
-        id: 'driver-' + Date.now(),
-        full_name,
-        phone,
-        email
-      }
-    })
+    // 3. Tanpa kredensial Supabase tidak ada yang bisa disimpan.
+    //    Versi lama mengembalikan "berhasil (Demo Mode)" di sini, sehingga
+    //    admin mengira driver sudah terdaftar padahal tidak ada apa pun
+    //    yang tertulis ke database.
+    return NextResponse.json(
+      { error: 'Server belum dikonfigurasi untuk terhubung ke Supabase. Hubungi pengelola sistem.' },
+      { status: 503 }
+    )
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Terjadi kesalahan sistem.'
     return NextResponse.json({ error: message }, { status: 500 })
