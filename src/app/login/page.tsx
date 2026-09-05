@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
+import Logo from '@/components/ui/Logo'
+import { Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Bike } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -22,11 +23,11 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    if (email.toLowerCase() === 'admin@ramujus.com') {
+    if (email.toLowerCase() === 'admin@ramujus.com' || email.toLowerCase() === 'admin@ramu.id') {
       handleDemoLogin('admin')
       return
     }
-    if (email.toLowerCase() === 'driver@ramujus.com') {
+    if (email.toLowerCase() === 'driver@ramujus.com' || email.toLowerCase() === 'driver@ramu.id') {
       handleDemoLogin('driver')
       return
     }
@@ -38,7 +39,7 @@ export default function LoginPage() {
       })
 
       if (authError) {
-        setError('Email atau password salah. Atau gunakan akun Demo di bawah.')
+        setError('Email atau kata sandi tidak sesuai. Silakan coba lagi atau gunakan akses Demo.')
         return
       }
 
@@ -55,113 +56,132 @@ export default function LoginPage() {
           : '/driver/dashboard'
       }
     } catch {
-      setError('Belum terhubung ke Supabase. Gunakan tombol Uji Coba Demo di bawah.')
+      setError('Sistem belum terhubung ke Supabase. Silakan gunakan akses Demo instan di bawah.')
     } finally {
       setLoading(false)
     }
   }
 
   return (
-    <div className="min-h-screen bg-[#FDFDFD] flex flex-col items-center justify-center p-4 sm:p-8">
-      <div className="w-full max-w-[400px]">
-        {/* Brand Header */}
-        <div className="mb-10 text-center">
-          <div className="inline-flex items-center justify-center w-12 h-12 bg-primary mb-6">
-            <span className="text-white font-black text-xl tracking-tighter">RJ</span>
-          </div>
-          <h1 className="text-3xl font-black tracking-tight text-gray-900">
-            RAMU<span className="text-primary">JUS</span>
+    <div className="min-h-screen bg-[#FBFBFB] flex flex-col items-center justify-center p-4 sm:p-6 text-zinc-900">
+      <div className="w-full max-w-[420px]">
+        {/* Brand Header with Official Logo */}
+        <div className="mb-8 text-center flex flex-col items-center">
+          <Logo height={44} className="mb-4 drop-shadow-sm" />
+          <h1 className="text-xl font-bold tracking-tight text-zinc-900">
+            Sistem Operasional Penjualan
           </h1>
-          <p className="text-sm text-gray-500 mt-2 font-medium tracking-wide uppercase">
-            System OS
+          <p className="text-xs text-zinc-500 mt-1">
+            Masuk ke akun Mitra Driver atau Panel Administrasi
           </p>
         </div>
 
-        {/* Demo Mode Notice */}
-        <div className="bg-white border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-1 mb-8">
-          <div className="bg-gray-50 px-4 py-3 border border-gray-100 text-center flex flex-col gap-3">
-            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-              Demo Access
+        {/* Quick Demo Access Pills */}
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-sm mb-6">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <span className="text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
+              Akses Cepat Demo
             </span>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('driver')}
-                className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm"
-              >
-                Driver App
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDemoLogin('admin')}
-                className="bg-primary hover:bg-primary/90 border border-primary text-white py-2.5 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-primary/20"
-              >
-                Admin Panel
-              </button>
-            </div>
+            <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
+              Instan
+            </span>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => handleDemoLogin('driver')}
+              className="flex items-center justify-center gap-2 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200 text-zinc-800 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all group"
+            >
+              <Bike className="w-4 h-4 text-zinc-600 group-hover:text-[#be1a1a] transition-colors" />
+              <span>Mitra Driver</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => handleDemoLogin('admin')}
+              className="flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white py-2.5 px-3 rounded-xl text-xs font-semibold transition-all shadow-sm shadow-red-900/20"
+            >
+              <ShieldCheck className="w-4 h-4" />
+              <span>Admin Panel</span>
+            </button>
           </div>
         </div>
 
-        {/* Main Form */}
-        <form onSubmit={handleLogin} className="space-y-6">
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="Enter your email"
-              required
-              className="w-full px-0 py-3 bg-transparent border-b-2 border-gray-200 text-sm focus:outline-none focus:border-primary transition-colors placeholder:text-gray-300 font-medium rounded-none"
-            />
-          </div>
-
-          <div className="space-y-1">
-            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Password</label>
-            <div className="relative">
+        {/* Main Card Form */}
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-6 sm:p-7 shadow-sm">
+          <form onSubmit={handleLogin} className="space-y-4">
+            <div>
+              <label className="block text-xs font-semibold text-zinc-700 mb-1.5">
+                Email
+              </label>
               <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="nama@ramu.id"
                 required
-                className="w-full px-0 py-3 bg-transparent border-b-2 border-gray-200 text-sm focus:outline-none focus:border-primary transition-colors placeholder:text-gray-300 font-medium rounded-none pr-10"
+                className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a] focus:bg-white transition-all text-zinc-900 placeholder:text-zinc-400"
               />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
-              >
-                {showPassword ? <EyeOff strokeWidth={1.5} className="w-4 h-4" /> : <Eye strokeWidth={1.5} className="w-4 h-4" />}
-              </button>
             </div>
-          </div>
 
-          {error && (
-            <div className="text-primary text-xs font-medium py-2">
-              {error}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-semibold text-zinc-700">
+                  Kata Sandi
+                </label>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a] focus:bg-white transition-all text-zinc-900 placeholder:text-zinc-400 pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600 transition-colors p-1"
+                >
+                  {showPassword ? (
+                    <EyeOff strokeWidth={1.75} className="w-4 h-4" />
+                  ) : (
+                    <Eye strokeWidth={1.75} className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
-          )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gray-900 hover:bg-black text-white font-semibold py-4 px-4 transition-colors disabled:opacity-50 flex items-center justify-between group shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
-          >
-            <span className="text-sm tracking-wide">
-              {loading ? 'Authenticating...' : 'Sign In'}
-            </span>
-            {loading ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <ArrowRight strokeWidth={1.5} className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#be1a1a] font-medium leading-relaxed">
+                {error}
+              </div>
             )}
-          </button>
-        </form>
 
-        <div className="mt-12 text-center">
-          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
-            RAMUJUS OS v1.0
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white font-semibold py-3 px-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm shadow-red-900/20 mt-2"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Memverifikasi...</span>
+                </>
+              ) : (
+                <>
+                  <span>Masuk ke Akun</span>
+                  <ArrowRight strokeWidth={2} className="w-4 h-4" />
+                </>
+              )}
+            </button>
+          </form>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-8 text-center">
+          <p className="text-[11px] text-zinc-400 font-medium">
+            &copy; 2026 ramu. All rights reserved.
           </p>
         </div>
       </div>

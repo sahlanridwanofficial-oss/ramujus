@@ -1,17 +1,9 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useMemo } from 'react'
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
 import L from 'leaflet'
 import { formatRupiah } from '@/lib/format'
-
-// Fix default marker icons
-delete (L.Icon.Default.prototype as any)._getIconUrl
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-})
 
 interface OrderLocation {
   id: string
@@ -27,6 +19,31 @@ interface MapViewProps {
 }
 
 export default function MapView({ locations }: MapViewProps) {
+  const customPin = useMemo(() => {
+    return L.divIcon({
+      className: 'custom-map-pin',
+      html: `
+        <div style="
+          background-color: #be1a1a;
+          width: 28px;
+          height: 28px;
+          border-radius: 50% 50% 50% 0;
+          transform: rotate(-45deg);
+          border: 2.5px solid #ffffff;
+          box-shadow: 0 4px 12px rgba(190, 26, 26, 0.4);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        ">
+          <div style="width: 8px; height: 8px; background-color: #ffffff; border-radius: 50%; transform: rotate(45deg);"></div>
+        </div>
+      `,
+      iconSize: [28, 28],
+      iconAnchor: [14, 28],
+      popupAnchor: [0, -28],
+    })
+  }, [])
+
   // Calculate center from locations or use default (Jakarta)
   const center: [number, number] = locations.length > 0
     ? [
@@ -39,22 +56,22 @@ export default function MapView({ locations }: MapViewProps) {
     <MapContainer
       center={center}
       zoom={13}
-      scrollWheelZoom={true}
-      className="w-full h-[500px]"
+      scrollWheelZoom={false}
+      className="w-full h-[520px] z-10"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
       />
       {locations.map(loc => (
-        <Marker key={loc.id} position={[loc.latitude, loc.longitude]}>
-          <Popup>
-            <div className="text-sm">
-              <p className="font-bold">{loc.order_number}</p>
-              <p>{formatRupiah(loc.total_amount)}</p>
-              <p className="text-gray-500">
-                {new Date(loc.created_at).toLocaleDateString('id-ID')}
-              </p>
+        <Marker key={loc.id} position={[loc.latitude, loc.longitude]} icon={customPin}>
+          <Popup className="custom-popup">
+            <div className="p-1 text-xs">
+              <span className="font-mono font-bold text-zinc-900 block">{loc.order_number}</span>
+              <span className="font-black text-[#be1a1a] text-sm block mt-0.5">{formatRupiah(loc.total_amount)}</span>
+              <span className="text-[10px] text-zinc-400 block mt-1">
+                {new Date(loc.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+              </span>
             </div>
           </Popup>
         </Marker>

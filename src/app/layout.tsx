@@ -1,17 +1,25 @@
 import type { Metadata, Viewport } from "next"
-import { Inter } from "next/font/google"
+import localFont from "next/font/local"
 import "./globals.css"
 
-const inter = Inter({ subsets: ["latin"] })
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-geist-sans",
+  weight: "100 900",
+})
 
 export const metadata: Metadata = {
-  title: "RAMUJUS — Smoothie Sales System",
-  description: "Sistem manajemen penjualan smoothies profesional",
+  title: "ramu. — Smoothie Sales System",
+  description: "Sistem operasional penjualan smoothies ramu.",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.png",
+    apple: "/icon-192.png",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "RAMUJUS",
+    title: "ramu.",
   },
 }
 
@@ -20,7 +28,7 @@ export const viewport: Viewport = {
   initialScale: 1,
   maximumScale: 1,
   userScalable: false,
-  themeColor: "#dc2626",
+  themeColor: "#be1a1a",
 }
 
 export default function RootLayout({
@@ -30,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="id">
-      <body className={inter.className}>
+      <body className={`${geistSans.className} antialiased bg-[#FAF9F6] text-zinc-900`}>
         {children}
       </body>
     </html>
