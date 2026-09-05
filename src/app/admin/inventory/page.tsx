@@ -486,7 +486,7 @@ function InventoryContent() {
       </div>
 
       {/* Control Bar: Driver & Date Filter */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         <div>
           <label className="block text-[11px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
             Pilih Mitra Driver
@@ -495,7 +495,7 @@ function InventoryContent() {
             <select
               value={selectedDriverId}
               onChange={(e) => setSelectedDriverId(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-hidden focus:border-[#be1a1a] transition-all"
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#be1a1a] transition-all"
             >
               {drivers.length === 0 ? (
                 <option value="">Tidak ada driver aktif</option>
@@ -519,7 +519,7 @@ function InventoryContent() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-hidden focus:border-[#be1a1a] transition-all font-mono"
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#be1a1a] transition-all font-mono"
             />
           </div>
         </div>
@@ -531,7 +531,7 @@ function InventoryContent() {
               onClick={() => setActiveTab('morning')}
               className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'morning'
-                  ? 'bg-white text-zinc-900 shadow-xs'
+                  ? 'bg-white text-zinc-900 shadow-card'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
@@ -542,7 +542,7 @@ function InventoryContent() {
               onClick={() => setActiveTab('night')}
               className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'night'
-                  ? 'bg-white text-[#be1a1a] shadow-xs'
+                  ? 'bg-white text-[#be1a1a] shadow-card'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
@@ -585,7 +585,7 @@ function InventoryContent() {
           {activeTab === 'morning' && (
             <div className="space-y-4">
               {/* Morning Summary Banner */}
-              <div className="bg-gradient-to-r from-red-50/80 via-white to-zinc-50 rounded-2xl border border-red-100 p-4.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="bg-gradient-to-r from-red-50/80 via-white to-zinc-50 rounded-2xl border border-red-100 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-card">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#be1a1a] text-white flex items-center justify-center shrink-0">
                     <Sun className="w-5 h-5" />
@@ -626,7 +626,7 @@ function InventoryContent() {
                   return (
                     <div
                       key={p.id}
-                      className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs flex flex-col justify-between space-y-3"
+                      className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card flex flex-col justify-between space-y-3"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -650,7 +650,7 @@ function InventoryContent() {
                             min={0}
                             value={item.initial_quantity}
                             onChange={(e) => setInitialQtyDirect(p.id, parseInt(e.target.value))}
-                            className="w-20 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-zinc-900 focus:outline-hidden focus:border-[#be1a1a]"
+                            className="w-20 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#be1a1a]"
                           />
                           <button
                             type="button"
@@ -697,7 +697,7 @@ function InventoryContent() {
             <div className="space-y-5">
               {/* Financial & Order KPI Banner */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
+                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Total Penjualan POS
                   </span>
@@ -707,7 +707,7 @@ function InventoryContent() {
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">{ordersSummary.order_count} transaksi</span>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
+                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Penerimaan Tunai (Cash)
                   </span>
@@ -717,7 +717,7 @@ function InventoryContent() {
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">Harus disetor driver</span>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
+                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Penerimaan QRIS
                   </span>
@@ -727,7 +727,7 @@ function InventoryContent() {
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">Langsung masuk rekening</span>
                 </div>
 
-                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
+                <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Status Selisih Fisik
                   </span>
@@ -746,7 +746,7 @@ function InventoryContent() {
               </div>
 
               {/* Evening Product Audit Table */}
-              <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
+              <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
                 <div className="p-4 border-b border-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-zinc-50/50">
                   <div>
                     <h3 className="font-bold text-zinc-900 text-sm">Audit Stok Fisik Gerobak Malam</h3>
@@ -814,7 +814,7 @@ function InventoryContent() {
                                 min={0}
                                 value={item.physical_remaining}
                                 onChange={(e) => setPhysicalRemaining(p.id, parseInt(e.target.value))}
-                                className="w-16 mx-auto bg-white border border-blue-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-blue-900 focus:outline-hidden focus:ring-2 focus:ring-blue-100"
+                                className="w-16 mx-auto bg-white border border-blue-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-100"
                               />
                             </td>
                             <td className="py-2.5 px-3 text-center bg-amber-50/30">
@@ -823,7 +823,7 @@ function InventoryContent() {
                                 min={0}
                                 value={item.waste_quantity}
                                 onChange={(e) => setWasteQty(p.id, parseInt(e.target.value))}
-                                className="w-16 mx-auto bg-white border border-amber-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-amber-900 focus:outline-hidden focus:ring-2 focus:ring-amber-100"
+                                className="w-16 mx-auto bg-white border border-amber-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-100"
                               />
                             </td>
                             <td className="py-3 px-4 text-center">
@@ -846,7 +846,7 @@ function InventoryContent() {
               </div>
 
               {/* Cash Reconciliation & Closing Action */}
-              <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs space-y-4">
+              <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card space-y-4">
                 <h3 className="font-bold text-zinc-900 text-sm pb-2 border-b border-zinc-100">
                   Pencocokan Setoran Tunai & Penyelesaian Audit
                 </h3>
@@ -865,7 +865,7 @@ function InventoryContent() {
                         min={0}
                         value={cashSettledInput}
                         onChange={(e) => setCashSettledInput(parseInt(e.target.value) || 0)}
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-900 focus:outline-hidden focus:border-[#be1a1a] font-mono"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#be1a1a] font-mono"
                       />
                     </div>
                     <div className="mt-1 text-[11px]">
@@ -890,7 +890,7 @@ function InventoryContent() {
                       placeholder="Contoh: 1 cup mangga bocor di jalan, sisa kondisi dingin dan aman"
                       value={auditNotes}
                       onChange={(e) => setAuditNotes(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs text-zinc-800 focus:outline-hidden focus:border-[#be1a1a]"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs text-zinc-800 focus:outline-none focus:border-[#be1a1a]"
                     />
                   </div>
                 </div>

@@ -9,11 +9,14 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 import {
   Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
   Loader2, Banknote, QrCode, ArrowRightLeft, X, ArrowLeft,
-  Receipt, PackageCheck, AlertCircle, CloudOff
+  Receipt, PackageCheck, AlertCircle, CloudOff, UserRound, ChevronDown
 } from 'lucide-react'
 import type { Product, CartItem, Shift } from '@/types/database'
 import { enqueueOrder, newClientOrderId, isPermanentFailure } from '@/lib/offlineQueue'
 import { useOrderQueue } from '@/hooks/useOrderQueue'
+import SegmentedChoice from '@/components/ui/SegmentedChoice'
+import type { CustomerGender, CustomerAgeRange, CustomerType } from '@/types/customer'
+import { GENDER_OPTIONS, AGE_OPTIONS, CUSTOMER_TYPE_OPTIONS } from '@/types/customer'
 import Link from 'next/link'
 
 const paymentIcons = {
@@ -74,6 +77,12 @@ export default function OrderPage() {
   const [stockWarning, setStockWarning] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const [queuedOffline, setQueuedOffline] = useState(false)
+
+  // Profil pembeli — perkiraan driver, semuanya opsional.
+  const [showProfile, setShowProfile] = useState(false)
+  const [customerGender, setCustomerGender] = useState<CustomerGender | null>(null)
+  const [customerAge, setCustomerAge] = useState<CustomerAgeRange | null>(null)
+  const [customerType, setCustomerType] = useState<CustomerType | null>(null)
   const queue = useOrderQueue()
 
   const supabase = createClient()
@@ -207,6 +216,7 @@ export default function OrderPage() {
   )
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
+  const profileCount = [customerGender, customerAge, customerType].filter(Boolean).length
 
   async function submitOrder() {
     if (!activeShift || !user || cart.length === 0) return
@@ -244,6 +254,9 @@ export default function OrderPage() {
         p_accuracy: coords.accuracy,
         p_client_order_id: clientOrderId,
         p_created_at: placedAt,
+        p_customer_gender: customerGender,
+        p_customer_age_range: customerAge,
+        p_customer_type: customerType,
       })
 
       // PostgREST mengembalikan fungsi bertipe komposit sebagai objek
@@ -273,6 +286,7 @@ export default function OrderPage() {
       setOrderNumber(order.order_number)
       setSuccess(true)
       setCart([])
+      resetCustomerProfile()
       // Muat ulang kuota dari server, bukan menghitungnya di klien.
       await loadData()
     } catch {
@@ -283,6 +297,15 @@ export default function OrderPage() {
     } finally {
       setSubmitting(false)
     }
+  }
+
+  // Profil menempel pada satu transaksi, bukan pada sesi driver. Kalau
+  // tidak dikosongkan, pembeli berikutnya akan mewarisi tebakan sebelumnya.
+  function resetCustomerProfile() {
+    setCustomerGender(null)
+    setCustomerAge(null)
+    setCustomerType(null)
+    setShowProfile(false)
   }
 
   function queueOrder(
@@ -303,6 +326,9 @@ export default function OrderPage() {
       accuracy: coords.accuracy,
       created_at: placedAt,
       total_estimate: totalAmount,
+      customer_gender: customerGender,
+      customer_age_range: customerAge,
+      customer_type: customerType,
       attempts: 0,
     })
 
@@ -329,6 +355,7 @@ export default function OrderPage() {
     setQueuedOffline(true)
     setSuccess(true)
     setCart([])
+    resetCustomerProfile()
     queue.refresh()
   }
 
@@ -340,7 +367,7 @@ export default function OrderPage() {
             dari yang masih menunggu sinyal — driver menutup kas berdasarkan
             apa yang ia lihat di sini. */}
         <div
-          className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border shadow-sm animate-in zoom-in-50 duration-300 ${
+          className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border shadow-card animate-in zoom-in-50 duration-300 ${
             queuedOffline
               ? 'bg-amber-50 text-amber-600 border-amber-200'
               : 'bg-emerald-50 text-emerald-600 border-emerald-100'
@@ -444,7 +471,7 @@ export default function OrderPage() {
   return (
     <div className="pb-36">
       {/* Sticky Header with Cart Counter */}
-      <div className="sticky top-14 bg-white/95 backdrop-blur border-b border-zinc-200/80 px-4 py-3 z-30 shadow-2xs">
+      <div className="sticky top-14 bg-white/95 backdrop-blur border-b border-zinc-200/80 px-4 py-3 z-30 shadow-card">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <Link
@@ -497,7 +524,7 @@ export default function OrderPage() {
               onClick={() => setActiveCategory(cat.key)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
                 activeCategory === cat.key
-                  ? 'bg-zinc-900 text-white shadow-xs'
+                  ? 'bg-zinc-900 text-white shadow-card'
                   : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'
               }`}
             >
@@ -510,7 +537,7 @@ export default function OrderPage() {
       {/* Product List Grid */}
       <div className="p-4 space-y-3">
         {filteredProducts.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-zinc-200/80 p-10 text-center shadow-xs">
+          <div className="bg-white rounded-2xl border border-zinc-200/80 p-10 text-center shadow-card">
             <p className="text-xs font-bold text-zinc-700">Katalog Menu Belum Tersedia</p>
             <p className="text-[11px] text-zinc-400 mt-1 max-w-xs mx-auto">
               Belum ada produk aktif yang terdaftar di database. Silakan input menu produk melalui Panel Admin.
@@ -529,8 +556,8 @@ export default function OrderPage() {
                 key={product.id}
                 className={`bg-white rounded-2xl border p-4 transition-all ${
                   qty > 0
-                    ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-xs'
-                    : 'border-zinc-200/80 shadow-xs'
+                    ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-card'
+                    : 'border-zinc-200/80 shadow-card'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -575,7 +602,7 @@ export default function OrderPage() {
                       <button
                         onClick={() => addToCart(product)}
                         disabled={isOutOfStock}
-                        className={`flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-xs active:scale-95 ${
+                        className={`flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-card active:scale-95 ${
                           isOutOfStock
                             ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
                             : 'bg-zinc-900 hover:bg-zinc-800 text-white'
@@ -588,7 +615,7 @@ export default function OrderPage() {
                       <div className="flex items-center gap-2 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60">
                         <button
                           onClick={() => removeFromCart(product.id)}
-                          className="w-8 h-8 rounded-lg bg-white shadow-xs flex items-center justify-center text-zinc-700 hover:bg-zinc-50 active:scale-90 transition-all"
+                          className="w-8 h-8 rounded-lg bg-white shadow-card flex items-center justify-center text-zinc-700 hover:bg-zinc-50 active:scale-90 transition-all"
                         >
                           {qty === 1 ? <X className="w-3.5 h-3.5 text-red-600" /> : <Minus className="w-3.5 h-3.5" />}
                         </button>
@@ -596,7 +623,7 @@ export default function OrderPage() {
                         <button
                           onClick={() => addToCart(product)}
                           disabled={isTracked && qty >= remainingQuota}
-                          className={`w-8 h-8 rounded-lg text-white flex items-center justify-center shadow-xs transition-all ${
+                          className={`w-8 h-8 rounded-lg text-white flex items-center justify-center shadow-card transition-all ${
                             isTracked && qty >= remainingQuota
                               ? 'bg-zinc-300 cursor-not-allowed'
                               : 'bg-[#be1a1a] hover:bg-[#a61515] active:scale-90'
@@ -616,19 +643,25 @@ export default function OrderPage() {
 
       {/* Sticky Bottom Cart Summary & Checkout */}
       {cart.length > 0 && (
-        <div className="fixed bottom-16 left-0 right-0 bg-white/95 backdrop-blur border-t border-zinc-200/80 p-4 z-40 shadow-lg">
-          <div className="max-w-lg mx-auto space-y-3">
-            {/* Payment Method Selector */}
+        <div className="fixed bottom-16 left-0 right-0 bg-white/97 backdrop-blur-md border-t border-zinc-200/70 z-40 shadow-lifted rounded-t-2xl">
+          <div className="max-w-lg mx-auto p-4 space-y-3.5 max-h-[62vh] overflow-y-auto">
+
+            {/* Ringkasan keranjang */}
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-zinc-500">
+                {totalItems} item dipilih
+              </span>
+              <span className="text-sm font-black text-zinc-900 font-mono tracking-tight">
+                {formatRupiah(totalAmount)}
+              </span>
+            </div>
+
+            {/* Metode pembayaran */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
-                  Pilih Pembayaran
-                </span>
-                <span className="text-xs font-medium text-zinc-500">
-                  {totalItems} item dipilih
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
+              <span className="text-[11px] font-semibold text-zinc-500 block mb-1.5">
+                Pembayaran
+              </span>
+              <div className="grid grid-cols-3 gap-1.5">
                 {PAYMENT_METHODS.map(pm => {
                   const Icon = paymentIcons[pm.icon as keyof typeof paymentIcons] || Banknote
                   const isSelected = paymentMethod === pm.value
@@ -637,10 +670,10 @@ export default function OrderPage() {
                       key={pm.value}
                       type="button"
                       onClick={() => setPaymentMethod(pm.value)}
-                      className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-bold border transition-all ${
+                      className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold border transition-all active:scale-[0.97] ${
                         isSelected
-                          ? 'border-[#be1a1a] bg-red-50 text-[#be1a1a] shadow-xs'
-                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
+                          ? 'border-brand bg-brand-soft text-brand shadow-card'
+                          : 'border-zinc-200 bg-white text-zinc-600 hover:border-zinc-300'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
@@ -651,11 +684,62 @@ export default function OrderPage() {
               </div>
             </div>
 
-            {/* Submit Order Button */}
+            {/* Profil pembeli — tertutup secara bawaan supaya jalur cepat
+                tetap cepat. Driver yang sedang melayani antrean panjang tidak
+                perlu melewati satu langkah tambahan untuk menyimpan. */}
+            <div className="border-t border-zinc-100 pt-3">
+              <button
+                type="button"
+                onClick={() => setShowProfile(v => !v)}
+                className="w-full flex items-center justify-between text-left group"
+              >
+                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-500 group-hover:text-zinc-700 transition-colors">
+                  <UserRound className="w-3.5 h-3.5" />
+                  Profil pembeli
+                  <span className="font-normal text-zinc-400">(opsional)</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  {profileCount > 0 && (
+                    <span className="text-[10px] font-bold text-zinc-900 bg-zinc-100 px-1.5 py-0.5 rounded-full">
+                      {profileCount}/3
+                    </span>
+                  )}
+                  <ChevronDown
+                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showProfile ? 'rotate-180' : ''}`}
+                  />
+                </span>
+              </button>
+
+              {showProfile && (
+                <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                  <SegmentedChoice
+                    label="Jenis kelamin"
+                    options={GENDER_OPTIONS}
+                    value={customerGender}
+                    onChange={setCustomerGender}
+                  />
+                  <SegmentedChoice
+                    label="Perkiraan usia"
+                    hint="tebakan kasar"
+                    options={AGE_OPTIONS}
+                    value={customerAge}
+                    onChange={setCustomerAge}
+                  />
+                  <SegmentedChoice
+                    label="Pelanggan"
+                    options={CUSTOMER_TYPE_OPTIONS}
+                    value={customerType}
+                    onChange={setCustomerType}
+                  />
+                </div>
+              )}
+            </div>
+
+            {/* Simpan */}
             <button
               onClick={submitOrder}
               disabled={submitting}
-              className="w-full flex items-center justify-between bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white p-3.5 px-5 rounded-xl font-bold text-xs transition-all shadow-md shadow-red-900/15 disabled:opacity-50"
+              className="w-full flex items-center justify-between bg-brand hover:bg-brand-dark active:scale-[0.99] text-white py-3.5 px-5 rounded-xl font-bold text-xs transition-all shadow-md shadow-red-900/15 disabled:opacity-50"
             >
               <div className="flex items-center gap-2">
                 {submitting ? (

@@ -150,7 +150,7 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <span className="inline-flex items-center gap-1.5 bg-white border border-zinc-200/80 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 shadow-xs">
+          <span className="inline-flex items-center gap-1.5 bg-white border border-zinc-200/80 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 shadow-card">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
             <span>Sistem Realtime Aktif</span>
           </span>
@@ -162,7 +162,7 @@ export default function AdminDashboard() {
         {statCards.map(card => (
           <div
             key={card.label}
-            className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs flex flex-col justify-between hover:border-zinc-300 transition-colors"
+            className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card flex flex-col justify-between hover:border-zinc-300 transition-colors"
           >
             <div>
               <div className="flex items-center justify-between mb-3">
@@ -185,7 +185,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent Orders Stream */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Clock strokeWidth={2} className="w-4 h-4 text-zinc-400" />
