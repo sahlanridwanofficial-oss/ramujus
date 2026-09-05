@@ -24,6 +24,7 @@
     "react-hook-form": "^7.87.0",
     "react-leaflet": "^4.2.1",
     "recharts": "^3.10.1",
+    "semver": "^7.8.5",
     "tailwind-merge": "^3.6.0",
     "zod": "^3.25.76"
   },
@@ -36,6 +37,6 @@
     "eslint-config-next": "14.2.35",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   }
 }

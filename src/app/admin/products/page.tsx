@@ -7,7 +7,7 @@ import {
   Loader2, Plus, Package, ToggleLeft, ToggleRight,
   Pencil, X, Check, Filter
 } from 'lucide-react'
-import type { Product } from '@/types/database'
+import type { Product, ProductCategory } from '@/types/database'
 import { PRODUCT_CATEGORIES } from '@/lib/constants'
 
 export default function ProductsPage() {
@@ -16,7 +16,12 @@ export default function ProductsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [activeCategory, setActiveCategory] = useState<string>('all')
-  const [form, setForm] = useState({
+  const [form, setForm] = useState<{
+    name: string
+    description: string
+    price: string
+    category: ProductCategory
+  }>({
     name: '', description: '', price: '', category: 'smoothie'
   })
   const [saving, setSaving] = useState(false)
@@ -182,7 +187,7 @@ export default function ProductsPage() {
               </label>
               <select
                 value={form.category}
-                onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                onChange={e => setForm(f => ({ ...f, category: e.target.value as ProductCategory }))}
                 className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a]"
               >
                 {PRODUCT_CATEGORIES.map(c => (
