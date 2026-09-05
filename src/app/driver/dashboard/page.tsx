@@ -109,25 +109,26 @@ export default function DriverDashboard() {
         .maybeSingle()
 
       if (alloc && alloc.driver_allocation_items && alloc.driver_allocation_items.length > 0) {
-        const rawItems = alloc.driver_allocation_items as Array<{
+        const rawItems = alloc.driver_allocation_items as unknown as Array<{
           id: string
           product_id: string
           initial_quantity: number | null
           sold_quantity: number | null
-          products: {
-            name: string
-            category: string
-          } | null
+          products:
+            | { name: string; category: string }
+            | { name: string; category: string }[]
+            | null
         }>
 
         const items: CartStockItem[] = rawItems.map((it) => {
           const initQty = it.initial_quantity || 0
           const soldQty = it.sold_quantity || 0
+          const prod = Array.isArray(it.products) ? it.products[0] : it.products
           return {
             id: it.id,
             product_id: it.product_id,
-            product_name: it.products?.name || 'Produk',
-            category: it.products?.category || 'smoothie',
+            product_name: prod?.name || 'Produk',
+            category: prod?.category || 'smoothie',
             initial_quantity: initQty,
             sold_quantity: soldQty,
             remaining: Math.max(0, initQty - soldQty)
