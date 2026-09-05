@@ -109,8 +109,18 @@ export default function DriverDashboard() {
         .maybeSingle()
 
       if (alloc && alloc.driver_allocation_items && alloc.driver_allocation_items.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const items: CartStockItem[] = alloc.driver_allocation_items.map((it: any) => {
+        const rawItems = alloc.driver_allocation_items as Array<{
+          id: string
+          product_id: string
+          initial_quantity: number | null
+          sold_quantity: number | null
+          products: {
+            name: string
+            category: string
+          } | null
+        }>
+
+        const items: CartStockItem[] = rawItems.map((it) => {
           const initQty = it.initial_quantity || 0
           const soldQty = it.sold_quantity || 0
           return {

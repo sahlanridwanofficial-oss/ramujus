@@ -113,8 +113,14 @@ export default function OrderPage() {
 
       if (alloc && alloc.driver_allocation_items && alloc.driver_allocation_items.length > 0) {
         const quotaMap: { [productId: string]: StockQuota } = {}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        alloc.driver_allocation_items.forEach((item: any) => {
+        const rawItems = alloc.driver_allocation_items as Array<{
+          id: string
+          product_id: string
+          initial_quantity: number | null
+          sold_quantity: number | null
+        }>
+
+        rawItems.forEach((item) => {
           const init = item.initial_quantity || 0
           const sold = item.sold_quantity || 0
           quotaMap[item.product_id] = {
