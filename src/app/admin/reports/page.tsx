@@ -113,7 +113,7 @@ export default function ReportsPage() {
         <button
           onClick={exportCSV}
           disabled={orders.length === 0}
-          className="inline-flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-card disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
           <span>Ekspor Format CSV</span>
@@ -121,7 +121,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Date Range Picker */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 flex flex-col sm:flex-row items-center gap-3 shadow-xs">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 flex flex-col sm:flex-row items-center gap-3 shadow-card">
         <div className="flex items-center gap-2 text-xs font-bold text-zinc-400 uppercase tracking-wider shrink-0">
           <Calendar className="w-4 h-4" />
           <span>Rentang Tanggal:</span>
@@ -145,7 +145,7 @@ export default function ReportsPage() {
 
       {/* Financial Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Volume Transaksi</span>
             <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 flex items-center justify-center">
@@ -156,7 +156,7 @@ export default function ReportsPage() {
           <span className="text-[11px] text-zinc-400 mt-1 block">Pesanan tercatat</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Pendapatan</span>
             <div className="w-8 h-8 rounded-xl bg-red-50 text-[#be1a1a] flex items-center justify-center">
@@ -167,7 +167,7 @@ export default function ReportsPage() {
           <span className="text-[11px] text-zinc-400 mt-1 block">Semua kanal pembayaran</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Penerimaan QRIS</span>
           <p className="text-xl font-black text-zinc-900 tracking-tight">
             {formatRupiah(qrisOrders.reduce((s, o) => s + o.total_amount, 0))}
@@ -175,7 +175,7 @@ export default function ReportsPage() {
           <span className="text-[11px] text-zinc-400 mt-1 block">{qrisOrders.length} transaksi non-tunai</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Penerimaan Tunai</span>
           <p className="text-xl font-black text-zinc-900 tracking-tight">
             {formatRupiah(cashOrders.reduce((s, o) => s + o.total_amount, 0))}
@@ -185,7 +185,7 @@ export default function ReportsPage() {
       </div>
 
       {/* Orders Table */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
           <FileText className="w-4 h-4 text-zinc-400" />
           <h2 className="font-bold text-sm text-zinc-900">Rincian Nota Transaksi Penjualan</h2>

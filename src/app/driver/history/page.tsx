@@ -61,7 +61,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Date Filter Input */}
-      <div className="bg-white border border-zinc-200/80 rounded-2xl p-2.5 flex items-center gap-2.5 shadow-xs">
+      <div className="bg-white border border-zinc-200/80 rounded-2xl p-2.5 flex items-center gap-2.5 shadow-card">
         <Calendar className="w-4 h-4 text-zinc-400 ml-1 shrink-0" />
         <input
           type="date"
@@ -72,7 +72,7 @@ export default function HistoryPage() {
       </div>
 
       {/* Summary KPI Card */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-sm flex items-center justify-between">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card flex items-center justify-between">
         <div>
           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">
             Total Omzet
@@ -106,7 +106,7 @@ export default function HistoryPage() {
       ) : (
         <div className="space-y-2.5">
           {orders.map(order => (
-            <div key={order.id} className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
+            <div key={order.id} className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
               <button
                 onClick={() => setExpandedOrder(
                   expandedOrder === order.id ? null : order.id

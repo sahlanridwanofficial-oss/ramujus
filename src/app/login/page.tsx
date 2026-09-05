@@ -71,7 +71,7 @@ export default function LoginPage() {
         </div>
 
         {/* Main Card Form */}
-        <div className="bg-white border border-zinc-200/80 rounded-2xl p-6 sm:p-7 shadow-sm">
+        <div className="bg-white border border-zinc-200/80 rounded-2xl p-6 sm:p-7 shadow-card">
           <form onSubmit={handleLogin} className="space-y-4">
             <div>
               <label className="block text-xs font-semibold text-zinc-700 mb-1.5">

@@ -206,7 +206,7 @@ export default function MapPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 items-start">
-          <div className="rounded-3xl overflow-hidden border border-zinc-200/80 shadow-xs bg-white">
+          <div className="rounded-3xl overflow-hidden border border-zinc-200/80 shadow-card bg-white">
             <MapView
               fleet={fleet}
               orders={orders}
@@ -232,7 +232,7 @@ export default function MapPage() {
           </div>
 
           {/* Daftar armada — pada 100 gerobak, peta saja tidak cukup dibaca */}
-          <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-xs overflow-hidden">
+          <div className="bg-white rounded-3xl border border-zinc-200/80 shadow-card overflow-hidden">
             <div className="p-3 border-b border-zinc-100">
               <div className="relative">
                 <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -240,7 +240,7 @@ export default function MapPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Cari nama mitra..."
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-hidden focus:border-[#be1a1a]"
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-[#be1a1a]"
                 />
               </div>
             </div>

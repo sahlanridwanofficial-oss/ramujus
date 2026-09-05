@@ -142,7 +142,7 @@ export default function ProductsPage() {
             setEditingId(null)
             setShowForm(!showForm)
           }}
-          className="inline-flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-xs"
+          className="inline-flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-card"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           <span>{showForm ? 'Batal' : 'Tambah Menu Baru'}</span>
@@ -161,7 +161,7 @@ export default function ProductsPage() {
 
       {/* Form Drawer / Card */}
       {showForm && (
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-sm space-y-4">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card space-y-4">
           <div className="flex items-center justify-between border-b border-zinc-100 pb-3">
             <h3 className="font-bold text-sm text-zinc-900">
               {editingId ? 'Edit Rincian Menu' : 'Tambah Menu Baru ramu.'}
@@ -252,7 +252,7 @@ export default function ProductsPage() {
           onClick={() => setActiveCategory('all')}
           className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
             activeCategory === 'all'
-              ? 'bg-zinc-900 text-white shadow-xs'
+              ? 'bg-zinc-900 text-white shadow-card'
               : 'bg-white border border-zinc-200/80 text-zinc-600 hover:bg-zinc-50'
           }`}
         >
@@ -264,7 +264,7 @@ export default function ProductsPage() {
             onClick={() => setActiveCategory(cat.value)}
             className={`px-3.5 py-1.5 rounded-full text-xs font-bold transition-all ${
               activeCategory === cat.value
-                ? 'bg-zinc-900 text-white shadow-xs'
+                ? 'bg-zinc-900 text-white shadow-card'
                 : 'bg-white border border-zinc-200/80 text-zinc-600 hover:bg-zinc-50'
             }`}
           >
@@ -275,7 +275,7 @@ export default function ProductsPage() {
 
       {/* Product Items Table / Cards */}
       {filteredProducts.length === 0 ? (
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-12 text-center shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-12 text-center shadow-card">
           <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center mx-auto mb-3 text-zinc-400">
             <Package strokeWidth={1.5} className="w-6 h-6" />
           </div>
@@ -285,7 +285,7 @@ export default function ProductsPage() {
           </p>
         </div>
       ) : (
-        <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs divide-y divide-zinc-100 overflow-hidden">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card divide-y divide-zinc-100 overflow-hidden">
           {filteredProducts.map(product => (
           <div key={product.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
             <div className="flex items-center gap-3">

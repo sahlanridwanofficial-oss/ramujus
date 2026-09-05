@@ -23,8 +23,8 @@ export default function ProfilePage() {
       </div>
 
       {/* Driver Card Header */}
-      <div className="bg-white rounded-3xl border border-zinc-200/80 p-6 text-center shadow-sm">
-        <div className="w-16 h-16 bg-zinc-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 text-lg font-black shadow-sm">
+      <div className="bg-white rounded-3xl border border-zinc-200/80 p-6 text-center shadow-card">
+        <div className="w-16 h-16 bg-zinc-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 text-lg font-black shadow-card">
           {user?.full_name?.charAt(0) || 'M'}
         </div>
         <h2 className="text-base font-bold text-zinc-900">{user?.full_name}</h2>
@@ -41,7 +41,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Account Details */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 divide-y divide-zinc-100 shadow-sm">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 divide-y divide-zinc-100 shadow-card">
         <div className="px-4 py-3.5 flex items-center gap-3">
           <div className="w-8 h-8 bg-zinc-100 rounded-xl flex items-center justify-center text-zinc-600">
             <User className="w-4 h-4" />
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       {/* Logout Button */}
       <button
         onClick={signOut}
-        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-red-50 text-[#be1a1a] border border-red-200 font-semibold py-3 rounded-xl transition-all shadow-xs text-xs"
+        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-red-50 text-[#be1a1a] border border-red-200 font-semibold py-3 rounded-xl transition-all shadow-card text-xs"
       >
         <LogOut className="w-4 h-4" />
         <span>Keluar dari Akun</span>

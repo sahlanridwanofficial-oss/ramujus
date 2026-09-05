@@ -38,6 +38,10 @@ export interface QueuedOrder {
   created_at: string
   /** Hanya untuk ditampilkan ke driver selagi menunggu. */
   total_estimate: number
+  /** Perkiraan profil pembeli; ikut tersimpan agar tidak hilang saat offline. */
+  customer_gender: string | null
+  customer_age_range: string | null
+  customer_type: string | null
   attempts: number
 }
 

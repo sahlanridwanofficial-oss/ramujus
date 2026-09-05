@@ -257,7 +257,7 @@ export default function DriverDashboard() {
       </div>
 
       {/* Modern Shift Management Card */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block mb-1">
@@ -335,7 +335,7 @@ export default function DriverDashboard() {
 
       {/* Main KPI Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-zinc-500">Penjualan Hari Ini</span>
             <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-[#be1a1a]">
@@ -348,7 +348,7 @@ export default function DriverDashboard() {
           <span className="text-[11px] text-zinc-400 mt-1 block">Total penerimaan</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-zinc-500">Cup Terjual</span>
             <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700">
@@ -365,7 +365,7 @@ export default function DriverDashboard() {
       {/* ========================================================= */}
       {/* Realtime Cart Stock Allocation Card for Driver */}
       {/* ========================================================= */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4.5 shadow-xs space-y-3.5">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card space-y-3.5">
         <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-red-50 text-[#be1a1a] flex items-center justify-center">
@@ -484,7 +484,7 @@ export default function DriverDashboard() {
       {activeShift ? (
         <Link
           href="/driver/order"
-          className="flex items-center justify-between bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white rounded-2xl p-4.5 px-5 transition-all shadow-md shadow-red-900/15 group"
+          className="flex items-center justify-between bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white rounded-2xl p-4 px-5 transition-all shadow-md shadow-red-900/15 group"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white">
@@ -498,7 +498,7 @@ export default function DriverDashboard() {
           <ChevronRight className="w-5 h-5 text-white/70 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       ) : (
-        <div className="bg-white border border-amber-200 rounded-2xl p-4 text-center shadow-xs">
+        <div className="bg-white border border-amber-200 rounded-2xl p-4 text-center shadow-card">
           <p className="text-xs font-semibold text-amber-800">
             ⚠️ Klik &quot;Mulai Shift&quot; di atas untuk membuka kasir pesanan
           </p>
@@ -509,7 +509,7 @@ export default function DriverDashboard() {
       )}
 
       {/* Quick Links Section */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-3 shadow-xs divide-y divide-zinc-100">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-3 shadow-card divide-y divide-zinc-100">
         <Link
           href="/driver/history"
           className="flex items-center justify-between p-2.5 hover:bg-zinc-50 rounded-xl transition-colors text-xs font-medium text-zinc-700"

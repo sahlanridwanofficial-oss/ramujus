@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
 import { Loader2, TrendingUp, ShoppingBag, Award, BarChart2 } from 'lucide-react'
+import CustomerInsights from '@/components/admin/CustomerInsights'
 
 interface DailyData { date: string; revenue: number; orders: number }
 interface ProductRank { name: string; total_qty: number; revenue: number }
@@ -72,14 +73,14 @@ export default function AnalyticsPage() {
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Analitik Performa</h1>
           <p className="text-xs text-zinc-500 mt-0.5">Statistik pendapatan dan produk terfavorit ramu.</p>
         </div>
-        <div className="flex bg-white border border-zinc-200/80 rounded-xl p-1 shadow-xs">
+        <div className="flex bg-white border border-zinc-200/80 rounded-xl p-1 shadow-card">
           {(['7d', '30d', '90d'] as const).map(p => (
             <button
               key={p}
               onClick={() => setPeriod(p)}
               className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all ${
                 period === p
-                  ? 'bg-zinc-900 text-white shadow-xs'
+                  ? 'bg-zinc-900 text-white shadow-card'
                   : 'text-zinc-500 hover:text-zinc-900'
               }`}
             >
@@ -91,7 +92,7 @@ export default function AnalyticsPage() {
 
       {/* High-level Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Pendapatan</span>
             <div className="w-8 h-8 rounded-xl bg-red-50 text-[#be1a1a] flex items-center justify-center">
@@ -102,7 +103,7 @@ export default function AnalyticsPage() {
           <span className="text-[11px] text-zinc-400 mt-1 block">Periode {period} berjalan</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Cup Terjual</span>
             <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 flex items-center justify-center">
@@ -117,7 +118,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Visual Trend Bars */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-xs">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-6 shadow-card">
         <div className="flex items-center justify-between mb-5">
           <div className="flex items-center gap-2">
             <BarChart2 className="w-4 h-4 text-zinc-400" />
@@ -139,7 +140,7 @@ export default function AnalyticsPage() {
                     className="absolute left-0 top-0 bottom-0 bg-[#be1a1a] opacity-90 transition-all duration-500 rounded-lg"
                     style={{ width: `${Math.max(percentage, 4)}%` }}
                   />
-                  <span className="relative z-10 text-[11px] font-bold text-white drop-shadow-xs">
+                  <span className="relative z-10 text-[11px] font-bold text-white drop-shadow-sm">
                     {formatRupiah(d.revenue)}
                   </span>
                   <span className="relative z-10 ml-auto text-[10px] font-semibold text-zinc-400">
@@ -153,7 +154,7 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Top Products Leaderboard */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
         <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
           <Award className="w-4 h-4 text-[#be1a1a]" />
           <h2 className="font-bold text-sm text-zinc-900">Peringkat Menu Smoothies & Topping</h2>
@@ -164,7 +165,7 @@ export default function AnalyticsPage() {
             <div key={p.name} className="px-6 py-3.5 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
               <div className="flex items-center gap-3">
                 <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
-                  i === 0 ? 'bg-[#be1a1a] text-white shadow-xs' :
+                  i === 0 ? 'bg-[#be1a1a] text-white shadow-card' :
                   i === 1 ? 'bg-zinc-800 text-white' :
                   i === 2 ? 'bg-zinc-200 text-zinc-800' :
                   'bg-zinc-100 text-zinc-400'
@@ -184,6 +185,9 @@ export default function AnalyticsPage() {
           ))}
         </div>
       </div>
+
+      {/* Profil pembeli — hasil pencatatan driver saat transaksi */}
+      <CustomerInsights days={period === '7d' ? 7 : period === '30d' ? 30 : 90} />
     </div>
   )
 }

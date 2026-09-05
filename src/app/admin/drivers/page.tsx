@@ -205,7 +205,7 @@ export default function DriversPage() {
         /* Driver Grid */
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {drivers.map(driver => (
-            <div key={driver.id} className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs space-y-4">
+            <div key={driver.id} className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card space-y-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 bg-zinc-900 text-white rounded-xl flex items-center justify-center font-bold text-sm">
@@ -320,7 +320,7 @@ export default function DriversPage() {
                   placeholder="Contoh: Budi Santoso"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs focus:outline-hidden focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-medium"
                 />
               </div>
 
@@ -331,7 +331,7 @@ export default function DriversPage() {
                   placeholder="Contoh: 08123456789"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs focus:outline-hidden focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-mono"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-mono"
                 />
               </div>
 
@@ -343,7 +343,7 @@ export default function DriversPage() {
                   placeholder="Contoh: budi@ramujus.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs focus:outline-hidden focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-medium"
+                  className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-medium"
                 />
               </div>
 
@@ -357,7 +357,7 @@ export default function DriversPage() {
                     placeholder="Minimal 6 karakter"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-zinc-200 text-xs focus:outline-hidden focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-mono"
+                    className="w-full px-3.5 py-2.5 pr-10 rounded-xl border border-zinc-200 text-xs focus:outline-none focus:border-[#be1a1a] focus:ring-2 focus:ring-red-100 transition-all font-mono"
                   />
                   <button
                     type="button"

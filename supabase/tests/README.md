@@ -22,6 +22,7 @@ psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/schema.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0001_security_hardening.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0002_live_fleet_tracking.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0003_offline_orders_and_cash_lock.sql
+psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0004_customer_profile.sql
 
 # lalu salah satu berkas uji, masing-masing pada basis data yang baru
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
@@ -87,3 +88,15 @@ pemindaian tabel penuh.
 | 10 | Setelah dibuka, angka bisa dikoreksi lagi |
 | 11 | `admin_daily_summary` menjawab dalam satu query |
 | 12 | Driver tidak mendapat ringkasan admin |
+
+## 05 — Profil pembeli
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Profil pembeli tersimpan bersama pesanan |
+| 2 | Profil boleh dikosongkan seluruhnya |
+| 3 | Nilai profil ngawur diabaikan, **penjualan tetap tersimpan** |
+| 4 | Constraint database menolak nilai di luar daftar |
+| 5 | Laporan sebaran, jam ramai per usia, dan produk favorit per segmen |
+| 6 | Transaksi tanpa profil terlihat jelas sebagai `unknown`, bukan disembunyikan |
+| 7 | Driver tidak dapat membaca laporan pembeli |

@@ -49,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 href={href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all ${
                   isActive
-                    ? 'bg-red-50 text-[#be1a1a] shadow-xs'
+                    ? 'bg-red-50 text-[#be1a1a] shadow-card'
                     : 'text-zinc-600 hover:bg-zinc-100/70 hover:text-zinc-900'
                 }`}
               >
