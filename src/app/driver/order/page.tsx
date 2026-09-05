@@ -9,9 +9,11 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 import {
   Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
   Loader2, Banknote, QrCode, ArrowRightLeft, X, ArrowLeft,
-  Receipt, PackageCheck, AlertCircle
+  Receipt, PackageCheck, AlertCircle, CloudOff
 } from 'lucide-react'
 import type { Product, CartItem, Shift } from '@/types/database'
+import { enqueueOrder, newClientOrderId, isPermanentFailure } from '@/lib/offlineQueue'
+import { useOrderQueue } from '@/hooks/useOrderQueue'
 import Link from 'next/link'
 
 const paymentIcons = {
@@ -71,6 +73,8 @@ export default function OrderPage() {
   const [hasAllocation, setHasAllocation] = useState(false)
   const [stockWarning, setStockWarning] = useState<string | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
+  const [queuedOffline, setQueuedOffline] = useState(false)
+  const queue = useOrderQueue()
 
   const supabase = createClient()
 
@@ -208,6 +212,18 @@ export default function OrderPage() {
     if (!activeShift || !user || cart.length === 0) return
     setSubmitting(true)
     setSubmitError(null)
+    setQueuedOffline(false)
+
+    // Kunci idempotensi dibuat sekali per pesanan. Kalau pengiriman gagal
+    // dan pesanan masuk antrean, percobaan berikutnya memakai kunci yang
+    // sama — server mengembalikan pesanan yang sudah ada alih-alih
+    // membuat yang kedua dan memotong stok dua kali.
+    const clientOrderId = newClientOrderId()
+    const placedAt = new Date().toISOString()
+    const items = cart.map(item => ({
+      product_id: item.product.id,
+      quantity: item.quantity,
+    }))
 
     try {
       // Lokasi diambil lebih dulu dan ditunggu. Versi lama memanggil
@@ -221,14 +237,13 @@ export default function OrderPage() {
       // dihitung ulang di server dari tabel products.
       const { data, error: rpcError } = await supabase.rpc('create_order', {
         p_shift_id: activeShift.id,
-        p_items: cart.map(item => ({
-          product_id: item.product.id,
-          quantity: item.quantity,
-        })),
+        p_items: items,
         p_payment_method: paymentMethod,
         p_latitude: coords.latitude,
         p_longitude: coords.longitude,
         p_accuracy: coords.accuracy,
+        p_client_order_id: clientOrderId,
+        p_created_at: placedAt,
       })
 
       // PostgREST mengembalikan fungsi bertipe komposit sebagai objek
@@ -238,8 +253,19 @@ export default function OrderPage() {
         | null
         | undefined
 
-      if (rpcError || !order) {
-        setSubmitError(describeOrderError(rpcError?.message))
+      if (rpcError) {
+        // Penolakan aturan bisnis tidak akan membaik dengan mencoba lagi,
+        // jadi jangan diantre — tunjukkan sebabnya sekarang.
+        if (isPermanentFailure(rpcError.message)) {
+          setSubmitError(describeOrderError(rpcError.message))
+          return
+        }
+        queueOrder(clientOrderId, placedAt, items, coords)
+        return
+      }
+
+      if (!order) {
+        queueOrder(clientOrderId, placedAt, items, coords)
         return
       }
 
@@ -250,22 +276,89 @@ export default function OrderPage() {
       // Muat ulang kuota dari server, bukan menghitungnya di klien.
       await loadData()
     } catch {
-      setSubmitError('Tidak dapat terhubung ke server. Pesanan BELUM tersimpan — periksa koneksi lalu coba lagi.')
+      // Jaringan putus di tengah jalan: simpan, jangan buang penjualannya.
+      queueOrder(clientOrderId, placedAt, items, {
+        latitude: null, longitude: null, accuracy: null,
+      })
     } finally {
       setSubmitting(false)
     }
+  }
+
+  function queueOrder(
+    clientOrderId: string,
+    placedAt: string,
+    items: { product_id: string; quantity: number }[],
+    coords: { latitude: number | null; longitude: number | null; accuracy: number | null }
+  ) {
+    if (!activeShift) return
+
+    enqueueOrder({
+      client_order_id: clientOrderId,
+      shift_id: activeShift.id,
+      items,
+      payment_method: paymentMethod,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      accuracy: coords.accuracy,
+      created_at: placedAt,
+      total_estimate: totalAmount,
+      attempts: 0,
+    })
+
+    // Kurangi kuota lokal supaya driver tidak menjual melebihi muatan
+    // gerobak selama antrean belum terkirim.
+    setStockMap(prev => {
+      const next = { ...prev }
+      for (const item of items) {
+        const quota = next[item.product_id]
+        if (quota) {
+          const sold = quota.sold + item.quantity
+          next[item.product_id] = {
+            ...quota,
+            sold,
+            remaining: Math.max(0, quota.initial - sold),
+          }
+        }
+      }
+      return next
+    })
+
+    setLastOrderAmount(totalAmount)
+    setOrderNumber('Menunggu sinyal')
+    setQueuedOffline(true)
+    setSuccess(true)
+    setCart([])
+    queue.refresh()
   }
 
   // Success Confirmation Screen
   if (success) {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 border border-emerald-100 shadow-sm animate-in zoom-in-50 duration-300">
-          <CheckCircle2 strokeWidth={2.5} className="w-8 h-8" />
+        {/* Layar ini harus jujur membedakan pesanan yang sudah ada di server
+            dari yang masih menunggu sinyal — driver menutup kas berdasarkan
+            apa yang ia lihat di sini. */}
+        <div
+          className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 border shadow-sm animate-in zoom-in-50 duration-300 ${
+            queuedOffline
+              ? 'bg-amber-50 text-amber-600 border-amber-200'
+              : 'bg-emerald-50 text-emerald-600 border-emerald-100'
+          }`}
+        >
+          {queuedOffline
+            ? <CloudOff strokeWidth={2.5} className="w-8 h-8" />
+            : <CheckCircle2 strokeWidth={2.5} className="w-8 h-8" />}
         </div>
 
-        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60 mb-2">
-          Pesanan Berhasil Disimpan
+        <span
+          className={`text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full border mb-2 ${
+            queuedOffline
+              ? 'text-amber-700 bg-amber-50 border-amber-200/60'
+              : 'text-emerald-600 bg-emerald-50 border-emerald-200/60'
+          }`}
+        >
+          {queuedOffline ? 'Tersimpan di Perangkat' : 'Pesanan Berhasil Disimpan'}
         </span>
 
         <h2 className="text-2xl font-black text-zinc-900 tracking-tight">
@@ -277,7 +370,9 @@ export default function OrderPage() {
         </p>
 
         <p className="text-xs text-zinc-500 mt-2 max-w-xs leading-relaxed">
-          Transaksi dan stok gerobak telah tercatat secara realtime ke server pusat.
+          {queuedOffline
+            ? `Sinyal sedang tidak tersedia. Pesanan ini tersimpan di ponsel Anda dan akan terkirim otomatis begitu sinyal kembali. Jangan hapus aplikasi sebelum terkirim — ${queue.pending.length} pesanan menunggu.`
+            : 'Transaksi dan stok gerobak telah tercatat secara realtime ke server pusat.'}
         </p>
 
         <div className="flex flex-col gap-2.5 w-full max-w-xs mt-8">
@@ -285,6 +380,7 @@ export default function OrderPage() {
             onClick={() => {
               setSuccess(false)
               setOrderNumber('')
+              setQueuedOffline(false)
             }}
             className="flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.98] text-white py-3 px-4 rounded-xl text-xs font-bold transition-all shadow-md shadow-red-900/15"
           >

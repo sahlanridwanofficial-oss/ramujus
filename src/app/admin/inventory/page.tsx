@@ -313,43 +313,49 @@ function InventoryContent() {
     try {
       let allocId = currentAllocation?.id
 
-      // Siapa yang mengunci rekonsiliasi ikut dicatat. Kolom reconciled_by
-      // sudah ada di skema sejak awal tetapi tidak pernah diisi, sehingga
-      // audit malam tidak punya jejak penanggung jawab.
-      const { data: { user: auditor } } = await supabase.auth.getUser()
-
+      // Angka disimpan lebih dulu selagi alokasi masih terbuka. Penguncian
+      // dilakukan terpisah di akhir lewat lock_reconciliation(), karena
+      // setelah terkunci database menolak perubahan apa pun — termasuk yang
+      // datang dari layar ini.
       if (!allocId) {
-        const { data: newAlloc } = await supabase
+        const { data: newAlloc, error: insertError } = await supabase
           .from('driver_daily_allocations')
           .insert({
             driver_id: selectedDriverId,
             date: selectedDate,
-            status: lockAudit ? 'reconciled' : 'active',
+            status: 'active',
             total_cash_collected: ordersSummary.cash_sales,
             total_qris_collected: ordersSummary.qris_sales,
             cash_settled: cashSettledInput,
-            notes: auditNotes,
-            reconciled_at: lockAudit ? new Date().toISOString() : null,
-            reconciled_by: lockAudit ? auditor?.id ?? null : null
+            notes: auditNotes
           })
           .select()
           .single()
 
-        if (newAlloc) allocId = newAlloc.id
+        if (insertError || !newAlloc) {
+          throw new Error(insertError?.message || 'Gagal membuat data audit.')
+        }
+        allocId = newAlloc.id
       } else {
-        await supabase
+        const { error: updateError } = await supabase
           .from('driver_daily_allocations')
           .update({
-            status: lockAudit ? 'reconciled' : currentAllocation?.status === 'allocated' ? 'active' : (currentAllocation?.status || 'allocated'),
+            status: currentAllocation?.status === 'allocated' ? 'active' : (currentAllocation?.status || 'active'),
             total_cash_collected: ordersSummary.cash_sales,
             total_qris_collected: ordersSummary.qris_sales,
             cash_settled: cashSettledInput,
             notes: auditNotes,
-            reconciled_at: lockAudit ? new Date().toISOString() : (currentAllocation?.reconciled_at || null),
-            reconciled_by: lockAudit ? auditor?.id ?? null : (currentAllocation?.reconciled_by ?? null),
             updated_at: new Date().toISOString()
           })
           .eq('id', allocId)
+
+        if (updateError) {
+          throw new Error(
+            updateError.message.includes('RECONCILIATION_LOCKED')
+              ? 'Rekonsiliasi hari ini sudah dikunci dan tidak dapat diubah. Buka kunci lebih dulu bila perlu koreksi.'
+              : updateError.message
+          )
+        }
       }
 
       // Upsert items with physical remaining and waste
@@ -371,10 +377,27 @@ function InventoryContent() {
         }
       }
 
+      if (lockAudit && allocId) {
+        // Mengunci lewat RPC agar penanggung jawab dan angka kas saat
+        // penguncian tercatat di jejak audit, bukan sekadar mengubah label.
+        const { error: lockError } = await supabase.rpc('lock_reconciliation', {
+          p_allocation_id: allocId,
+          p_note: auditNotes || null,
+        })
+
+        if (lockError) {
+          throw new Error(
+            lockError.message.includes('ALLOCATION_NOT_FOUND_OR_ALREADY_LOCKED')
+              ? 'Rekonsiliasi ini sudah terkunci sebelumnya.'
+              : 'Gagal mengunci rekonsiliasi. Angka audit sudah tersimpan, silakan coba kunci lagi.'
+          )
+        }
+      }
+
       setAlertMessage({
         type: 'success',
         text: lockAudit
-          ? 'Rekonsiliasi malam berhasil dikunci dan diverifikasi!'
+          ? 'Rekonsiliasi malam berhasil dikunci. Angka hari ini sudah final dan tidak dapat diubah.'
           : 'Data audit stok dan penerimaan kas berhasil disimpan.'
       })
       await loadAllocationForDriver(selectedDriverId, selectedDate)
@@ -422,6 +445,10 @@ function InventoryContent() {
   )
 
   const cashVariance = cashSettledInput - ordersSummary.cash_sales
+
+  // Setelah dikunci, database menolak perubahan apa pun pada alokasi ini.
+  // Tombolnya ikut dimatikan agar admin tidak mengira suntingannya tersimpan.
+  const isReconciled = currentAllocation?.status === 'reconciled'
 
   return (
     <div className="space-y-6">
@@ -870,30 +897,32 @@ function InventoryContent() {
 
                 <div className="pt-3 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <p className="text-xs text-zinc-400">
-                    Kunci audit setelah memastikan hitungan fisik dan setoran uang tunai telah cocok.
+                    {isReconciled
+                      ? 'Audit hari ini sudah dikunci. Database menolak perubahan angka kas maupun stok.'
+                      : 'Kunci audit setelah memastikan hitungan fisik dan setoran uang tunai telah cocok. Setelah dikunci, angkanya final.'}
                   </p>
 
                   <div className="flex items-center gap-2 w-full sm:w-auto">
                     <button
                       type="button"
                       onClick={() => handleSaveEveningAudit(false)}
-                      disabled={saving}
-                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors"
+                      disabled={saving || isReconciled}
+                      className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-700 hover:bg-zinc-50 transition-colors disabled:opacity-40 disabled:hover:bg-transparent"
                     >
                       Simpan Draft Audit
                     </button>
                     <button
                       type="button"
                       onClick={() => handleSaveEveningAudit(true)}
-                      disabled={saving}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15"
+                      disabled={saving || isReconciled}
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-40"
                     >
                       {saving ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
                         <ShieldCheck className="w-4 h-4" />
                       )}
-                      <span>Kunci & Selesaikan Audit</span>
+                      <span>{isReconciled ? 'Sudah Dikunci' : 'Kunci & Selesaikan Audit'}</span>
                     </button>
                   </div>
                 </div>
