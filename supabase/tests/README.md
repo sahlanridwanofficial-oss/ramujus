@@ -1,8 +1,8 @@
 # Uji migrasi database
 
 Menjalankan `schema.sql` + seluruh migrasi di Postgres lokal, lalu memeriksa
-aturan keamanan dan alur pembuatan pesanan. Tidak menyentuh proyek Supabase
-milik siapa pun.
+aturan keamanan, alur pembuatan pesanan, pelacakan armada, dan perilaku pada
+skala 100 gerobak. Tidak menyentuh proyek Supabase milik siapa pun.
 
 `00_supabase_stub.sql` menyediakan tiruan minimal dari hal-hal yang disediakan
 Supabase (`auth.users`, `auth.uid()`, role `authenticated`, publikasi
@@ -12,20 +12,24 @@ berpura-pura menjadi driver atau admin tertentu.
 
 ## Menjalankan
 
-Butuh Postgres 14+ yang sedang berjalan.
+Butuh Postgres 14+ yang sedang berjalan. Setiap berkas uji memerlukan basis
+data yang bersih.
 
 ```bash
 createdb ramujus_test
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/00_supabase_stub.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/schema.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0001_security_hardening.sql
+psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0002_live_fleet_tracking.sql
+
+# lalu salah satu berkas uji, masing-masing pada basis data yang baru
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
 ```
 
 Setiap tes berhenti dengan error bila perilakunya salah, jadi keluaran yang
-berakhir tanpa `ERROR` berarti semuanya lolos.
+berakhir dengan exit code 0 berarti semuanya lolos.
 
-## Yang diperiksa
+## 01 — Keamanan & pesanan
 
 | Tes | Perilaku yang dijamin |
 |-----|----------------------|
@@ -38,3 +42,30 @@ berakhir tanpa `ERROR` berarti semuanya lolos.
 | 7 | Pesanan normal: total dihitung server dari tabel `products`, item tersimpan, stok berkurang, lokasi tercatat |
 | 8 | Stok tidak cukup ditolak **dan** tidak meninggalkan pesanan separuh (rollback) |
 | 9 | Driver tidak bisa memakai shift milik driver lain |
+
+## 02 — Pelacakan armada
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Posisi ditolak bila driver tidak sedang shift |
+| 2 | Koordinat di luar rentang bumi ditolak |
+| 3 | Kiriman pertama membuat baris posisi dan satu baris histori |
+| 4 | 21 kiriman beruntun tetap menghasilkan 1 baris posisi dan 1 baris histori — pembatasan histori bekerja |
+| 5 | Histori bertambah setelah ambang interval terlewati |
+| 6 | Driver tidak bisa memalsukan posisi lewat tabel langsung (tidak ada policy UPDATE) |
+| 7 | Driver hanya melihat posisinya sendiri |
+| 8 | `fleet_overview` kosong untuk non-admin |
+| 9 | Admin melihat seluruh armada dalam satu query |
+| 10 | `admin_driver_stats` menggantikan pola 1 + 2N query |
+| 11 | `prune_location_logs` menghapus histori lama |
+| 12 | Kueri posisi memakai index scan, bukan pemindaian penuh |
+
+## 03 — Skala 100 gerobak
+
+Menyemai armada nyata lalu mengukur kueri yang dipakai halaman admin:
+100 driver, 45.000 pesanan, 90.000 item pesanan, 42.000 baris histori GPS.
+
+Memastikan `fleet_overview`, `admin_driver_stats`, `admin_sales_daily` dan
+`admin_top_products` masing-masing tetap satu kali jalan, dan bahwa peta
+sebaran transaksi serta riwayat GPS per driver memakai indeks, bukan
+pemindaian tabel penuh.

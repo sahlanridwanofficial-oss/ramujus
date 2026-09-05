@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import Logo from '@/components/ui/Logo'
+import FleetTracker from '@/components/driver/FleetTracker'
 import { LayoutGrid, PlusCircle, History, User, LogOut } from 'lucide-react'
 
 const navItems = [
@@ -26,10 +27,11 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
             <Logo height={26} />
           </Link>
 
-          <div className="flex items-center gap-2.5">
+          <div className="flex items-center gap-2">
+            {/* Status pelacakan GPS gerobak — hidup selama shift berjalan */}
+            <FleetTracker />
             <div className="flex items-center gap-1.5 bg-zinc-100/80 px-2.5 py-1 rounded-full text-xs font-medium text-zinc-700">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="max-w-[110px] truncate">{user?.full_name?.split(' ')[0] || 'Driver'}</span>
+              <span className="max-w-[90px] truncate">{user?.full_name?.split(' ')[0] || 'Driver'}</span>
             </div>
             <button
               onClick={signOut}

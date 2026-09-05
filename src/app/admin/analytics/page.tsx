@@ -22,61 +22,27 @@ export default function AnalyticsPage() {
   async function loadAnalytics() {
     setLoading(true)
     const days = period === '7d' ? 7 : period === '30d' ? 30 : 90
-    const fromDate = new Date()
-    fromDate.setDate(fromDate.getDate() - days)
 
     try {
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('total_amount, created_at')
-        .gte('created_at', fromDate.toISOString())
-        .order('created_at')
+      // Agregasi dikerjakan database. Versi lama menarik seluruh baris
+      // pesanan pada rentang terpilih lalu menjumlahkannya di browser —
+      // pada 100 gerobak dan rentang 90 hari itu ratusan ribu baris.
+      const [{ data: daily }, { data: top }] = await Promise.all([
+        supabase.rpc('admin_sales_daily', { p_days: days }),
+        supabase.rpc('admin_top_products', { p_days: days, p_limit: 10 }),
+      ])
 
-      if (orders && orders.length > 0) {
-        const byDay: Record<string, DailyData> = {}
-        orders.forEach(o => {
-          const date = o.created_at.slice(0, 10)
-          if (!byDay[date]) byDay[date] = { date, revenue: 0, orders: 0 }
-          byDay[date].revenue += o.total_amount
-          byDay[date].orders += 1
-        })
-        setDailyData(Object.values(byDay))
-        setTotalRevenue(orders.reduce((s, o) => s + o.total_amount, 0))
-        setTotalOrders(orders.length)
-      } else {
-        setDailyData([])
-        setTotalRevenue(0)
-        setTotalOrders(0)
-      }
+      const rows = (daily ?? []) as Array<{ day: string; revenue: number; orders: number }>
+      setDailyData(rows.map(r => ({ date: r.day, revenue: Number(r.revenue), orders: r.orders })))
+      setTotalRevenue(rows.reduce((s, r) => s + Number(r.revenue), 0))
+      setTotalOrders(rows.reduce((s, r) => s + r.orders, 0))
 
-      // Top products
-      const { data: items } = await supabase
-        .from('order_items')
-        .select(`
-          quantity, subtotal,
-          product:products (name)
-        `)
-        .gte('created_at', fromDate.toISOString())
-
-      if (items && items.length > 0) {
-        const byProduct: Record<string, ProductRank> = {}
-        const typedItems = items as unknown as Array<{
-          quantity: number
-          subtotal: number
-          product: { name: string } | { name: string }[] | null
-        }>
-        typedItems.forEach(item => {
-          const prod = Array.isArray(item.product) ? item.product[0] : item.product
-          const name = prod?.name || 'Item'
-          if (!byProduct[name]) byProduct[name] = { name, total_qty: 0, revenue: 0 }
-          byProduct[name].total_qty += item.quantity
-          byProduct[name].revenue += item.subtotal
-        })
-        const sorted = Object.values(byProduct).sort((a, b) => b.revenue - a.revenue)
-        setTopProducts(sorted.slice(0, 10))
-      } else {
-        setTopProducts([])
-      }
+      const products = (top ?? []) as Array<{ name: string; total_qty: number; revenue: number }>
+      setTopProducts(products.map(p => ({
+        name: p.name,
+        total_qty: p.total_qty,
+        revenue: Number(p.revenue),
+      })))
     } catch {
       setDailyData([])
       setTotalRevenue(0)
