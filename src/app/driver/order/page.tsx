@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { useGeolocation } from '@/hooks/useGeolocation'
-import { formatRupiah, generateOrderNumber } from '@/lib/format'
+import { formatRupiah } from '@/lib/format'
 import { PAYMENT_METHODS } from '@/lib/constants'
 import {
   Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
@@ -27,9 +27,34 @@ interface StockQuota {
   remaining: number
 }
 
+// create_order() melempar kode error yang stabil; terjemahkan ke bahasa
+// yang bisa ditindaklanjuti driver di lapangan.
+function describeOrderError(message?: string): string {
+  if (!message) return 'Pesanan gagal disimpan. Silakan coba lagi.'
+  if (message.includes('INSUFFICIENT_STOCK')) {
+    const product = message.split('INSUFFICIENT_STOCK:')[1]?.trim()
+    return product
+      ? `Stok gerobak untuk ${product} tidak mencukupi. Muat ulang halaman untuk melihat sisa terbaru.`
+      : 'Stok gerobak tidak mencukupi untuk pesanan ini.'
+  }
+  if (message.includes('SHIFT_NOT_ACTIVE')) {
+    return 'Shift Anda sudah tidak aktif. Mulai shift lagi sebelum membuat pesanan.'
+  }
+  if (message.includes('PRODUCT_UNAVAILABLE')) {
+    return 'Ada produk di keranjang yang sudah dinonaktifkan admin. Hapus produk itu lalu coba lagi.'
+  }
+  if (message.includes('AUTH_REQUIRED')) {
+    return 'Sesi Anda berakhir. Silakan masuk kembali.'
+  }
+  if (message.includes('EMPTY_CART')) {
+    return 'Keranjang masih kosong.'
+  }
+  return 'Pesanan gagal disimpan. Silakan coba lagi.'
+}
+
 export default function OrderPage() {
   const { user } = useAuth()
-  const { latitude, longitude, accuracy, getPosition } = useGeolocation()
+  const { getPosition } = useGeolocation()
   const [products, setProducts] = useState<Product[]>([])
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -45,6 +70,7 @@ export default function OrderPage() {
   const [stockMap, setStockMap] = useState<{ [productId: string]: StockQuota }>({})
   const [hasAllocation, setHasAllocation] = useState(false)
   const [stockWarning, setStockWarning] = useState<string | null>(null)
+  const [submitError, setSubmitError] = useState<string | null>(null)
 
   const supabase = createClient()
 
@@ -67,20 +93,6 @@ export default function OrderPage() {
 
       if (shift) {
         setActiveShift(shift)
-      } else if (user?.id === 'demo-driver-id') {
-        setActiveShift({
-          id: 'demo-shift-id',
-          driver_id: 'demo-driver-id',
-          start_time: new Date().toISOString(),
-          end_time: null,
-          start_lat: -6.2088,
-          start_lng: 106.8456,
-          end_lat: null,
-          end_lng: null,
-          status: 'active',
-          notes: null,
-          created_at: new Date().toISOString()
-        })
       }
 
       // 2. Get products
@@ -195,92 +207,50 @@ export default function OrderPage() {
   async function submitOrder() {
     if (!activeShift || !user || cart.length === 0) return
     setSubmitting(true)
-    getPosition()
-
-    const newOrderNumber = generateOrderNumber()
-
-    if (user.id === 'demo-driver-id') {
-      setTimeout(() => {
-        setLastOrderAmount(totalAmount)
-        setOrderNumber(newOrderNumber)
-        setSuccess(true)
-        setCart([])
-        setSubmitting(false)
-      }, 500)
-      return
-    }
+    setSubmitError(null)
 
     try {
-      const { data: order, error: orderError } = await supabase
-        .from('orders')
-        .insert({
-          shift_id: activeShift.id,
-          driver_id: user.id,
-          order_number: newOrderNumber,
-          latitude,
-          longitude,
-          total_amount: totalAmount,
-          payment_method: paymentMethod,
-        })
-        .select()
-        .single()
+      // Lokasi diambil lebih dulu dan ditunggu. Versi lama memanggil
+      // getPosition() tanpa await lalu langsung menyimpan `latitude`/
+      // `longitude` dari render sebelumnya, sehingga koordinat pesanan
+      // adalah posisi lama — atau null pada pesanan pertama.
+      const coords = await getPosition()
 
-      if (orderError || !order) {
-        setSubmitting(false)
+      // Seluruh penulisan (orders, order_items, kuota stok, log lokasi)
+      // dijalankan dalam satu transaksi di database. Harga dan total
+      // dihitung ulang di server dari tabel products.
+      const { data, error: rpcError } = await supabase.rpc('create_order', {
+        p_shift_id: activeShift.id,
+        p_items: cart.map(item => ({
+          product_id: item.product.id,
+          quantity: item.quantity,
+        })),
+        p_payment_method: paymentMethod,
+        p_latitude: coords.latitude,
+        p_longitude: coords.longitude,
+        p_accuracy: coords.accuracy,
+      })
+
+      // PostgREST mengembalikan fungsi bertipe komposit sebagai objek
+      // tunggal, tetapi dapat pula berupa array satu elemen tergantung versi.
+      const order = (Array.isArray(data) ? data[0] : data) as
+        | { order_number: string; total_amount: number }
+        | null
+        | undefined
+
+      if (rpcError || !order) {
+        setSubmitError(describeOrderError(rpcError?.message))
         return
       }
 
-      const items = cart.map(item => ({
-        order_id: order.id,
-        product_id: item.product.id,
-        quantity: item.quantity,
-        unit_price: item.product.price,
-        subtotal: item.product.price * item.quantity,
-      }))
-
-      await supabase.from('order_items').insert(items)
-
-      // Deduct/sync realtime stock in driver_allocation_items
-      if (hasAllocation) {
-        for (const item of cart) {
-          const quota = stockMap[item.product.id]
-          if (quota) {
-            const updatedSold = quota.sold + item.quantity
-            await supabase
-              .from('driver_allocation_items')
-              .update({
-                sold_quantity: updatedSold,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', quota.id)
-
-            // Update local state
-            setStockMap(prev => ({
-              ...prev,
-              [item.product.id]: {
-                ...quota,
-                sold: updatedSold,
-                remaining: Math.max(0, quota.initial - updatedSold)
-              }
-            }))
-          }
-        }
-      }
-
-      if (latitude && longitude) {
-        await supabase.from('location_logs').insert({
-          driver_id: user.id,
-          shift_id: activeShift.id,
-          latitude,
-          longitude,
-          accuracy,
-        })
-      }
-
-      setLastOrderAmount(totalAmount)
-      setOrderNumber(newOrderNumber)
+      setLastOrderAmount(order.total_amount)
+      setOrderNumber(order.order_number)
       setSuccess(true)
       setCart([])
+      // Muat ulang kuota dari server, bukan menghitungnya di klien.
+      await loadData()
+    } catch {
+      setSubmitError('Tidak dapat terhubung ke server. Pesanan BELUM tersimpan — periksa koneksi lalu coba lagi.')
     } finally {
       setSubmitting(false)
     }
@@ -409,6 +379,17 @@ export default function OrderPage() {
           <div className="mt-2.5 p-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-[11px] text-[#be1a1a] font-medium animate-in fade-in">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             <span>{stockWarning}</span>
+          </div>
+        )}
+
+        {/* Kegagalan penyimpanan pesanan — dulu gagal tanpa pesan apa pun */}
+        {submitError && (
+          <div
+            role="alert"
+            className="mt-2.5 p-2.5 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-[11px] text-[#be1a1a] font-semibold animate-in fade-in"
+          >
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+            <span className="leading-relaxed">{submitError}</span>
           </div>
         )}
 

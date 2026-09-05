@@ -272,12 +272,14 @@ function InventoryContent() {
         setCurrentAllocation(newAlloc)
       }
 
-      // 2. Upsert allocation items
+      // 2. Upsert allocation items.
+      //    sold_quantity sengaja TIDAK dikirim: kolom itu dikelola server
+      //    lewat create_order() setiap kali driver menjual. Mengirimnya dari
+      //    sini akan menimpa penjualan yang masuk setelah halaman dibuka.
       const itemsToUpsert = Object.values(allocItems).map(item => ({
         allocation_id: allocId,
         product_id: item.product.id,
         initial_quantity: item.initial_quantity,
-        sold_quantity: item.sold_quantity,
         physical_remaining: item.physical_remaining,
         waste_quantity: item.waste_quantity
       }))
@@ -310,6 +312,11 @@ function InventoryContent() {
     try {
       let allocId = currentAllocation?.id
 
+      // Siapa yang mengunci rekonsiliasi ikut dicatat. Kolom reconciled_by
+      // sudah ada di skema sejak awal tetapi tidak pernah diisi, sehingga
+      // audit malam tidak punya jejak penanggung jawab.
+      const { data: { user: auditor } } = await supabase.auth.getUser()
+
       if (!allocId) {
         const { data: newAlloc } = await supabase
           .from('driver_daily_allocations')
@@ -321,7 +328,8 @@ function InventoryContent() {
             total_qris_collected: ordersSummary.qris_sales,
             cash_settled: cashSettledInput,
             notes: auditNotes,
-            reconciled_at: lockAudit ? new Date().toISOString() : null
+            reconciled_at: lockAudit ? new Date().toISOString() : null,
+            reconciled_by: lockAudit ? auditor?.id ?? null : null
           })
           .select()
           .single()
@@ -337,6 +345,7 @@ function InventoryContent() {
             cash_settled: cashSettledInput,
             notes: auditNotes,
             reconciled_at: lockAudit ? new Date().toISOString() : (currentAllocation?.reconciled_at || null),
+            reconciled_by: lockAudit ? auditor?.id ?? null : (currentAllocation?.reconciled_by ?? null),
             updated_at: new Date().toISOString()
           })
           .eq('id', allocId)
@@ -344,11 +353,12 @@ function InventoryContent() {
 
       // Upsert items with physical remaining and waste
       if (allocId) {
+        // sold_quantity tidak ikut dikirim — lihat catatan di
+        // handleSaveAllocation. Angka penjualan hari itu milik server.
         const itemsToUpsert = Object.values(allocItems).map(item => ({
           allocation_id: allocId,
           product_id: item.product.id,
           initial_quantity: item.initial_quantity,
-          sold_quantity: item.sold_quantity,
           physical_remaining: item.physical_remaining,
           waste_quantity: item.waste_quantity
         }))

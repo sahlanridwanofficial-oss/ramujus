@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import Logo from '@/components/ui/Logo'
-import { Eye, EyeOff, Loader2, ArrowRight, ShieldCheck, Bike } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -13,24 +13,10 @@ export default function LoginPage() {
   const [error, setError] = useState('')
   const supabase = createClient()
 
-  const handleDemoLogin = (role: 'driver' | 'admin') => {
-    document.cookie = `ramujus_role=${role}; path=/; max-age=86400`
-    window.location.href = role === 'admin' ? '/admin/dashboard' : '/driver/dashboard'
-  }
-
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
-
-    if (email.toLowerCase() === 'admin@ramujus.com' || email.toLowerCase() === 'admin@ramu.id') {
-      handleDemoLogin('admin')
-      return
-    }
-    if (email.toLowerCase() === 'driver@ramujus.com' || email.toLowerCase() === 'driver@ramu.id') {
-      handleDemoLogin('driver')
-      return
-    }
 
     try {
       const { error: authError } = await supabase.auth.signInWithPassword({
@@ -39,24 +25,32 @@ export default function LoginPage() {
       })
 
       if (authError) {
-        setError('Email atau kata sandi tidak sesuai. Silakan coba lagi atau gunakan akses Demo.')
+        setError('Email atau kata sandi tidak sesuai. Silakan periksa kembali.')
         return
       }
 
       const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', user.id)
-          .single()
-
-        window.location.href = profile?.role === 'admin'
-          ? '/admin/dashboard'
-          : '/driver/dashboard'
+      if (!user) {
+        setError('Sesi gagal dibuat. Silakan coba masuk lagi.')
+        return
       }
+
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profileError || !profile) {
+        setError('Akun Anda belum memiliki profil aktif. Hubungi admin.')
+        return
+      }
+
+      window.location.href = profile.role === 'admin'
+        ? '/admin/dashboard'
+        : '/driver/dashboard'
     } catch {
-      setError('Sistem belum terhubung ke Supabase. Silakan gunakan akses Demo instan di bawah.')
+      setError('Tidak dapat terhubung ke server. Periksa koneksi Anda lalu coba lagi.')
     } finally {
       setLoading(false)
     }
@@ -74,36 +68,6 @@ export default function LoginPage() {
           <p className="text-xs text-zinc-500 mt-1">
             Masuk ke akun Mitra Driver atau Panel Administrasi
           </p>
-        </div>
-
-        {/* Quick Demo Access Pills */}
-        <div className="bg-white border border-zinc-200/80 rounded-2xl p-4 shadow-sm mb-6">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <span className="text-[11px] font-semibold tracking-wider text-zinc-400 uppercase">
-              Akses Cepat Demo
-            </span>
-            <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-              Instan
-            </span>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('driver')}
-              className="flex items-center justify-center gap-2 bg-zinc-50 hover:bg-zinc-100/80 border border-zinc-200 text-zinc-800 py-2.5 px-3 rounded-xl text-xs font-semibold transition-all group"
-            >
-              <Bike className="w-4 h-4 text-zinc-600 group-hover:text-[#be1a1a] transition-colors" />
-              <span>Mitra Driver</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('admin')}
-              className="flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white py-2.5 px-3 rounded-xl text-xs font-semibold transition-all shadow-sm shadow-red-900/20"
-            >
-              <ShieldCheck className="w-4 h-4" />
-              <span>Admin Panel</span>
-            </button>
-          </div>
         </div>
 
         {/* Main Card Form */}

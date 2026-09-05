@@ -40,6 +40,7 @@ export default function DriverDashboard() {
   const [cartAllocation, setCartAllocation] = useState<CartAllocationSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [shiftLoading, setShiftLoading] = useState(false)
+  const [shiftError, setShiftError] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => {
@@ -52,14 +53,6 @@ export default function DriverDashboard() {
   async function loadData() {
     if (!user) return
     setLoading(true)
-
-    if (user.id === 'demo-driver-id') {
-      setActiveShift(null)
-      setTodayStats({ orders: 0, revenue: 0 })
-      setCartAllocation(null)
-      setLoading(false)
-      return
-    }
 
     try {
       // 1. Get active shift
@@ -159,71 +152,71 @@ export default function DriverDashboard() {
   async function startShift() {
     if (!user) return
     setShiftLoading(true)
-    getPosition()
+    setShiftError(null)
 
-    if (user.id === 'demo-driver-id') {
-      setTimeout(() => {
-        setActiveShift({
-          id: 'demo-shift-id',
-          driver_id: 'demo-driver-id',
-          start_time: new Date().toISOString(),
-          end_time: null,
-          start_lat: latitude || -6.2088,
-          start_lng: longitude || 106.8456,
-          end_lat: null,
-          end_lng: null,
+    try {
+      // Ditunggu agar koordinat yang tersimpan benar-benar posisi saat ini.
+      const coords = await getPosition()
+
+      const { data, error } = await supabase
+        .from('shifts')
+        .insert({
+          driver_id: user.id,
+          start_lat: coords.latitude,
+          start_lng: coords.longitude,
           status: 'active',
-          notes: null,
-          created_at: new Date().toISOString()
         })
-        setShiftLoading(false)
-      }, 350)
-      return
-    }
+        .select()
+        .single()
 
-    const { data, error } = await supabase
-      .from('shifts')
-      .insert({
-        driver_id: user.id,
-        start_lat: latitude,
-        start_lng: longitude,
-        status: 'active',
-      })
-      .select()
-      .single()
+      if (error || !data) {
+        // Database menolak shift kedua lewat indeks unik parsial.
+        setShiftError(
+          error?.code === '23505'
+            ? 'Anda sudah punya shift yang aktif. Muat ulang halaman.'
+            : 'Gagal memulai shift. Periksa koneksi lalu coba lagi.'
+        )
+        return
+      }
 
-    if (!error && data) {
       setActiveShift(data)
+    } catch {
+      setShiftError('Gagal memulai shift. Periksa koneksi lalu coba lagi.')
+    } finally {
+      setShiftLoading(false)
     }
-    setShiftLoading(false)
   }
 
   async function endShift() {
     if (!activeShift) return
     setShiftLoading(true)
-    getPosition()
+    setShiftError(null)
 
-    if (user?.id === 'demo-driver-id') {
-      setTimeout(() => {
-        setActiveShift(null)
-        setShiftLoading(false)
-      }, 350)
-      return
+    try {
+      const coords = await getPosition()
+
+      const { error } = await supabase
+        .from('shifts')
+        .update({
+          end_time: new Date().toISOString(),
+          end_lat: coords.latitude,
+          end_lng: coords.longitude,
+          status: 'completed',
+        })
+        .eq('id', activeShift.id)
+
+      if (error) {
+        setShiftError('Gagal menutup shift. Periksa koneksi lalu coba lagi.')
+        return
+      }
+
+      setActiveShift(null)
+      await loadData()
+    } catch {
+      setShiftError('Gagal menutup shift. Periksa koneksi lalu coba lagi.')
+    } finally {
+      setShiftLoading(false)
     }
-
-    await supabase
-      .from('shifts')
-      .update({
-        end_time: new Date().toISOString(),
-        end_lat: latitude,
-        end_lng: longitude,
-        status: 'completed',
-      })
-      .eq('id', activeShift.id)
-
-    setActiveShift(null)
-    setShiftLoading(false)
-    loadData()
   }
 
   if (loading) {
@@ -288,6 +281,17 @@ export default function DriverDashboard() {
             <span>{activeShift ? 'Akhiri Shift' : 'Mulai Shift'}</span>
           </button>
         </div>
+
+        {/* Kegagalan buka/tutup shift — dulu gagal tanpa pesan apa pun */}
+        {shiftError && (
+          <div
+            role="alert"
+            className="mb-3 p-2.5 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-[11px] text-[#be1a1a] font-semibold"
+          >
+            <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
+            <span className="leading-relaxed">{shiftError}</span>
+          </div>
+        )}
 
         {/* GPS Tracking Indicator */}
         <div className="flex items-center justify-between text-xs bg-zinc-50 border border-zinc-100 rounded-xl px-3 py-2 text-zinc-500">

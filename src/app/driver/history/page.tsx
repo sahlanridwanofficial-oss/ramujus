@@ -29,12 +29,6 @@ export default function HistoryPage() {
     if (!user) return
     setLoading(true)
 
-    if (user.id === 'demo-driver-id') {
-      setOrders([])
-      setLoading(false)
-      return
-    }
-
     try {
       const { data } = await supabase
         .from('orders')
