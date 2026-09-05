@@ -28,6 +28,13 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# env files holding credentials - keep them out of this public repository.
+# Configure these in the hosting provider's environment settings instead.
+# See .env.example for the variables the app needs.
+.env
+.env.production
+.env.development
+
 # vercel
 .vercel
 
