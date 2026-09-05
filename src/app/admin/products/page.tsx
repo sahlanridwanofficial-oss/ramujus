@@ -30,31 +30,19 @@ export default function ProductsPage() {
   useEffect(() => { loadProducts() }, [])
 
   async function loadProducts() {
-    const fallbackProducts: Product[] = [
-      { id: '1', name: 'Green Paradise', description: 'Bayam segar, pisang, mangga, madu alami', image_url: null, price: 18000, category: 'smoothie', is_available: true, sort_order: 1, created_at: '' },
-      { id: '2', name: 'Berry Blast', description: 'Strawberry, blueberry, yoghurt, madu murni', image_url: null, price: 20000, category: 'smoothie', is_available: true, sort_order: 2, created_at: '' },
-      { id: '3', name: 'Tropical Sunset', description: 'Mangga harum manis, nanas, jeruk peras segar', image_url: null, price: 18000, category: 'smoothie', is_available: true, sort_order: 3, created_at: '' },
-      { id: '4', name: 'Choco Banana', description: 'Pisang cavendish, coklat artisan, almond milk', image_url: null, price: 20000, category: 'smoothie', is_available: true, sort_order: 4, created_at: '' },
-      { id: '5', name: 'Dragon Fruit Bliss', description: 'Buah naga merah segar, pisang, perasan lemon', image_url: null, price: 22000, category: 'smoothie', is_available: true, sort_order: 5, created_at: '' },
-      { id: '6', name: 'Avocado Cream', description: 'Alpukat mentega murni, susu segar, gula aren', image_url: null, price: 22000, category: 'smoothie', is_available: true, sort_order: 6, created_at: '' },
-      { id: '7', name: 'Extra Granola', description: 'Topping granola renyah panggang madu', image_url: null, price: 5000, category: 'topping', is_available: true, sort_order: 20, created_at: '' },
-      { id: '8', name: 'Extra Chia Seeds', description: 'Superfood biji chia kaya serat & omega', image_url: null, price: 5000, category: 'topping', is_available: true, sort_order: 21, created_at: '' },
-      { id: '9', name: 'Extra Madu Murni', description: 'Suntikan madu bunga liar 100% alami', image_url: null, price: 3000, category: 'addon', is_available: true, sort_order: 30, created_at: '' },
-    ]
-
     try {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from('products')
         .select('*')
         .order('sort_order')
 
-      if (data && data.length > 0) {
+      if (data) {
         setProducts(data)
       } else {
-        setProducts(fallbackProducts)
+        setProducts([])
       }
     } catch {
-      setProducts(fallbackProducts)
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -270,8 +258,19 @@ export default function ProductsPage() {
       </div>
 
       {/* Product Items Table / Cards */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs divide-y divide-zinc-100 overflow-hidden">
-        {filteredProducts.map(product => (
+      {filteredProducts.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-12 text-center shadow-xs">
+          <div className="w-12 h-12 rounded-2xl bg-zinc-100 flex items-center justify-center mx-auto mb-3 text-zinc-400">
+            <Package strokeWidth={1.5} className="w-6 h-6" />
+          </div>
+          <h3 className="text-sm font-bold text-zinc-900">Belum Ada Menu Produk</h3>
+          <p className="text-xs text-zinc-400 mt-1 max-w-sm mx-auto">
+            Database menu produk kosong. Silakan klik tombol &quot;Tambah Menu Baru&quot; di atas untuk memasukkan menu asli ramu.
+          </p>
+        </div>
+      ) : (
+        <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-xs divide-y divide-zinc-100 overflow-hidden">
+          {filteredProducts.map(product => (
           <div key={product.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
@@ -328,6 +327,7 @@ export default function ProductsPage() {
           </div>
         ))}
       </div>
+      )}
     </div>
   )
 }

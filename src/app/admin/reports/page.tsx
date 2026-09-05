@@ -32,14 +32,6 @@ export default function ReportsPage() {
   async function loadOrders() {
     setLoading(true)
 
-    const fallbackOrders: ReportOrder[] = [
-      { id: '1', order_number: 'RMJ-20260905-014', total_amount: 45000, payment_method: 'qris', created_at: `${dateTo}T15:20:00Z`, driver: [{ full_name: 'Budi Santoso' }] },
-      { id: '2', order_number: 'RMJ-20260905-013', total_amount: 22000, payment_method: 'cash', created_at: `${dateTo}T14:45:00Z`, driver: [{ full_name: 'Agus Pratama' }] },
-      { id: '3', order_number: 'RMJ-20260905-012', total_amount: 68000, payment_method: 'qris', created_at: `${dateTo}T13:10:00Z`, driver: [{ full_name: 'Rian Hidayat' }] },
-      { id: '4', order_number: 'RMJ-20260905-011', total_amount: 20000, payment_method: 'cash', created_at: `${dateTo}T11:30:00Z`, driver: [{ full_name: 'Budi Santoso' }] },
-      { id: '5', order_number: 'RMJ-20260905-010', total_amount: 38000, payment_method: 'transfer', created_at: `${dateTo}T10:15:00Z`, driver: [{ full_name: 'Agus Pratama' }] },
-    ]
-
     try {
       const { data } = await supabase
         .from('orders')
@@ -51,13 +43,13 @@ export default function ReportsPage() {
         .lte('created_at', `${dateTo}T23:59:59`)
         .order('created_at', { ascending: false })
 
-      if (data && data.length > 0) {
+      if (data) {
         setOrders(data as ReportOrder[])
       } else {
-        setOrders(fallbackOrders)
+        setOrders([])
       }
     } catch {
-      setOrders(fallbackOrders)
+      setOrders([])
     } finally {
       setLoading(false)
     }

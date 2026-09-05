@@ -35,13 +35,6 @@ export default function MapPage() {
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-    const fallbackLocations: OrderLocation[] = [
-      { id: 'l1', latitude: -6.2088, longitude: 106.8456, total_amount: 45000, order_number: 'RMJ-20260905-014', created_at: new Date().toISOString() },
-      { id: 'l2', latitude: -6.2140, longitude: 106.8320, total_amount: 68000, order_number: 'RMJ-20260905-012', created_at: new Date(Date.now() - 3600000).toISOString() },
-      { id: 'l3', latitude: -6.2250, longitude: 106.8010, total_amount: 38000, order_number: 'RMJ-20260905-010', created_at: new Date(Date.now() - 7200000).toISOString() },
-      { id: 'l4', latitude: -6.1950, longitude: 106.8230, total_amount: 52000, order_number: 'RMJ-20260905-008', created_at: new Date(Date.now() - 10800000).toISOString() },
-    ]
-
     try {
       const { data } = await supabase
         .from('orders')
@@ -50,13 +43,13 @@ export default function MapPage() {
         .not('longitude', 'is', null)
         .gte('created_at', thirtyDaysAgo.toISOString())
 
-      if (data && data.length > 0) {
+      if (data) {
         setLocations(data as OrderLocation[])
       } else {
-        setLocations(fallbackLocations)
+        setLocations([])
       }
     } catch {
-      setLocations(fallbackLocations)
+      setLocations([])
     } finally {
       setLoading(false)
     }

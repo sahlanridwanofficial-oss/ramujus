@@ -33,22 +33,10 @@ export default function DriverDashboard() {
     setLoading(true)
 
     if (user.id === 'demo-driver-id') {
-      setActiveShift({
-        id: 'demo-shift-id',
-        driver_id: 'demo-driver-id',
-        start_time: new Date().toISOString(),
-        end_time: null,
-        start_lat: -6.2088,
-        start_lng: 106.8456,
-        end_lat: null,
-        end_lng: null,
-        status: 'active',
-        notes: null,
-        created_at: new Date().toISOString()
-      })
+      setActiveShift(null)
       setTodayStats({
-        orders: 14,
-        revenue: 286000
+        orders: 0,
+        revenue: 0
       })
       setLoading(false)
       return

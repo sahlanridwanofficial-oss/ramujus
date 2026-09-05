@@ -54,14 +54,6 @@ export default function AdminDashboard() {
   async function loadData() {
     const today = new Date().toISOString().slice(0, 10)
 
-    const sampleRecentOrders: RecentOrder[] = [
-      { id: '1', order_number: 'RMJ-20260905-014', total_amount: 45000, payment_method: 'qris', created_at: new Date(Date.now() - 5*60000).toISOString(), driver: [{ full_name: 'Budi Santoso' }] },
-      { id: '2', order_number: 'RMJ-20260905-013', total_amount: 22000, payment_method: 'cash', created_at: new Date(Date.now() - 18*60000).toISOString(), driver: [{ full_name: 'Agus Pratama' }] },
-      { id: '3', order_number: 'RMJ-20260905-012', total_amount: 68000, payment_method: 'qris', created_at: new Date(Date.now() - 42*60000).toISOString(), driver: [{ full_name: 'Rian Hidayat' }] },
-      { id: '4', order_number: 'RMJ-20260905-011', total_amount: 20000, payment_method: 'cash', created_at: new Date(Date.now() - 65*60000).toISOString(), driver: [{ full_name: 'Budi Santoso' }] },
-      { id: '5', order_number: 'RMJ-20260905-010', total_amount: 38000, payment_method: 'transfer', created_at: new Date(Date.now() - 90*60000).toISOString(), driver: [{ full_name: 'Agus Pratama' }] },
-    ]
-
     try {
       // Today's orders
       const { data: todayOrders } = await supabase
@@ -85,36 +77,25 @@ export default function AdminDashboard() {
         .order('created_at', { ascending: false })
         .limit(10)
 
-      if (todayOrders && todayOrders.length > 0) {
-        const totalRev = todayOrders.reduce((s, o) => s + o.total_amount, 0)
-        setStats({
-          todayOrders: todayOrders.length,
-          todayRevenue: totalRev,
-          activeDrivers: activeShifts?.length || 0,
-          avgOrderValue: todayOrders.length > 0 ? Math.round(totalRev / todayOrders.length) : 0,
-        })
-      } else {
-        setStats({
-          todayOrders: 32,
-          todayRevenue: 648000,
-          activeDrivers: 4,
-          avgOrderValue: 20250,
-        })
-      }
+      const totalRev = todayOrders ? todayOrders.reduce((s, o) => s + o.total_amount, 0) : 0
+      const orderCount = todayOrders ? todayOrders.length : 0
 
-      if (recent && recent.length > 0) {
-        setRecentOrders(recent as RecentOrder[])
-      } else {
-        setRecentOrders(sampleRecentOrders)
-      }
+      setStats({
+        todayOrders: orderCount,
+        todayRevenue: totalRev,
+        activeDrivers: activeShifts ? activeShifts.length : 0,
+        avgOrderValue: orderCount > 0 ? Math.round(totalRev / orderCount) : 0,
+      })
+
+      setRecentOrders(recent ? (recent as RecentOrder[]) : [])
     } catch {
       setStats({
-        todayOrders: 32,
-        todayRevenue: 648000,
-        activeDrivers: 4,
-        avgOrderValue: 20250,
+        todayOrders: 0,
+        todayRevenue: 0,
+        activeDrivers: 0,
+        avgOrderValue: 0,
       })
-      setRecentOrders(sampleRecentOrders)
+      setRecentOrders([])
     } finally {
       setLoading(false)
     }

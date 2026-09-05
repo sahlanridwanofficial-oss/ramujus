@@ -25,14 +25,6 @@ export default function AnalyticsPage() {
     const fromDate = new Date()
     fromDate.setDate(fromDate.getDate() - days)
 
-    const fallbackProducts: ProductRank[] = [
-      { name: 'Berry Blast', total_qty: 148, revenue: 2960000 },
-      { name: 'Avocado Cream', total_qty: 122, revenue: 2684000 },
-      { name: 'Green Paradise', total_qty: 110, revenue: 1980000 },
-      { name: 'Dragon Fruit Bliss', total_qty: 94, revenue: 2068000 },
-      { name: 'Extra Granola', total_qty: 85, revenue: 425000 },
-    ]
-
     try {
       const { data: orders } = await supabase
         .from('orders')
@@ -52,22 +44,9 @@ export default function AnalyticsPage() {
         setTotalRevenue(orders.reduce((s, o) => s + o.total_amount, 0))
         setTotalOrders(orders.length)
       } else {
-        // Fallback demo metrics
-        const sampleDays: DailyData[] = []
-        for (let i = days - 1; i >= 0; i--) {
-          const d = new Date()
-          d.setDate(d.getDate() - i)
-          const dateStr = d.toISOString().slice(0, 10)
-          const rev = Math.floor(450000 + Math.sin(i) * 180000 + (days - i) * 15000)
-          sampleDays.push({
-            date: dateStr,
-            revenue: rev,
-            orders: Math.floor(rev / 20000),
-          })
-        }
-        setDailyData(sampleDays)
-        setTotalRevenue(sampleDays.reduce((s, d) => s + d.revenue, 0))
-        setTotalOrders(sampleDays.reduce((s, d) => s + d.orders, 0))
+        setDailyData([])
+        setTotalRevenue(0)
+        setTotalOrders(0)
       }
 
       // Top products
@@ -90,10 +69,13 @@ export default function AnalyticsPage() {
         const sorted = Object.values(byProduct).sort((a, b) => b.revenue - a.revenue)
         setTopProducts(sorted.slice(0, 10))
       } else {
-        setTopProducts(fallbackProducts)
+        setTopProducts([])
       }
     } catch {
-      setTopProducts(fallbackProducts)
+      setDailyData([])
+      setTotalRevenue(0)
+      setTotalOrders(0)
+      setTopProducts([])
     } finally {
       setLoading(false)
     }

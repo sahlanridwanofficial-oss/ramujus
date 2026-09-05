@@ -20,69 +20,6 @@ export default function DriversPage() {
   useEffect(() => { loadDrivers() }, [])
 
   async function loadDrivers() {
-    const fallbackDrivers: DriverWithStats[] = [
-      {
-        id: 'd1',
-        full_name: 'Budi Santoso',
-        phone: '0812-8888-1001',
-        avatar_url: null,
-        role: 'driver',
-        status: 'active',
-        home_base_lat: -6.2088,
-        home_base_lng: 106.8456,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        total_orders: 28,
-        total_revenue: 580000,
-        has_active_shift: true
-      },
-      {
-        id: 'd2',
-        full_name: 'Agus Pratama',
-        phone: '0813-7777-2002',
-        avatar_url: null,
-        role: 'driver',
-        status: 'active',
-        home_base_lat: -6.2140,
-        home_base_lng: 106.8320,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        total_orders: 22,
-        total_revenue: 462000,
-        has_active_shift: true
-      },
-      {
-        id: 'd3',
-        full_name: 'Rian Hidayat',
-        phone: '0819-3333-4004',
-        avatar_url: null,
-        role: 'driver',
-        status: 'active',
-        home_base_lat: -6.2250,
-        home_base_lng: 106.8010,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        total_orders: 19,
-        total_revenue: 399000,
-        has_active_shift: false
-      },
-      {
-        id: 'd4',
-        full_name: 'Dedi Kurniawan',
-        phone: '0812-4444-5005',
-        avatar_url: null,
-        role: 'driver',
-        status: 'inactive',
-        home_base_lat: null,
-        home_base_lng: null,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        total_orders: 0,
-        total_revenue: 0,
-        has_active_shift: false
-      },
-    ]
-
     try {
       const { data: profiles } = await supabase
         .from('profiles')
@@ -91,7 +28,7 @@ export default function DriversPage() {
         .order('created_at')
 
       if (!profiles || profiles.length === 0) {
-        setDrivers(fallbackDrivers)
+        setDrivers([])
         setLoading(false)
         return
       }
@@ -121,7 +58,7 @@ export default function DriversPage() {
 
       setDrivers(driversWithStats)
     } catch {
-      setDrivers(fallbackDrivers)
+      setDrivers([])
     } finally {
       setLoading(false)
     }

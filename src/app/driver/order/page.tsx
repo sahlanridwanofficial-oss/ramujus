@@ -43,18 +43,6 @@ export default function OrderPage() {
   }, [user])
 
   async function loadData() {
-    const fallbackProducts: Product[] = [
-      { id: '1', name: 'Green Paradise', description: 'Bayam segar, pisang, mangga, madu alami', image_url: null, price: 18000, category: 'smoothie', is_available: true, sort_order: 1, created_at: '' },
-      { id: '2', name: 'Berry Blast', description: 'Strawberry, blueberry, yoghurt, madu murni', image_url: null, price: 20000, category: 'smoothie', is_available: true, sort_order: 2, created_at: '' },
-      { id: '3', name: 'Tropical Sunset', description: 'Mangga harum manis, nanas, jeruk peras segar', image_url: null, price: 18000, category: 'smoothie', is_available: true, sort_order: 3, created_at: '' },
-      { id: '4', name: 'Choco Banana', description: 'Pisang cavendish, coklat artisan, almond milk', image_url: null, price: 20000, category: 'smoothie', is_available: true, sort_order: 4, created_at: '' },
-      { id: '5', name: 'Dragon Fruit Bliss', description: 'Buah naga merah segar, pisang, perasan lemon', image_url: null, price: 22000, category: 'smoothie', is_available: true, sort_order: 5, created_at: '' },
-      { id: '6', name: 'Avocado Cream', description: 'Alpukat mentega murni, susu segar, gula aren', image_url: null, price: 22000, category: 'smoothie', is_available: true, sort_order: 6, created_at: '' },
-      { id: '7', name: 'Extra Granola', description: 'Topping granola renyah panggang madu', image_url: null, price: 5000, category: 'topping', is_available: true, sort_order: 20, created_at: '' },
-      { id: '8', name: 'Extra Chia Seeds', description: 'Superfood biji chia kaya serat & omega', image_url: null, price: 5000, category: 'topping', is_available: true, sort_order: 21, created_at: '' },
-      { id: '9', name: 'Extra Madu Murni', description: 'Suntikan madu bunga liar 100% alami', image_url: null, price: 3000, category: 'addon', is_available: true, sort_order: 30, created_at: '' },
-    ]
-
     try {
       // Get active shift
       const { data: shift } = await supabase
@@ -89,13 +77,13 @@ export default function OrderPage() {
         .eq('is_available', true)
         .order('sort_order')
 
-      if (prods && prods.length > 0) {
+      if (prods) {
         setProducts(prods)
       } else {
-        setProducts(fallbackProducts)
+        setProducts([])
       }
     } catch {
-      setProducts(fallbackProducts)
+      setProducts([])
     } finally {
       setLoading(false)
     }
@@ -347,69 +335,78 @@ export default function OrderPage() {
 
       {/* Product List Grid */}
       <div className="p-4 space-y-3">
-        {filteredProducts.map(product => {
-          const qty = getCartQty(product.id)
-          return (
-            <div
-              key={product.id}
-              className={`bg-white rounded-2xl border p-4 transition-all ${
-                qty > 0
-                  ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-sm'
-                  : 'border-zinc-200/80 shadow-xs'
-              }`}
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-sm text-zinc-900 truncate">
-                      {product.name}
-                    </h3>
-                    <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">
-                      {product.category}
-                    </span>
-                  </div>
-                  {product.description && (
-                    <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed">
-                      {product.description}
+        {filteredProducts.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-zinc-200/80 p-10 text-center shadow-xs">
+            <p className="text-xs font-bold text-zinc-700">Katalog Menu Belum Tersedia</p>
+            <p className="text-[11px] text-zinc-400 mt-1 max-w-xs mx-auto">
+              Belum ada produk aktif yang terdaftar di database. Silakan input menu produk melalui Panel Admin.
+            </p>
+          </div>
+        ) : (
+          filteredProducts.map(product => {
+            const qty = getCartQty(product.id)
+            return (
+              <div
+                key={product.id}
+                className={`bg-white rounded-2xl border p-4 transition-all ${
+                  qty > 0
+                    ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-sm'
+                    : 'border-zinc-200/80 shadow-xs'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm text-zinc-900 truncate">
+                        {product.name}
+                      </h3>
+                      <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">
+                        {product.category}
+                      </span>
+                    </div>
+                    {product.description && (
+                      <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed">
+                        {product.description}
+                      </p>
+                    )}
+                    <p className="text-sm font-black text-[#be1a1a] mt-2">
+                      {formatRupiah(product.price)}
                     </p>
-                  )}
-                  <p className="text-sm font-black text-[#be1a1a] mt-2">
-                    {formatRupiah(product.price)}
-                  </p>
-                </div>
+                  </div>
 
-                {/* Quantity Controls */}
-                <div className="shrink-0 pt-1">
-                  {qty === 0 ? (
-                    <button
-                      onClick={() => addToCart(product)}
-                      className="flex items-center gap-1 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-sm active:scale-95"
-                    >
-                      <Plus className="w-3.5 h-3.5" />
-                      <span>Tambah</span>
-                    </button>
-                  ) : (
-                    <div className="flex items-center gap-2 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60">
-                      <button
-                        onClick={() => removeFromCart(product.id)}
-                        className="w-8 h-8 rounded-lg bg-white shadow-xs flex items-center justify-center text-zinc-700 hover:bg-zinc-50 active:scale-90 transition-all"
-                      >
-                        {qty === 1 ? <X className="w-3.5 h-3.5 text-red-600" /> : <Minus className="w-3.5 h-3.5" />}
-                      </button>
-                      <span className="w-6 text-center font-bold text-sm text-zinc-900">{qty}</span>
+                  {/* Quantity Controls */}
+                  <div className="shrink-0 pt-1">
+                    {qty === 0 ? (
                       <button
                         onClick={() => addToCart(product)}
-                        className="w-8 h-8 rounded-lg bg-[#be1a1a] text-white flex items-center justify-center shadow-xs hover:bg-[#a61515] active:scale-90 transition-all"
+                        className="flex items-center gap-1 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-sm active:scale-95"
                       >
                         <Plus className="w-3.5 h-3.5" />
+                        <span>Tambah</span>
                       </button>
-                    </div>
-                  )}
+                    ) : (
+                      <div className="flex items-center gap-2 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60">
+                        <button
+                          onClick={() => removeFromCart(product.id)}
+                          className="w-8 h-8 rounded-lg bg-white shadow-xs flex items-center justify-center text-zinc-700 hover:bg-zinc-50 active:scale-90 transition-all"
+                        >
+                          {qty === 1 ? <X className="w-3.5 h-3.5 text-red-600" /> : <Minus className="w-3.5 h-3.5" />}
+                        </button>
+                        <span className="w-6 text-center font-bold text-sm text-zinc-900">{qty}</span>
+                        <button
+                          onClick={() => addToCart(product)}
+                          className="w-8 h-8 rounded-lg bg-[#be1a1a] text-white flex items-center justify-center shadow-xs hover:bg-[#a61515] active:scale-90 transition-all"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })
+        )}
       </div>
 
       {/* Sticky Bottom Cart Summary & Checkout */}

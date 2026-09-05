@@ -30,42 +30,7 @@ export default function HistoryPage() {
     setLoading(true)
 
     if (user.id === 'demo-driver-id') {
-      const demoOrders: OrderWithItems[] = [
-        {
-          id: 'demo-1',
-          shift_id: 'shift-1',
-          driver_id: 'demo-driver-id',
-          order_number: 'RMJ-' + selectedDate.replace(/-/g, '') + '-012',
-          total_amount: 42000,
-          payment_method: 'qris',
-          latitude: -6.2088,
-          longitude: 106.8456,
-          address: null,
-          customer_notes: null,
-          created_at: `${selectedDate}T14:32:00Z`,
-          order_items: [
-            { id: 'item-1', order_id: 'demo-1', product_id: '1', quantity: 2, unit_price: 18000, subtotal: 36000, product: { id: '1', name: 'Green Paradise', description: null, image_url: null, price: 18000, category: 'smoothie', is_available: true, sort_order: 1, created_at: '' } },
-            { id: 'item-2', order_id: 'demo-1', product_id: '7', quantity: 1, unit_price: 6000, subtotal: 6000, product: { id: '7', name: 'Extra Granola', description: null, image_url: null, price: 6000, category: 'topping', is_available: true, sort_order: 2, created_at: '' } }
-          ]
-        },
-        {
-          id: 'demo-2',
-          shift_id: 'shift-1',
-          driver_id: 'demo-driver-id',
-          order_number: 'RMJ-' + selectedDate.replace(/-/g, '') + '-011',
-          total_amount: 20000,
-          payment_method: 'cash',
-          latitude: -6.2092,
-          longitude: 106.8462,
-          address: null,
-          customer_notes: null,
-          created_at: `${selectedDate}T12:15:00Z`,
-          order_items: [
-            { id: 'item-3', order_id: 'demo-2', product_id: '2', quantity: 1, unit_price: 20000, subtotal: 20000, product: { id: '2', name: 'Berry Blast', description: null, image_url: null, price: 20000, category: 'smoothie', is_available: true, sort_order: 2, created_at: '' } }
-          ]
-        }
-      ]
-      setOrders(demoOrders)
+      setOrders([])
       setLoading(false)
       return
     }

@@ -214,20 +214,3 @@ ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.shifts;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.location_logs;
 
--- ============================================
--- Seed Data: Sample Products
--- ============================================
-INSERT INTO public.products (name, description, price, category, is_available, sort_order) VALUES
-  ('Green Paradise', 'Bayam, pisang, mangga, madu', 18000, 'smoothie', true, 1),
-  ('Berry Blast', 'Strawberry, blueberry, yoghurt, madu', 20000, 'smoothie', true, 2),
-  ('Tropical Sunset', 'Mangga, nanas, jeruk, passion fruit', 18000, 'smoothie', true, 3),
-  ('Choco Banana', 'Pisang, coklat, susu almond, madu', 20000, 'smoothie', true, 4),
-  ('Dragon Fruit Bliss', 'Buah naga, pisang, susu, madu', 22000, 'smoothie', true, 5),
-  ('Avocado Dream', 'Alpukat, susu, gula aren, es', 22000, 'smoothie', true, 6),
-  ('Matcha Latte', 'Matcha, susu, madu, es', 25000, 'smoothie', true, 7),
-  ('Peanut Power', 'Pisang, selai kacang, susu, oat', 23000, 'smoothie', true, 8),
-  ('Extra Granola', 'Topping granola crunchy', 5000, 'topping', true, 20),
-  ('Extra Chia Seeds', 'Topping chia seeds', 5000, 'topping', true, 21),
-  ('Extra Madu', 'Tambahan madu', 3000, 'addon', true, 30),
-  ('Upsize', 'Upgrade ukuran ke Large', 5000, 'addon', true, 31)
-ON CONFLICT DO NOTHING;
