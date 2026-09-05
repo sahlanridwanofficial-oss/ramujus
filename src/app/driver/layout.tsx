@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
-import { LayoutGrid, PlusCircle, History, User, Leaf, LogOut } from 'lucide-react'
+import { LayoutGrid, PlusCircle, History, User, LogOut } from 'lucide-react'
 
 const navItems = [
   { href: '/driver/dashboard', icon: LayoutGrid, label: 'Home' },
@@ -22,10 +22,10 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
       <header className="bg-white border-b sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 h-14">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-              <Leaf className="w-4 h-4 text-white" />
+            <div className="w-7 h-7 bg-black flex items-center justify-center">
+              <span className="text-white font-black text-xs tracking-tighter">RJ</span>
             </div>
-            <span className="font-bold text-sm text-gray-900">RAMUJUS</span>
+            <span className="font-black tracking-tight text-sm text-gray-900">RAMU<span className="text-primary">JUS</span></span>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-muted-foreground">{user?.full_name}</span>

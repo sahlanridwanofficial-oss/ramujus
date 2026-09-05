@@ -161,10 +161,10 @@ export default function ProductsPage() {
           <div key={product.id} className="px-5 py-3.5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${
-                product.is_available ? 'bg-green-50' : 'bg-gray-100'
+                product.is_available ? 'bg-red-50' : 'bg-gray-100'
               }`}>
                 <Package className={`w-4 h-4 ${
-                  product.is_available ? 'text-green-600' : 'text-gray-400'
+                  product.is_available ? 'text-red-600' : 'text-gray-400'
                 }`} />
               </div>
               <div>
@@ -190,7 +190,7 @@ export default function ProductsPage() {
                 className="text-gray-400 hover:text-gray-600"
               >
                 {product.is_available ? (
-                  <ToggleRight className="w-7 h-7 text-green-600" />
+                  <ToggleRight className="w-7 h-7 text-red-600" />
                 ) : (
                   <ToggleLeft className="w-7 h-7" />
                 )}

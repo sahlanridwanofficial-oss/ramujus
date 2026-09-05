@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Leaf, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -22,7 +22,6 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
 
-    // Check for demo shortcut accounts
     if (email.toLowerCase() === 'admin@ramujus.com') {
       handleDemoLogin('admin')
       return
@@ -43,7 +42,6 @@ export default function LoginPage() {
         return
       }
 
-      // Get role and redirect
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
         const { data: profile } = await supabase
@@ -64,56 +62,62 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 flex items-center justify-center p-4">
-      <div className="w-full max-w-sm">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-primary rounded-2xl mb-3 shadow-lg shadow-green-200">
-            <Leaf className="w-8 h-8 text-white" />
+    <div className="min-h-screen bg-[#FDFDFD] flex flex-col items-center justify-center p-4 sm:p-8">
+      <div className="w-full max-w-[400px]">
+        {/* Brand Header */}
+        <div className="mb-10 text-center">
+          <div className="inline-flex items-center justify-center w-12 h-12 bg-primary mb-6">
+            <span className="text-white font-black text-xl tracking-tighter">RJ</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">RAMUJUS</h1>
-          <p className="text-sm text-muted-foreground mt-0.5">Smoothie Sales System</p>
-        </div>
-
-        {/* Quick Demo Login Cards */}
-        <div className="bg-white rounded-2xl shadow-sm border p-4 mb-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2.5 text-center">
-            ⚡ Akses Cepat Uji Coba (Demo)
+          <h1 className="text-3xl font-black tracking-tight text-gray-900">
+            RAMU<span className="text-primary">JUS</span>
+          </h1>
+          <p className="text-sm text-gray-500 mt-2 font-medium tracking-wide uppercase">
+            System OS
           </p>
-          <div className="grid grid-cols-2 gap-2">
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('driver')}
-              className="bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 text-emerald-700 py-2 px-3 rounded-xl text-xs font-semibold transition-all text-center"
-            >
-              🛵 Masuk Driver
-            </button>
-            <button
-              type="button"
-              onClick={() => handleDemoLogin('admin')}
-              className="bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 py-2 px-3 rounded-xl text-xs font-semibold transition-all text-center"
-            >
-              📊 Masuk Admin
-            </button>
+        </div>
+
+        {/* Demo Mode Notice */}
+        <div className="bg-white border border-gray-100 shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-1 mb-8">
+          <div className="bg-gray-50 px-4 py-3 border border-gray-100 text-center flex flex-col gap-3">
+            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+              Demo Access
+            </span>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('driver')}
+                className="bg-white hover:bg-gray-50 border border-gray-200 text-gray-700 py-2.5 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm"
+              >
+                Driver App
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDemoLogin('admin')}
+                className="bg-primary hover:bg-primary/90 border border-primary text-white py-2.5 px-3 text-xs font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-primary/20"
+              >
+                Admin Panel
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Form */}
-        <form onSubmit={handleLogin} className="bg-white rounded-2xl shadow-sm border p-6 space-y-4">
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Email</label>
+        {/* Main Form */}
+        <form onSubmit={handleLogin} className="space-y-6">
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Email Address</label>
             <input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="driver@ramujus.com"
+              placeholder="Enter your email"
               required
-              className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
+              className="w-full px-0 py-3 bg-transparent border-b-2 border-gray-200 text-sm focus:outline-none focus:border-primary transition-colors placeholder:text-gray-300 font-medium rounded-none"
             />
           </div>
 
-          <div>
-            <label className="text-sm font-medium text-gray-700 block mb-1.5">Password</label>
+          <div className="space-y-1">
+            <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Password</label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
@@ -121,20 +125,20 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full px-3.5 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors pr-10"
+                className="w-full px-0 py-3 bg-transparent border-b-2 border-gray-200 text-sm focus:outline-none focus:border-primary transition-colors placeholder:text-gray-300 font-medium rounded-none pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-0 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500 transition-colors"
               >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff strokeWidth={1.5} className="w-4 h-4" /> : <Eye strokeWidth={1.5} className="w-4 h-4" />}
               </button>
             </div>
           </div>
 
           {error && (
-            <div className="bg-red-50 text-red-600 text-xs px-3.5 py-2.5 rounded-xl">
+            <div className="text-primary text-xs font-medium py-2">
               {error}
             </div>
           )}
@@ -142,22 +146,24 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-primary hover:bg-primary/90 text-white font-medium py-2.5 px-4 rounded-xl transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full bg-gray-900 hover:bg-black text-white font-semibold py-4 px-4 transition-colors disabled:opacity-50 flex items-center justify-between group shadow-[0_8px_30px_rgb(0,0,0,0.12)]"
           >
+            <span className="text-sm tracking-wide">
+              {loading ? 'Authenticating...' : 'Sign In'}
+            </span>
             {loading ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Masuk...
-              </>
+              <Loader2 className="w-4 h-4 animate-spin" />
             ) : (
-              'Masuk Akun'
+              <ArrowRight strokeWidth={1.5} className="w-4 h-4 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
             )}
           </button>
         </form>
 
-        <p className="text-center text-xs text-muted-foreground mt-6">
-          &copy; 2026 RAMUJUS. All rights reserved.
-        </p>
+        <div className="mt-12 text-center">
+          <p className="text-[10px] font-bold text-gray-300 uppercase tracking-widest">
+            RAMUJUS OS v1.0
+          </p>
+        </div>
       </div>
     </div>
   )

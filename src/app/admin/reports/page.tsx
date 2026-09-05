@@ -115,7 +115,7 @@ export default function ReportsPage() {
           <p className="text-xs text-muted-foreground">Total Pesanan</p>
         </div>
         <div className="bg-white rounded-2xl border p-4">
-          <TrendingUp className="w-5 h-5 text-emerald-600 mb-1" />
+          <TrendingUp className="w-5 h-5 text-red-600 mb-1" />
           <p className="text-lg font-bold">{formatRupiah(totalRevenue)}</p>
           <p className="text-xs text-muted-foreground">Total Omzet</p>
         </div>

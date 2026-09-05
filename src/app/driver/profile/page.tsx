@@ -39,12 +39,12 @@ export default function ProfilePage() {
           </div>
         </div>
         <div className="px-4 py-3.5 flex items-center gap-3">
-          <div className="w-9 h-9 bg-emerald-50 rounded-lg flex items-center justify-center">
-            <Shield className="w-4 h-4 text-emerald-600" />
+          <div className="w-9 h-9 bg-red-50 rounded-lg flex items-center justify-center">
+            <Shield className="w-4 h-4 text-red-600" />
           </div>
           <div>
             <p className="text-xs text-muted-foreground">Status</p>
-            <p className="text-sm font-medium text-green-600 capitalize">{user?.status}</p>
+            <p className="text-sm font-medium text-red-600 capitalize">{user?.status}</p>
           </div>
         </div>
       </div>

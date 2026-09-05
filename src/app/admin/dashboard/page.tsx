@@ -138,7 +138,7 @@ export default function AdminDashboard() {
       label: 'Omzet Hari Ini',
       value: formatRupiah(stats.todayRevenue),
       icon: TrendingUp,
-      color: 'bg-emerald-50 text-emerald-600',
+      color: 'bg-red-50 text-red-600',
     },
     {
       label: 'Driver Aktif',

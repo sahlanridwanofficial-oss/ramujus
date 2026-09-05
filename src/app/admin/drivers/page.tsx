@@ -103,7 +103,7 @@ export default function DriversPage() {
                     <div className="flex items-center gap-2">
                       <p className="font-medium text-gray-900">{driver.full_name}</p>
                       {driver.has_active_shift && (
-                        <span className="flex items-center gap-1 text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-medium">
+                        <span className="flex items-center gap-1 text-[10px] bg-red-50 text-red-600 px-2 py-0.5 rounded-full font-medium">
                           <Circle className="w-1.5 h-1.5 fill-current" />
                           Online
                         </span>
@@ -116,7 +116,7 @@ export default function DriversPage() {
                   onClick={() => toggleStatus(driver)}
                   className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                     driver.status === 'active'
-                      ? 'bg-green-50 text-green-600'
+                      ? 'bg-red-50 text-red-600'
                       : 'bg-red-50 text-red-600'
                   }`}
                 >

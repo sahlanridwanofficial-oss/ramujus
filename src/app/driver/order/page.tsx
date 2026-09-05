@@ -204,8 +204,8 @@ export default function OrderPage() {
   if (success) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] p-6 text-center">
-        <div className="w-16 h-16 bg-green-50 rounded-full flex items-center justify-center mb-4">
-          <CheckCircle className="w-8 h-8 text-green-600" />
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mb-4">
+          <CheckCircle className="w-8 h-8 text-red-600" />
         </div>
         <h2 className="text-xl font-bold text-gray-900 mb-1">Pesanan Tersimpan!</h2>
         <p className="text-sm text-muted-foreground mb-1">{orderNumber}</p>
@@ -266,7 +266,7 @@ export default function OrderPage() {
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <MapPin className="w-3 h-3" />
             {gpsLoading ? 'Mencari lokasi...' : latitude ? (
-              <span className="text-green-600">GPS Aktif</span>
+              <span className="text-red-600">GPS Aktif</span>
             ) : (
               <span className="text-amber-600">GPS belum aktif</span>
             )}

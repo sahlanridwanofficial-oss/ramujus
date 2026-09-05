@@ -3,9 +3,9 @@ export const APP_DESCRIPTION = 'Sistem Manajemen Penjualan Smoothies'
 export const APP_VERSION = '1.0.0'
 
 export const COLORS = {
-  primary: '#16a34a',     // green-600
-  primaryDark: '#15803d', // green-700
-  primaryLight: '#22c55e', // green-500
+  primary: '#dc2626',     // red-600
+  primaryDark: '#b91c1c', // red-700
+  primaryLight: '#ef4444', // red-500
   accent: '#f59e0b',      // amber-500
 } as const
 
@@ -22,7 +22,7 @@ export const PRODUCT_CATEGORIES = [
 ] as const
 
 export const SHIFT_STATUS = {
-  active: { label: 'Aktif', color: 'text-green-600 bg-green-50' },
+  active: { label: 'Aktif', color: 'text-red-600 bg-red-50' },
   completed: { label: 'Selesai', color: 'text-gray-600 bg-gray-50' },
   cancelled: { label: 'Dibatalkan', color: 'text-red-600 bg-red-50' },
 } as const

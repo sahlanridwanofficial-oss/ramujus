@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import {
   LayoutGrid, BarChart3, Map, Package, Users,
-  FileText, Leaf, LogOut, Menu, X
+  FileText, LogOut, Menu, X
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -28,10 +28,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* Sidebar - Desktop */}
       <aside className="hidden lg:flex lg:flex-col lg:w-56 bg-white border-r fixed inset-y-0 z-40">
         <div className="flex items-center gap-2 px-5 h-16 border-b">
-          <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-            <Leaf className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 bg-black flex items-center justify-center">
+            <span className="text-white font-black text-xs tracking-tighter">RJ</span>
           </div>
-          <span className="font-bold text-gray-900">RAMUJUS</span>
+          <span className="font-black tracking-tight text-gray-900">RAMU<span className="text-primary">JUS</span></span>
         </div>
 
         <nav className="flex-1 p-3 space-y-0.5">
@@ -83,10 +83,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <aside className="fixed inset-y-0 left-0 w-64 bg-white z-50 shadow-xl">
             <div className="flex items-center justify-between px-5 h-16 border-b">
               <div className="flex items-center gap-2">
-                <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center">
-                  <Leaf className="w-4 h-4 text-white" />
-                </div>
-                <span className="font-bold text-gray-900">RAMUJUS</span>
+                <div className="w-8 h-8 bg-black flex items-center justify-center">
+            <span className="text-white font-black text-xs tracking-tighter">RJ</span>
+          </div>
+          <span className="font-black tracking-tight text-gray-900">RAMU<span className="text-primary">JUS</span></span>
               </div>
               <button onClick={() => setSidebarOpen(false)} className="text-gray-400">
                 <X className="w-5 h-5" />
@@ -125,10 +125,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Menu className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-primary rounded-lg flex items-center justify-center">
-                <Leaf className="w-3.5 h-3.5 text-white" />
+              <div className="w-7 h-7 bg-black flex items-center justify-center">
+                <span className="text-white font-black text-[10px] tracking-tighter">RJ</span>
               </div>
-              <span className="font-bold text-sm">RAMUJUS</span>
+              <span className="font-black tracking-tight text-sm text-gray-900">RAMU<span className="text-primary">JUS</span></span>
             </div>
             <div className="w-5" />
           </div>

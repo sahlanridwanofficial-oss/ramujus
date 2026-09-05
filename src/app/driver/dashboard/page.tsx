@@ -181,8 +181,8 @@ export default function DriverDashboard() {
             <div className="flex items-center gap-1.5 mt-1">
               {activeShift ? (
                 <>
-                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-                  <span className="text-sm text-green-600 font-medium">Aktif</span>
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-sm text-red-600 font-medium">Aktif</span>
                 </>
               ) : (
                 <>
@@ -218,7 +218,7 @@ export default function DriverDashboard() {
           {gpsLoading ? (
             <span>Mencari lokasi...</span>
           ) : latitude ? (
-            <span className="text-green-600">
+            <span className="text-red-600">
               <CheckCircle2 className="w-3 h-3 inline mr-1" />
               GPS Aktif ({latitude.toFixed(4)}, {longitude?.toFixed(4)})
             </span>
@@ -244,8 +244,8 @@ export default function DriverDashboard() {
         </div>
         <div className="bg-white rounded-2xl border p-4">
           <div className="flex items-center gap-2 mb-2">
-            <div className="w-8 h-8 bg-emerald-50 rounded-lg flex items-center justify-center">
-              <TrendingUp className="w-4 h-4 text-emerald-600" />
+            <div className="w-8 h-8 bg-red-50 rounded-lg flex items-center justify-center">
+              <TrendingUp className="w-4 h-4 text-red-600" />
             </div>
           </div>
           <p className="text-2xl font-bold text-gray-900">{formatRupiah(todayStats.revenue)}</p>
@@ -257,7 +257,7 @@ export default function DriverDashboard() {
       {activeShift && (
         <a
           href="/driver/order"
-          className="block bg-primary text-white rounded-2xl p-4 text-center font-medium hover:bg-primary/90 transition-colors shadow-sm shadow-green-200"
+          className="block bg-primary text-white rounded-2xl p-4 text-center font-medium hover:bg-primary/90 transition-colors shadow-sm shadow-red-200"
         >
           + Pesanan Baru
         </a>
