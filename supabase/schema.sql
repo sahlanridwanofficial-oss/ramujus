@@ -208,9 +208,94 @@ CREATE POLICY "Drivers can insert own location logs" ON public.location_logs
   FOR INSERT WITH CHECK (auth.uid() = driver_id);
 
 -- ============================================
+-- 7. Driver Daily Allocations (Muat Gerobak Harian & Audit Malam)
+-- ============================================
+CREATE TABLE IF NOT EXISTS public.driver_daily_allocations (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  driver_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  date DATE NOT NULL DEFAULT CURRENT_DATE,
+  status TEXT NOT NULL DEFAULT 'allocated' CHECK (status IN ('allocated', 'active', 'reconciled')),
+  notes TEXT,
+  total_cash_collected INTEGER DEFAULT 0,
+  total_qris_collected INTEGER DEFAULT 0,
+  cash_settled INTEGER DEFAULT 0,
+  reconciled_at TIMESTAMPTZ,
+  reconciled_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (driver_id, date)
+);
+
+-- 8. Driver Allocation Items (Detail Muatan per Produk)
+CREATE TABLE IF NOT EXISTS public.driver_allocation_items (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  allocation_id UUID REFERENCES public.driver_daily_allocations(id) ON DELETE CASCADE NOT NULL,
+  product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
+  initial_quantity INTEGER NOT NULL CHECK (initial_quantity >= 0),
+  sold_quantity INTEGER NOT NULL DEFAULT 0 CHECK (sold_quantity >= 0),
+  physical_remaining INTEGER,
+  waste_quantity INTEGER NOT NULL DEFAULT 0 CHECK (waste_quantity >= 0),
+  notes TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (allocation_id, product_id)
+);
+
+-- Triggers for updated_at
+CREATE TRIGGER driver_daily_allocations_updated_at
+  BEFORE UPDATE ON public.driver_daily_allocations
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+CREATE TRIGGER driver_allocation_items_updated_at
+  BEFORE UPDATE ON public.driver_allocation_items
+  FOR EACH ROW EXECUTE FUNCTION public.update_updated_at();
+
+-- Indexes for performance
+CREATE INDEX IF NOT EXISTS idx_driver_allocations_driver_date ON public.driver_daily_allocations(driver_id, date);
+CREATE INDEX IF NOT EXISTS idx_driver_allocations_status ON public.driver_daily_allocations(status);
+CREATE INDEX IF NOT EXISTS idx_driver_allocation_items_alloc ON public.driver_allocation_items(allocation_id);
+CREATE INDEX IF NOT EXISTS idx_driver_allocation_items_prod ON public.driver_allocation_items(product_id);
+
+-- RLS
+ALTER TABLE public.driver_daily_allocations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.driver_allocation_items ENABLE ROW LEVEL SECURITY;
+
+-- ALLOCATIONS policies
+CREATE POLICY "Admin full access to allocations" ON public.driver_daily_allocations
+  FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
+
+CREATE POLICY "Drivers can view own allocations" ON public.driver_daily_allocations
+  FOR SELECT USING (auth.uid() = driver_id);
+
+-- ALLOCATION ITEMS policies
+CREATE POLICY "Admin full access to allocation items" ON public.driver_allocation_items
+  FOR ALL USING (public.get_user_role(auth.uid()) = 'admin');
+
+CREATE POLICY "Drivers can view own allocation items" ON public.driver_allocation_items
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.driver_daily_allocations
+      WHERE driver_daily_allocations.id = driver_allocation_items.allocation_id
+      AND driver_daily_allocations.driver_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Drivers can update own allocation items sold_qty" ON public.driver_allocation_items
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.driver_daily_allocations
+      WHERE driver_daily_allocations.id = driver_allocation_items.allocation_id
+      AND driver_daily_allocations.driver_id = auth.uid()
+    )
+  );
+
+-- ============================================
 -- Enable Realtime
 -- ============================================
 ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.shifts;
 ALTER PUBLICATION supabase_realtime ADD TABLE public.location_logs;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.driver_daily_allocations;
+ALTER PUBLICATION supabase_realtime ADD TABLE public.driver_allocation_items;
+
 

@@ -8,15 +8,36 @@ import { useGeolocation } from '@/hooks/useGeolocation'
 import { formatRupiah, getGreeting } from '@/lib/format'
 import {
   Play, Square, MapPin, ShoppingBag, TrendingUp,
-  Loader2, CheckCircle2, AlertCircle, Plus, ChevronRight, Navigation
+  Loader2, CheckCircle2, AlertCircle, Plus, ChevronRight, Navigation,
+  PackageCheck, Package, Layers
 } from 'lucide-react'
 import type { Shift } from '@/types/database'
+
+interface CartStockItem {
+  id: string
+  product_id: string
+  product_name: string
+  category: string
+  initial_quantity: number
+  sold_quantity: number
+  remaining: number
+}
+
+interface CartAllocationSummary {
+  id: string
+  status: string
+  total_initial: number
+  total_sold: number
+  total_remaining: number
+  items: CartStockItem[]
+}
 
 export default function DriverDashboard() {
   const { user } = useAuth()
   const { latitude, longitude, getPosition, loading: gpsLoading } = useGeolocation()
   const [activeShift, setActiveShift] = useState<Shift | null>(null)
   const [todayStats, setTodayStats] = useState({ orders: 0, revenue: 0 })
+  const [cartAllocation, setCartAllocation] = useState<CartAllocationSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [shiftLoading, setShiftLoading] = useState(false)
   const supabase = createClient()
@@ -34,16 +55,14 @@ export default function DriverDashboard() {
 
     if (user.id === 'demo-driver-id') {
       setActiveShift(null)
-      setTodayStats({
-        orders: 0,
-        revenue: 0
-      })
+      setTodayStats({ orders: 0, revenue: 0 })
+      setCartAllocation(null)
       setLoading(false)
       return
     }
 
     try {
-      // Get active shift
+      // 1. Get active shift
       const { data: shift } = await supabase
         .from('shifts')
         .select('*')
@@ -53,7 +72,7 @@ export default function DriverDashboard() {
 
       setActiveShift(shift)
 
-      // Get today's stats
+      // 2. Get today's stats
       const today = new Date().toISOString().slice(0, 10)
       const { data: orders } = await supabase
         .from('orders')
@@ -67,11 +86,63 @@ export default function DriverDashboard() {
           revenue: orders.reduce((sum, o) => sum + o.total_amount, 0),
         })
       }
+
+      // 3. Get today's cart allocation for this driver
+      const { data: alloc } = await supabase
+        .from('driver_daily_allocations')
+        .select(`
+          id,
+          status,
+          driver_allocation_items (
+            id,
+            product_id,
+            initial_quantity,
+            sold_quantity,
+            products (
+              name,
+              category
+            )
+          )
+        `)
+        .eq('driver_id', user.id)
+        .eq('date', today)
+        .maybeSingle()
+
+      if (alloc && alloc.driver_allocation_items && alloc.driver_allocation_items.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const items: CartStockItem[] = alloc.driver_allocation_items.map((it: any) => {
+          const initQty = it.initial_quantity || 0
+          const soldQty = it.sold_quantity || 0
+          return {
+            id: it.id,
+            product_id: it.product_id,
+            product_name: it.products?.name || 'Produk',
+            category: it.products?.category || 'smoothie',
+            initial_quantity: initQty,
+            sold_quantity: soldQty,
+            remaining: Math.max(0, initQty - soldQty)
+          }
+        })
+
+        const totalInit = items.reduce((s, i) => s + i.initial_quantity, 0)
+        const totalSold = items.reduce((s, i) => s + i.sold_quantity, 0)
+
+        setCartAllocation({
+          id: alloc.id,
+          status: alloc.status,
+          total_initial: totalInit,
+          total_sold: totalSold,
+          total_remaining: Math.max(0, totalInit - totalSold),
+          items
+        })
+      } else {
+        setCartAllocation(null)
+      }
     } catch {
       // fallback
+    } finally {
+      setLoading(false)
     }
-
-    setLoading(false)
   }
 
   async function startShift() {
@@ -166,7 +237,7 @@ export default function DriverDashboard() {
       </div>
 
       {/* Modern Shift Management Card */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-sm space-y-4">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400 block mb-1">
@@ -233,7 +304,7 @@ export default function DriverDashboard() {
 
       {/* Main KPI Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-zinc-500">Penjualan Hari Ini</span>
             <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-[#be1a1a]">
@@ -246,7 +317,7 @@ export default function DriverDashboard() {
           <span className="text-[11px] text-zinc-400 mt-1 block">Total penerimaan</span>
         </div>
 
-        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-sm">
+        <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-xs">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-zinc-500">Cup Terjual</span>
             <div className="w-7 h-7 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700">
@@ -258,6 +329,110 @@ export default function DriverDashboard() {
           </p>
           <span className="text-[11px] text-zinc-400 mt-1 block">Tercatat hari ini</span>
         </div>
+      </div>
+
+      {/* ========================================================= */}
+      {/* Realtime Cart Stock Allocation Card for Driver */}
+      {/* ========================================================= */}
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-4.5 shadow-xs space-y-3.5">
+        <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#be1a1a] flex items-center justify-center">
+              <PackageCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="font-bold text-zinc-900 text-xs">Muatan Stok Gerobak Hari Ini</h3>
+              <p className="text-[10px] text-zinc-400">Pantau sisa cup di coolbox secara realtime</p>
+            </div>
+          </div>
+
+          {cartAllocation ? (
+            <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-0.5 rounded-full">
+              Teralokasi
+            </span>
+          ) : (
+            <span className="text-[10px] bg-zinc-100 text-zinc-500 font-medium px-2 py-0.5 rounded-full">
+              Belum Diisi Admin
+            </span>
+          )}
+        </div>
+
+        {cartAllocation ? (
+          <div className="space-y-3">
+            {/* Quick Numbers Header */}
+            <div className="grid grid-cols-3 gap-2 bg-zinc-50/80 rounded-xl p-2.5 border border-zinc-100 text-center">
+              <div>
+                <span className="text-[10px] text-zinc-400 block font-medium">Bawa Pagi</span>
+                <span className="text-base font-black text-zinc-800">{cartAllocation.total_initial}</span>
+              </div>
+              <div className="border-x border-zinc-200/80">
+                <span className="text-[10px] text-zinc-400 block font-medium">Terjual</span>
+                <span className="text-base font-black text-[#be1a1a]">{cartAllocation.total_sold}</span>
+              </div>
+              <div>
+                <span className="text-[10px] text-zinc-400 block font-medium">Sisa di Cart</span>
+                <span className="text-base font-black text-emerald-700">{cartAllocation.total_remaining}</span>
+              </div>
+            </div>
+
+            {/* Progress Bar of Sold Cups */}
+            <div>
+              <div className="flex items-center justify-between text-[11px] font-medium text-zinc-500 mb-1">
+                <span>Progres Penjualan Gerobak</span>
+                <span className="font-bold text-zinc-900">
+                  {cartAllocation.total_initial > 0
+                    ? Math.round((cartAllocation.total_sold / cartAllocation.total_initial) * 100)
+                    : 0}%
+                </span>
+              </div>
+              <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-[#be1a1a] rounded-full transition-all duration-300"
+                  style={{
+                    width: `${cartAllocation.total_initial > 0
+                      ? Math.min(100, Math.round((cartAllocation.total_sold / cartAllocation.total_initial) * 100))
+                      : 0}%`
+                  }}
+                />
+              </div>
+            </div>
+
+            {/* Breakdown per Item */}
+            <div className="pt-2 divide-y divide-zinc-100">
+              {cartAllocation.items.map(item => (
+                <div key={item.id} className="py-2 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-bold text-zinc-900">{item.product_name}</p>
+                    <p className="text-[10px] text-zinc-400 font-mono">
+                      Bawa: {item.initial_quantity} • Terjual: {item.sold_quantity}
+                    </p>
+                  </div>
+                  <div>
+                    <span
+                      className={`inline-flex items-center px-2 py-0.5 rounded-md font-bold text-xs ${
+                        item.remaining > 5
+                          ? 'bg-emerald-50 text-emerald-700'
+                          : item.remaining > 0
+                          ? 'bg-amber-50 text-amber-800'
+                          : 'bg-red-50 text-[#be1a1a]'
+                      }`}
+                    >
+                      Sisa {item.remaining}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4 px-2 space-y-1.5">
+            <Package className="w-8 h-8 text-zinc-300 mx-auto" />
+            <p className="text-xs font-bold text-zinc-700">Muatan Gerobak Belum Dialokasikan</p>
+            <p className="text-[11px] text-zinc-400 max-w-xs mx-auto">
+              Admin pangkalan belum mencatat kuota cup harian untuk gerobak Anda. Hubungi admin sebelum mulai berjualan.
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Primary Call To Action */}
@@ -278,18 +453,18 @@ export default function DriverDashboard() {
           <ChevronRight className="w-5 h-5 text-white/70 group-hover:translate-x-0.5 transition-transform" />
         </Link>
       ) : (
-        <div className="bg-white border border-amber-200 rounded-2xl p-4 text-center shadow-sm">
+        <div className="bg-white border border-amber-200 rounded-2xl p-4 text-center shadow-xs">
           <p className="text-xs font-semibold text-amber-800">
             ⚠️ Klik &quot;Mulai Shift&quot; di atas untuk membuka kasir pesanan
           </p>
           <p className="text-[11px] text-amber-600 mt-0.5">
-            Sistem secara otomatis akan mengunci posisi GPS cart gerobak Anda
+            Sistem secara otomatis akan mengunci posisi GPS gerobak Anda
           </p>
         </div>
       )}
 
       {/* Quick Links Section */}
-      <div className="bg-white rounded-2xl border border-zinc-200/80 p-3 shadow-sm divide-y divide-zinc-100">
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-3 shadow-xs divide-y divide-zinc-100">
         <Link
           href="/driver/history"
           className="flex items-center justify-between p-2.5 hover:bg-zinc-50 rounded-xl transition-colors text-xs font-medium text-zinc-700"

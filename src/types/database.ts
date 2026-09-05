@@ -174,3 +174,47 @@ export interface CartItem {
   product: Product
   quantity: number
 }
+
+// ============================================
+// Daily Inventory & Allocation Types
+// ============================================
+
+export type AllocationStatus = 'allocated' | 'active' | 'reconciled'
+
+export interface DriverDailyAllocation {
+  id: string
+  driver_id: string
+  date: string
+  status: AllocationStatus
+  notes: string | null
+  total_cash_collected: number
+  total_qris_collected: number
+  cash_settled: number
+  reconciled_at: string | null
+  reconciled_by: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DriverAllocationItem {
+  id: string
+  allocation_id: string
+  product_id: string
+  initial_quantity: number
+  sold_quantity: number
+  physical_remaining: number | null
+  waste_quantity: number
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface DriverAllocationItemWithProduct extends DriverAllocationItem {
+  product: Product
+}
+
+export interface DailyAllocationWithItems extends DriverDailyAllocation {
+  driver?: Profile
+  items: DriverAllocationItemWithProduct[]
+}
+

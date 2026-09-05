@@ -9,7 +9,7 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 import {
   Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
   Loader2, Banknote, QrCode, ArrowRightLeft, X, ArrowLeft,
-  Receipt, Sparkles
+  Receipt, Sparkles, PackageCheck, AlertCircle
 } from 'lucide-react'
 import type { Product, CartItem, Shift } from '@/types/database'
 import Link from 'next/link'
@@ -20,9 +20,16 @@ const paymentIcons = {
   ArrowRightLeft,
 }
 
+interface StockQuota {
+  id: string
+  initial: number
+  sold: number
+  remaining: number
+}
+
 export default function OrderPage() {
   const { user } = useAuth()
-  const { latitude, longitude, accuracy, getPosition, loading: gpsLoading } = useGeolocation()
+  const { latitude, longitude, accuracy, getPosition } = useGeolocation()
   const [products, setProducts] = useState<Product[]>([])
   const [activeCategory, setActiveCategory] = useState<string>('all')
   const [cart, setCart] = useState<CartItem[]>([])
@@ -33,6 +40,12 @@ export default function OrderPage() {
   const [success, setSuccess] = useState(false)
   const [orderNumber, setOrderNumber] = useState('')
   const [lastOrderAmount, setLastOrderAmount] = useState(0)
+
+  // Cart Stock Tracking
+  const [stockMap, setStockMap] = useState<{ [productId: string]: StockQuota }>({})
+  const [hasAllocation, setHasAllocation] = useState(false)
+  const [stockWarning, setStockWarning] = useState<string | null>(null)
+
   const supabase = createClient()
 
   useEffect(() => {
@@ -44,7 +57,7 @@ export default function OrderPage() {
 
   async function loadData() {
     try {
-      // Get active shift
+      // 1. Get active shift
       const { data: shift } = await supabase
         .from('shifts')
         .select('*')
@@ -70,7 +83,7 @@ export default function OrderPage() {
         })
       }
 
-      // Get products
+      // 2. Get products
       const { data: prods } = await supabase
         .from('products')
         .select('*')
@@ -79,8 +92,40 @@ export default function OrderPage() {
 
       if (prods) {
         setProducts(prods)
-      } else {
-        setProducts([])
+      }
+
+      // 3. Get today's allocation stock for this driver
+      const today = new Date().toISOString().slice(0, 10)
+      const { data: alloc } = await supabase
+        .from('driver_daily_allocations')
+        .select(`
+          id,
+          driver_allocation_items (
+            id,
+            product_id,
+            initial_quantity,
+            sold_quantity
+          )
+        `)
+        .eq('driver_id', user!.id)
+        .eq('date', today)
+        .maybeSingle()
+
+      if (alloc && alloc.driver_allocation_items && alloc.driver_allocation_items.length > 0) {
+        const quotaMap: { [productId: string]: StockQuota } = {}
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        alloc.driver_allocation_items.forEach((item: any) => {
+          const init = item.initial_quantity || 0
+          const sold = item.sold_quantity || 0
+          quotaMap[item.product_id] = {
+            id: item.id,
+            initial: init,
+            sold,
+            remaining: Math.max(0, init - sold)
+          }
+        })
+        setStockMap(quotaMap)
+        setHasAllocation(true)
       }
     } catch {
       setProducts([])
@@ -90,6 +135,19 @@ export default function OrderPage() {
   }
 
   function addToCart(product: Product) {
+    const quota = stockMap[product.id]
+    const currentQty = getCartQty(product.id)
+
+    // Check against cart stock allocation if allocation exists
+    if (hasAllocation && quota) {
+      if (quota.remaining <= currentQty) {
+        setStockWarning(`Stok gerobak untuk ${product.name} sudah mencapai batas (${quota.remaining} cup tersedia).`)
+        setTimeout(() => setStockWarning(null), 3000)
+        return
+      }
+    }
+
+    setStockWarning(null)
     setCart(prev => {
       const existing = prev.find(item => item.product.id === product.id)
       if (existing) {
@@ -104,6 +162,7 @@ export default function OrderPage() {
   }
 
   function removeFromCart(productId: string) {
+    setStockWarning(null)
     setCart(prev => {
       const existing = prev.find(item => item.product.id === productId)
       if (existing && existing.quantity > 1) {
@@ -175,6 +234,33 @@ export default function OrderPage() {
 
       await supabase.from('order_items').insert(items)
 
+      // Deduct/sync realtime stock in driver_allocation_items
+      if (hasAllocation) {
+        for (const item of cart) {
+          const quota = stockMap[item.product.id]
+          if (quota) {
+            const updatedSold = quota.sold + item.quantity
+            await supabase
+              .from('driver_allocation_items')
+              .update({
+                sold_quantity: updatedSold,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', quota.id)
+
+            // Update local state
+            setStockMap(prev => ({
+              ...prev,
+              [item.product.id]: {
+                ...quota,
+                sold: updatedSold,
+                remaining: Math.max(0, quota.initial - updatedSold)
+              }
+            }))
+          }
+        }
+      }
+
       if (latitude && longitude) {
         await supabase.from('location_logs').insert({
           driver_id: user.id,
@@ -198,69 +284,66 @@ export default function OrderPage() {
   if (success) {
     return (
       <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center">
-        <div className="w-full max-w-sm bg-white rounded-3xl border border-zinc-200/80 p-7 shadow-sm">
-          <div className="w-16 h-16 bg-red-50 text-[#be1a1a] rounded-full flex items-center justify-center mx-auto mb-4">
-            <CheckCircle2 strokeWidth={2.2} className="w-8 h-8" />
-          </div>
+        <div className="w-16 h-16 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-4 border border-emerald-100 shadow-sm animate-in zoom-in-50 duration-300">
+          <CheckCircle2 strokeWidth={2.5} className="w-8 h-8" />
+        </div>
 
-          <h2 className="text-xl font-bold text-zinc-900 tracking-tight">
-            Pesanan Berhasil Disimpan!
-          </h2>
-          <p className="text-xs font-mono font-bold text-zinc-500 mt-1 bg-zinc-100 py-1 px-3 rounded-md inline-block">
-            {orderNumber}
-          </p>
+        <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200/60 mb-2">
+          Pesanan Berhasil Disimpan
+        </span>
 
-          <div className="my-5 py-4 border-y border-zinc-100 text-left space-y-2 text-xs">
-            <div className="flex justify-between text-zinc-500">
-              <span>Metode Bayar:</span>
-              <span className="font-semibold text-zinc-800 uppercase">{paymentMethod}</span>
-            </div>
-            <div className="flex justify-between text-zinc-500">
-              <span>Total Nilai:</span>
-              <span className="font-bold text-zinc-900 text-sm">{formatRupiah(lastOrderAmount)}</span>
-            </div>
-            <div className="flex justify-between text-zinc-500">
-              <span>Koordinat GPS:</span>
-              <span className="font-mono text-zinc-700">
-                {latitude ? `${latitude.toFixed(4)}, ${longitude?.toFixed(4)}` : 'Tersimpan'}
-              </span>
-            </div>
-          </div>
+        <h2 className="text-2xl font-black text-zinc-900 tracking-tight">
+          {orderNumber}
+        </h2>
 
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={() => { setSuccess(false); getPosition() }}
-              className="w-full bg-[#be1a1a] hover:bg-[#a61515] text-white py-3 rounded-xl font-semibold text-sm transition-colors shadow-sm"
-            >
-              + Input Pesanan Berikutnya
-            </button>
-            <Link
-              href="/driver/history"
-              className="w-full bg-zinc-100 hover:bg-zinc-200 text-zinc-700 py-2.5 rounded-xl font-semibold text-xs transition-colors"
-            >
-              Lihat Riwayat Penjualan
-            </Link>
-          </div>
+        <p className="text-xl font-bold text-[#be1a1a] mt-1 font-mono">
+          {formatRupiah(lastOrderAmount)}
+        </p>
+
+        <p className="text-xs text-zinc-500 mt-2 max-w-xs leading-relaxed">
+          Transaksi dan stok gerobak telah tercatat secara realtime ke server pusat.
+        </p>
+
+        <div className="flex flex-col gap-2.5 w-full max-w-xs mt-8">
+          <button
+            onClick={() => {
+              setSuccess(false)
+              setOrderNumber('')
+            }}
+            className="flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.98] text-white py-3 px-4 rounded-xl text-xs font-bold transition-all shadow-md shadow-red-900/15"
+          >
+            <Plus strokeWidth={2.5} className="w-4 h-4" />
+            <span>Buat Pesanan Baru Lagi</span>
+          </button>
+
+          <Link
+            href="/driver/dashboard"
+            className="flex items-center justify-center gap-2 bg-zinc-100 hover:bg-zinc-200 active:scale-[0.98] text-zinc-700 py-3 px-4 rounded-xl text-xs font-semibold transition-all border border-zinc-200/60"
+          >
+            <span>Kembali ke Beranda</span>
+          </Link>
         </div>
       </div>
     )
   }
 
+  // Not in Active Shift Warning
   if (!activeShift && !loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] p-6 text-center">
-        <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center mb-3">
-          <MapPin className="w-6 h-6" />
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center mb-4 border border-amber-200/60">
+          <Receipt strokeWidth={2} className="w-7 h-7" />
         </div>
-        <h2 className="text-base font-bold text-zinc-900">Shift Belum Aktif</h2>
-        <p className="text-xs text-zinc-500 mt-1 max-w-xs mb-5">
-          Anda wajib memulai shift gerobak terlebih dahulu agar lokasi penjualan tercatat secara akurat.
+        <h2 className="text-lg font-bold text-zinc-900">Shift Belum Aktif</h2>
+        <p className="text-xs text-zinc-500 mt-1 max-w-xs leading-relaxed">
+          Anda harus memulai shift operasional terlebih dahulu di Beranda agar koordinat GPS gerobak dapat dikunci.
         </p>
         <Link
           href="/driver/dashboard"
-          className="bg-[#be1a1a] text-white px-5 py-2.5 rounded-xl font-semibold text-xs shadow-sm"
+          className="mt-6 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 inline-flex items-center gap-2"
         >
-          Kembali ke Beranda Shift
+          <ArrowLeft className="w-4 h-4" />
+          <span>Buka Beranda & Mulai Shift</span>
         </Link>
       </div>
     )
@@ -268,9 +351,9 @@ export default function OrderPage() {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 gap-2 text-zinc-400">
-        <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
-        <span className="text-xs">Memuat katalog menu ramu...</span>
+      <div className="flex flex-col items-center justify-center h-72 gap-2 text-zinc-400">
+        <Loader2 className="w-7 h-7 animate-spin text-[#be1a1a]" />
+        <span className="text-xs">Memuat katalog menu & stok gerobak...</span>
       </div>
     )
   }
@@ -288,21 +371,21 @@ export default function OrderPage() {
 
   return (
     <div className="pb-36">
-      {/* Header Bar */}
-      <div className="p-4 bg-white border-b border-zinc-200/80 sticky top-14 z-30">
+      {/* Sticky Header with Cart Counter */}
+      <div className="sticky top-14 bg-white/95 backdrop-blur border-b border-zinc-200/80 px-4 py-3 z-30 shadow-2xs">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/driver/dashboard"
-              className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-600 hover:bg-zinc-200 transition-colors"
+              className="w-8 h-8 rounded-lg flex items-center justify-center text-zinc-500 hover:text-zinc-800 hover:bg-zinc-100 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
             </Link>
             <div>
-              <h1 className="text-base font-bold text-zinc-900 leading-tight">Input Pesanan</h1>
+              <h1 className="text-base font-bold text-zinc-900 leading-tight">Kasir Pesanan</h1>
               <div className="flex items-center gap-1.5 text-[11px] text-zinc-500">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Gerobak GPS Terkunci</span>
+                <span>GPS Cart Terkunci</span>
               </div>
             </div>
           </div>
@@ -315,6 +398,14 @@ export default function OrderPage() {
           )}
         </div>
 
+        {/* Warning alert if stock limit reached */}
+        {stockWarning && (
+          <div className="mt-2.5 p-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-[11px] text-[#be1a1a] font-medium animate-in fade-in">
+            <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+            <span>{stockWarning}</span>
+          </div>
+        )}
+
         {/* Category Pills Filter */}
         <div className="flex gap-1.5 mt-3 overflow-x-auto pb-1 scrollbar-none">
           {categories.map(cat => (
@@ -323,7 +414,7 @@ export default function OrderPage() {
               onClick={() => setActiveCategory(cat.key)}
               className={`px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap transition-all ${
                 activeCategory === cat.key
-                  ? 'bg-zinc-900 text-white shadow-sm'
+                  ? 'bg-zinc-900 text-white shadow-xs'
                   : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200/70'
               }`}
             >
@@ -345,25 +436,46 @@ export default function OrderPage() {
         ) : (
           filteredProducts.map(product => {
             const qty = getCartQty(product.id)
+            const quota = stockMap[product.id]
+            const isTracked = hasAllocation && quota !== undefined
+            const remainingQuota = quota ? quota.remaining : 999
+            const isOutOfStock = isTracked && remainingQuota <= 0
+
             return (
               <div
                 key={product.id}
                 className={`bg-white rounded-2xl border p-4 transition-all ${
                   qty > 0
-                    ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-sm'
+                    ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-xs'
                     : 'border-zinc-200/80 shadow-xs'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h3 className="font-bold text-sm text-zinc-900 truncate">
                         {product.name}
                       </h3>
                       <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">
                         {product.category}
                       </span>
+
+                      {/* Stock Allocation Badge */}
+                      {isTracked && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                            remainingQuota > 5
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : remainingQuota > 0
+                              ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                              : 'bg-red-50 text-[#be1a1a] border border-red-200'
+                          }`}
+                        >
+                          {remainingQuota > 0 ? `Sisa di Cart: ${remainingQuota}` : 'Habis di Gerobak'}
+                        </span>
+                      )}
                     </div>
+
                     {product.description && (
                       <p className="text-xs text-zinc-500 mt-1 line-clamp-2 leading-relaxed">
                         {product.description}
@@ -379,10 +491,15 @@ export default function OrderPage() {
                     {qty === 0 ? (
                       <button
                         onClick={() => addToCart(product)}
-                        className="flex items-center gap-1 bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-sm active:scale-95"
+                        disabled={isOutOfStock}
+                        className={`flex items-center gap-1 text-xs font-semibold px-3 py-2 rounded-xl transition-all shadow-xs active:scale-95 ${
+                          isOutOfStock
+                            ? 'bg-zinc-100 text-zinc-400 cursor-not-allowed'
+                            : 'bg-zinc-900 hover:bg-zinc-800 text-white'
+                        }`}
                       >
                         <Plus className="w-3.5 h-3.5" />
-                        <span>Tambah</span>
+                        <span>{isOutOfStock ? 'Habis' : 'Tambah'}</span>
                       </button>
                     ) : (
                       <div className="flex items-center gap-2 bg-zinc-100 p-1 rounded-xl border border-zinc-200/60">
@@ -395,7 +512,12 @@ export default function OrderPage() {
                         <span className="w-6 text-center font-bold text-sm text-zinc-900">{qty}</span>
                         <button
                           onClick={() => addToCart(product)}
-                          className="w-8 h-8 rounded-lg bg-[#be1a1a] text-white flex items-center justify-center shadow-xs hover:bg-[#a61515] active:scale-90 transition-all"
+                          disabled={isTracked && qty >= remainingQuota}
+                          className={`w-8 h-8 rounded-lg text-white flex items-center justify-center shadow-xs transition-all ${
+                            isTracked && qty >= remainingQuota
+                              ? 'bg-zinc-300 cursor-not-allowed'
+                              : 'bg-[#be1a1a] hover:bg-[#a61515] active:scale-90'
+                          }`}
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
@@ -424,33 +546,33 @@ export default function OrderPage() {
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2">
-                {PAYMENT_METHODS.map(method => {
-                  const Icon = paymentIcons[method.icon as keyof typeof paymentIcons] || Banknote
-                  const isSelected = paymentMethod === method.value
+                {PAYMENT_METHODS.map(pm => {
+                  const Icon = paymentIcons[pm.icon as keyof typeof paymentIcons] || Banknote
+                  const isSelected = paymentMethod === pm.value
                   return (
                     <button
-                      key={method.value}
+                      key={pm.value}
                       type="button"
-                      onClick={() => setPaymentMethod(method.value)}
-                      className={`flex items-center justify-center gap-1.5 py-2 px-2 rounded-xl text-xs font-bold border transition-all ${
+                      onClick={() => setPaymentMethod(pm.value)}
+                      className={`flex items-center justify-center gap-1.5 p-2 rounded-xl text-xs font-bold border transition-all ${
                         isSelected
                           ? 'border-[#be1a1a] bg-red-50 text-[#be1a1a] shadow-xs'
-                          : 'border-zinc-200 bg-white text-zinc-600 hover:bg-zinc-50'
+                          : 'border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100'
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
-                      <span>{method.label}</span>
+                      <span>{pm.label}</span>
                     </button>
                   )
                 })}
               </div>
             </div>
 
-            {/* Confirmation CTA Button */}
+            {/* Submit Order Button */}
             <button
               onClick={submitOrder}
               disabled={submitting}
-              className="w-full bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white rounded-xl py-3.5 px-4 font-bold flex items-center justify-between transition-all shadow-md shadow-red-900/20 disabled:opacity-50"
+              className="w-full flex items-center justify-between bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white p-3.5 px-5 rounded-xl font-bold text-xs transition-all shadow-md shadow-red-900/15 disabled:opacity-50"
             >
               <div className="flex items-center gap-2">
                 {submitting ? (
@@ -458,11 +580,9 @@ export default function OrderPage() {
                 ) : (
                   <ShoppingCart className="w-4 h-4" />
                 )}
-                <span>Simpan Pesanan ({totalItems})</span>
+                <span>{submitting ? 'Memproses Pesanan...' : 'Simpan Transaksi'}</span>
               </div>
-              <span className="text-base font-black tracking-tight">
-                {formatRupiah(totalAmount)}
-              </span>
+              <span className="text-sm font-black font-mono">{formatRupiah(totalAmount)}</span>
             </button>
           </div>
         </div>
