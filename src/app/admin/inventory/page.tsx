@@ -10,6 +10,7 @@ import {
   Check, ArrowRight, ShieldCheck
 } from 'lucide-react'
 import type { Profile, Product, DriverDailyAllocation, DriverAllocationItem } from '@/types/database'
+import { isCupCategory } from '@/lib/constants'
 
 interface ProductAllocItem {
   product: Product
@@ -386,14 +387,39 @@ function InventoryContent() {
   }
 
   // Computations
-  const totalInitialCups = Object.values(allocItems).reduce((sum, i) => sum + i.initial_quantity, 0)
-  const totalSoldCups = Object.values(allocItems).reduce((sum, i) => sum + i.sold_quantity, 0)
-  const totalPhysicalRemainingCups = Object.values(allocItems).reduce((sum, i) => sum + i.physical_remaining, 0)
-  const totalWasteCups = Object.values(allocItems).reduce((sum, i) => sum + i.waste_quantity, 0)
-  const totalStockVariance = Object.values(allocItems).reduce((sum, i) => {
-    // Variance = Initial - (Sold + Physical Remaining + Waste)
-    return sum + (i.initial_quantity - (i.sold_quantity + i.physical_remaining + i.waste_quantity))
-  }, 0)
+  //
+  // Cup dan pelengkap dihitung terpisah. Sebelumnya semua kategori
+  // dijumlahkan jadi satu, sehingga menambah satu topping atau add-on ikut
+  // menaikkan angka "Total Muatan Cup" — padahal keduanya bukan cup.
+  const allocValues = Object.values(allocItems)
+  const cupItems = allocValues.filter(i => isCupCategory(i.product.category))
+  const addonItems = allocValues.filter(i => !isCupCategory(i.product.category))
+
+  const sumField = (
+    items: ProductAllocItem[],
+    field: 'initial_quantity' | 'sold_quantity' | 'physical_remaining' | 'waste_quantity'
+  ) => items.reduce((sum, i) => sum + i[field], 0)
+
+  // Selisih = Bawa - (Terjual + Sisa Fisik + Rusak)
+  const sumVariance = (items: ProductAllocItem[]) =>
+    items.reduce(
+      (sum, i) => sum + (i.initial_quantity - (i.sold_quantity + i.physical_remaining + i.waste_quantity)),
+      0
+    )
+
+  const totalInitialCups = sumField(cupItems, 'initial_quantity')
+  const totalSoldCups = sumField(cupItems, 'sold_quantity')
+  const cupVariance = sumVariance(cupItems)
+
+  const totalInitialAddons = sumField(addonItems, 'initial_quantity')
+  const totalSoldAddons = sumField(addonItems, 'sold_quantity')
+  const addonVariance = sumVariance(addonItems)
+
+  // Pelengkap hanya ditampilkan bila memang ada yang dimuat atau terjual,
+  // supaya tampilan gerobak yang hanya membawa smoothie tetap ringkas.
+  const hasAddonActivity = addonItems.some(
+    i => i.initial_quantity > 0 || i.sold_quantity > 0 || i.physical_remaining > 0 || i.waste_quantity > 0
+  )
 
   const cashVariance = cashSettledInput - ordersSummary.cash_sales
 
@@ -549,6 +575,11 @@ function InventoryContent() {
                   <div>
                     <span className="text-[10px] uppercase font-bold text-zinc-400 block">Total Muatan</span>
                     <span className="text-lg font-black text-[#be1a1a]">{totalInitialCups} Cup</span>
+                    {hasAddonActivity && (
+                      <span className="text-[10px] text-zinc-500 font-semibold block leading-tight">
+                        + {totalInitialAddons} topping/add-on
+                      </span>
+                    )}
                   </div>
                   <button
                     onClick={handleSaveMorningAllocation}
@@ -673,9 +704,16 @@ function InventoryContent() {
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Status Selisih Fisik
                   </span>
-                  <p className={`text-xl font-black tracking-tight ${totalStockVariance === 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
-                    {totalStockVariance === 0 ? '0 Cup (Cocok)' : `${totalStockVariance > 0 ? '+' : ''}${totalStockVariance} Cup`}
+                  <p className={`text-xl font-black tracking-tight ${cupVariance === 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
+                    {cupVariance === 0 ? '0 Cup (Cocok)' : `${cupVariance > 0 ? '+' : ''}${cupVariance} Cup`}
                   </p>
+                  {hasAddonActivity && (
+                    <p className={`text-xs font-bold ${addonVariance === 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
+                      {addonVariance === 0
+                        ? '0 topping/add-on (Cocok)'
+                        : `${addonVariance > 0 ? '+' : ''}${addonVariance} topping/add-on`}
+                    </p>
+                  )}
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">Bawa vs (Jual + Sisa + Rusak)</span>
                 </div>
               </div>
@@ -690,8 +728,16 @@ function InventoryContent() {
                     </p>
                   </div>
                   <div className="text-xs text-zinc-500 font-mono">
-                    Total Cup Bawa: <span className="font-bold text-zinc-900">{totalInitialCups}</span> | Terjual:{' '}
-                    <span className="font-bold text-zinc-900">{totalSoldCups}</span>
+                    <div>
+                      Total Cup Bawa: <span className="font-bold text-zinc-900">{totalInitialCups}</span> | Terjual:{' '}
+                      <span className="font-bold text-zinc-900">{totalSoldCups}</span>
+                    </div>
+                    {hasAddonActivity && (
+                      <div className="text-[11px]">
+                        Topping/Add-on Bawa: <span className="font-bold text-zinc-900">{totalInitialAddons}</span> |
+                        Terjual: <span className="font-bold text-zinc-900">{totalSoldAddons}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

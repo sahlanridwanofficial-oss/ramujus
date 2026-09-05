@@ -12,6 +12,7 @@ import {
   PackageCheck, Package
 } from 'lucide-react'
 import type { Shift } from '@/types/database'
+import { isCupCategory } from '@/lib/constants'
 
 interface CartStockItem {
   id: string
@@ -26,9 +27,13 @@ interface CartStockItem {
 interface CartAllocationSummary {
   id: string
   status: string
+  // total_* hanya mencakup cup (smoothie); pelengkap dipisah ke addon_*.
   total_initial: number
   total_sold: number
   total_remaining: number
+  addon_initial: number
+  addon_sold: number
+  addon_remaining: number
   items: CartStockItem[]
 }
 
@@ -128,8 +133,16 @@ export default function DriverDashboard() {
           }
         })
 
-        const totalInit = items.reduce((s, i) => s + i.initial_quantity, 0)
-        const totalSold = items.reduce((s, i) => s + i.sold_quantity, 0)
+        // Angka ringkasan gerobak hanya menghitung cup (smoothie). Topping
+        // dan add-on punya satuan sendiri dan dihitung terpisah, supaya
+        // menambahkan satu topping tidak menaikkan jumlah cup.
+        const cupItems = items.filter(i => isCupCategory(i.category))
+        const addonItems = items.filter(i => !isCupCategory(i.category))
+
+        const totalInit = cupItems.reduce((s, i) => s + i.initial_quantity, 0)
+        const totalSold = cupItems.reduce((s, i) => s + i.sold_quantity, 0)
+        const addonInit = addonItems.reduce((s, i) => s + i.initial_quantity, 0)
+        const addonSold = addonItems.reduce((s, i) => s + i.sold_quantity, 0)
 
         setCartAllocation({
           id: alloc.id,
@@ -137,6 +150,9 @@ export default function DriverDashboard() {
           total_initial: totalInit,
           total_sold: totalSold,
           total_remaining: Math.max(0, totalInit - totalSold),
+          addon_initial: addonInit,
+          addon_sold: addonSold,
+          addon_remaining: Math.max(0, addonInit - addonSold),
           items
         })
       } else {
@@ -379,16 +395,30 @@ export default function DriverDashboard() {
               <div>
                 <span className="text-[10px] text-zinc-400 block font-medium">Bawa Pagi</span>
                 <span className="text-base font-black text-zinc-800">{cartAllocation.total_initial}</span>
+                <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
               <div className="border-x border-zinc-200/80">
                 <span className="text-[10px] text-zinc-400 block font-medium">Terjual</span>
                 <span className="text-base font-black text-[#be1a1a]">{cartAllocation.total_sold}</span>
+                <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
               <div>
                 <span className="text-[10px] text-zinc-400 block font-medium">Sisa di Cart</span>
                 <span className="text-base font-black text-emerald-700">{cartAllocation.total_remaining}</span>
+                <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
             </div>
+
+            {/* Topping dan add-on dihitung terpisah — satuannya bukan cup */}
+            {cartAllocation.addon_initial > 0 && (
+              <div className="flex items-center justify-between bg-zinc-50/60 rounded-xl px-3 py-2 border border-zinc-100 text-[11px]">
+                <span className="text-zinc-500 font-medium">Topping &amp; Add-on</span>
+                <span className="text-zinc-700 font-bold">
+                  {cartAllocation.addon_sold} terjual
+                  <span className="text-zinc-400 font-medium"> / {cartAllocation.addon_initial} dibawa</span>
+                </span>
+              </div>
+            )}
 
             {/* Progress Bar of Sold Cups */}
             <div>

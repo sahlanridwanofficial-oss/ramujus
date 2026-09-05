@@ -21,6 +21,15 @@ export const PRODUCT_CATEGORIES = [
   { value: 'addon', label: 'Add-on' },
 ] as const
 
+// Hanya smoothie yang dijual per cup. Topping dan add-on adalah pelengkap
+// dengan satuan sendiri (porsi/pcs), jadi tidak boleh ikut dijumlahkan ke
+// dalam angka "Total Muatan Cup" — itu membuat jumlah cup di gerobak salah.
+export const CUP_CATEGORY = 'smoothie'
+
+export function isCupCategory(category: string | null | undefined): boolean {
+  return category === CUP_CATEGORY
+}
+
 export const SHIFT_STATUS = {
   active: { label: 'Aktif', color: 'text-[#be1a1a] bg-red-50' },
   completed: { label: 'Selesai', color: 'text-zinc-600 bg-zinc-100' },
