@@ -41,12 +41,34 @@ export const ROLES = {
   driver: 'Driver',
 } as const
 
-// GPS Settings
-export const GPS_CONFIG = {
-  enableHighAccuracy: true,
-  timeout: 15000,
-  maximumAge: 0,
-  trackingIntervalMs: 300000, // 5 minutes
+// Pelacakan posisi gerobak selama shift.
+//
+// Angka-angka ini menentukan beban server pada 100 gerobak. Dengan
+// minIntervalMs 30 detik, satu gerobak mengirim paling sering 2x/menit,
+// jadi armada penuh menghasilkan ~200 panggilan/menit pada puncaknya —
+// hanya menyentuh satu baris per gerobak di driver_positions.
+// historyIntervalSeconds membatasi pertumbuhan location_logs secara
+// terpisah: 120 detik berarti maksimal ~360 baris histori per gerobak per
+// hari 12 jam, atau ~36 ribu baris armada penuh per hari.
+export const TRACKING_CONFIG = {
+  /** Jeda minimum antar kiriman posisi. */
+  minIntervalMs: 30_000,
+  /** Di bawah jarak ini dianggap belum berpindah. */
+  minDistanceMeters: 25,
+  /** Tetap kirim walau diam, agar admin tahu gerobak masih hidup. */
+  heartbeatMs: 120_000,
+  /** Jeda minimum antar baris histori yang disimpan server. */
+  historyIntervalSeconds: 120,
+  timeoutMs: 20_000,
+  maximumAgeMs: 15_000,
+} as const
+
+// Umur posisi sebelum sebuah gerobak dianggap tidak lagi terpantau.
+// Ambang "stale" sengaja beberapa kali heartbeat, supaya satu kali sinyal
+// hilang tidak langsung menandai gerobak sebagai bermasalah.
+export const FLEET_STATUS_THRESHOLDS = {
+  liveSeconds: 180,
+  staleSeconds: 900,
 } as const
 
 // Default map center (Jakarta)

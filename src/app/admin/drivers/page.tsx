@@ -16,6 +16,17 @@ interface DriverWithStats extends Profile {
   has_active_shift: boolean
 }
 
+/** Baris agregat dari RPC admin_driver_stats(). */
+interface DriverStatsRow {
+  driver_id: string
+  total_orders: number
+  total_revenue: number
+  orders_today: number
+  revenue_today: number
+  has_active_shift: boolean
+  last_order_at: string | null
+}
+
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<DriverWithStats[]>([])
   const [loading, setLoading] = useState(true)
@@ -39,42 +50,39 @@ export default function DriversPage() {
 
   async function loadDrivers() {
     try {
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('role', 'driver')
-        .order('created_at', { ascending: false })
+      // Versi lama menjalankan 1 + 2N query dan menarik SELURUH riwayat
+      // pesanan tiap driver hanya untuk dijumlahkan di browser. Pada 100
+      // mitra itu 201 query dan puluhan ribu baris per pembukaan halaman.
+      // Sekarang dua query tetap, dengan agregasi dikerjakan database.
+      const [{ data: profiles }, { data: stats }] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('role', 'driver')
+          .order('created_at', { ascending: false }),
+        supabase.rpc('admin_driver_stats'),
+      ])
 
       if (!profiles || profiles.length === 0) {
         setDrivers([])
-        setLoading(false)
         return
       }
 
-      const driversWithStats = await Promise.all(
-        profiles.map(async (driver) => {
-          const { data: orders } = await supabase
-            .from('orders')
-            .select('total_amount')
-            .eq('driver_id', driver.id)
+      const statsById = new Map(
+        ((stats ?? []) as DriverStatsRow[]).map(row => [row.driver_id, row])
+      )
 
-          const { data: activeShift } = await supabase
-            .from('shifts')
-            .select('id')
-            .eq('driver_id', driver.id)
-            .eq('status', 'active')
-            .maybeSingle()
-
+      setDrivers(
+        profiles.map(driver => {
+          const stat = statsById.get(driver.id)
           return {
             ...driver,
-            total_orders: orders?.length || 0,
-            total_revenue: orders?.reduce((s, o) => s + o.total_amount, 0) || 0,
-            has_active_shift: !!activeShift,
+            total_orders: stat?.total_orders ?? 0,
+            total_revenue: stat?.total_revenue ?? 0,
+            has_active_shift: stat?.has_active_shift ?? false,
           }
         })
       )
-
-      setDrivers(driversWithStats)
     } catch {
       setDrivers([])
     } finally {

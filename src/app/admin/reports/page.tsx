@@ -4,8 +4,12 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah, formatDate, formatTime } from '@/lib/format'
 import {
-  Loader2, Download, FileText, Calendar, ShoppingBag, TrendingUp
+  Loader2, Download, FileText, Calendar, ShoppingBag, TrendingUp, TriangleAlert
 } from 'lucide-react'
+
+// Batas baris satu tampilan laporan. Rentang yang lebih besar dipersempit
+// tanggalnya, bukan ditarik sekaligus ke browser.
+const REPORT_ROW_LIMIT = 1000
 
 interface ReportOrder {
   id: string
@@ -19,6 +23,7 @@ interface ReportOrder {
 export default function ReportsPage() {
   const [orders, setOrders] = useState<ReportOrder[]>([])
   const [loading, setLoading] = useState(true)
+  const [truncated, setTruncated] = useState(false)
   const [dateFrom, setDateFrom] = useState(
     new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
   )
@@ -33,6 +38,9 @@ export default function ReportsPage() {
     setLoading(true)
 
     try {
+      // Laporan adalah daftar transaksi, jadi tetap per baris — tapi harus
+      // berbatas. Pada 100 gerobak, rentang satu bulan tanpa batas berarti
+      // ratusan ribu baris ditarik ke browser sekaligus.
       const { data } = await supabase
         .from('orders')
         .select(`
@@ -42,14 +50,14 @@ export default function ReportsPage() {
         .gte('created_at', `${dateFrom}T00:00:00`)
         .lte('created_at', `${dateTo}T23:59:59`)
         .order('created_at', { ascending: false })
+        .limit(REPORT_ROW_LIMIT)
 
-      if (data) {
-        setOrders(data as ReportOrder[])
-      } else {
-        setOrders([])
-      }
+      const rows = (data ?? []) as ReportOrder[]
+      setOrders(rows)
+      setTruncated(rows.length >= REPORT_ROW_LIMIT)
     } catch {
       setOrders([])
+      setTruncated(false)
     } finally {
       setLoading(false)
     }
@@ -83,6 +91,19 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-5">
+      {truncated && (
+        <div
+          role="alert"
+          className="p-3 bg-amber-50 border border-amber-300 rounded-xl flex items-start gap-2 text-xs text-amber-900 font-semibold"
+        >
+          <TriangleAlert className="w-4 h-4 shrink-0 mt-px" />
+          <span className="leading-relaxed">
+            Menampilkan {REPORT_ROW_LIMIT.toLocaleString('id-ID')} transaksi terbaru pada rentang ini.
+            Persempit tanggalnya agar laporan dan ekspor CSV mencakup seluruh data.
+          </span>
+        </div>
+      )}
+
       {/* Title & Export Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
