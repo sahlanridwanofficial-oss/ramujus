@@ -9,7 +9,7 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 import {
   Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
   Loader2, Banknote, QrCode, ArrowRightLeft, X, ArrowLeft,
-  Receipt, Sparkles, PackageCheck, AlertCircle
+  Receipt, PackageCheck, AlertCircle
 } from 'lucide-react'
 import type { Product, CartItem, Shift } from '@/types/database'
 import Link from 'next/link'

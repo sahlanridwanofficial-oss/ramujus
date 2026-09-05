@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
 
       if (items && items.length > 0) {
         const byProduct: Record<string, ProductRank> = {}
-        items.forEach((item: any) => {
+        items.forEach((item: { quantity: number; subtotal: number; product: { name: string } | null }) => {
           const name = item.product?.name || 'Item'
           if (!byProduct[name]) byProduct[name] = { name, total_qty: 0, revenue: 0 }
           byProduct[name].total_qty += item.quantity

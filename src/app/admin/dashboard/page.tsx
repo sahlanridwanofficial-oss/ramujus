@@ -213,7 +213,7 @@ export default function AdminDashboard() {
             recentOrders.map(order => {
               const driverName = Array.isArray(order.driver)
                 ? order.driver[0]?.full_name || 'Mitra'
-                : (order.driver as any)?.full_name || 'Mitra'
+                : (order.driver as unknown as { full_name: string } | null)?.full_name || 'Mitra'
 
               return (
                 <div key={order.id} className="px-6 py-3.5 flex items-center justify-between hover:bg-zinc-50/60 transition-colors">

@@ -7,8 +7,7 @@ import { formatRupiah } from '@/lib/format'
 import {
   PackageCheck, Sun, Moon, Loader2, Users, Calendar,
   CheckCircle2, AlertCircle, Save, RotateCcw,
-  Check, ArrowRight, Banknote, QrCode, ClipboardList,
-  Layers, ChevronRight, ShieldCheck
+  Check, ArrowRight, ShieldCheck
 } from 'lucide-react'
 import type { Profile, Product, DriverDailyAllocation, DriverAllocationItem } from '@/types/database'
 

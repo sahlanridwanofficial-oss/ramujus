@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Loader2, MapPin, Navigation } from 'lucide-react'
+import { Loader2, Navigation } from 'lucide-react'
 import dynamic from 'next/dynamic'
 
 const MapView = dynamic(() => import('@/components/map/MapView'), {

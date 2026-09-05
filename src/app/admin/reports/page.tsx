@@ -62,7 +62,7 @@ export default function ReportsPage() {
       o.order_number,
       formatDate(o.created_at),
       formatTime(o.created_at),
-      Array.isArray(o.driver) ? o.driver[0]?.full_name || '-' : (o.driver as any)?.full_name || '-',
+      Array.isArray(o.driver) ? o.driver[0]?.full_name || '-' : (o.driver as unknown as { full_name: string } | null)?.full_name || '-',
       o.total_amount,
       o.payment_method,
     ])
@@ -195,7 +195,7 @@ export default function ReportsPage() {
                 {orders.map(order => {
                   const driverName = Array.isArray(order.driver)
                     ? order.driver[0]?.full_name || 'Mitra'
-                    : (order.driver as any)?.full_name || 'Mitra'
+                    : (order.driver as unknown as { full_name: string } | null)?.full_name || 'Mitra'
 
                   return (
                     <tr key={order.id} className="hover:bg-zinc-50/60 transition-colors">

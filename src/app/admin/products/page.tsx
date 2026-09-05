@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
 import {
   Loader2, Plus, Package, ToggleLeft, ToggleRight,
-  Pencil, X, Check, Filter
+  Pencil, X, Check
 } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { PRODUCT_CATEGORIES } from '@/lib/constants'

@@ -9,7 +9,7 @@ import { formatRupiah, getGreeting } from '@/lib/format'
 import {
   Play, Square, MapPin, ShoppingBag, TrendingUp,
   Loader2, CheckCircle2, AlertCircle, Plus, ChevronRight, Navigation,
-  PackageCheck, Package, Layers
+  PackageCheck, Package
 } from 'lucide-react'
 import type { Shift } from '@/types/database'
 
