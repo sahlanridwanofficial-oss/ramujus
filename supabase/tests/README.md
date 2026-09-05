@@ -1,8 +1,8 @@
 # Uji migrasi database
 
 Menjalankan `schema.sql` + seluruh migrasi di Postgres lokal, lalu memeriksa
-aturan keamanan, alur pembuatan pesanan, pelacakan armada, dan perilaku pada
-skala 100 gerobak. Tidak menyentuh proyek Supabase milik siapa pun.
+aturan keamanan, alur pembuatan pesanan, pelacakan armada, penguncian audit
+kas, dan perilaku pada skala 100 gerobak. Tidak menyentuh proyek Supabase milik siapa pun.
 
 `00_supabase_stub.sql` menyediakan tiruan minimal dari hal-hal yang disediakan
 Supabase (`auth.users`, `auth.uid()`, role `authenticated`, publikasi
@@ -21,6 +21,7 @@ psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/00_supabase_stub.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/schema.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0001_security_hardening.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0002_live_fleet_tracking.sql
+psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0003_offline_orders_and_cash_lock.sql
 
 # lalu salah satu berkas uji, masing-masing pada basis data yang baru
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
@@ -69,3 +70,20 @@ Memastikan `fleet_overview`, `admin_driver_stats`, `admin_sales_daily` dan
 `admin_top_products` masing-masing tetap satu kali jalan, dan bahwa peta
 sebaran transaksi serta riwayat GPS per driver memakai indeks, bukan
 pemindaian tabel penuh.
+
+## 04 — Pesanan offline & penguncian kas
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Enam percobaan kirim dengan kunci idempotensi sama menghasilkan **satu** pesanan, stok terpotong sekali |
+| 2 | Kunci berbeda tetap membuat pesanan baru |
+| 3 | Waktu transaksi asli dipertahankan untuk pesanan dari antrean |
+| 4 | Waktu yang tidak masuk akal dikoreksi ke sekarang (anti sisip mundur) |
+| 5 | Driver tidak boleh mengunci rekonsiliasi (`ADMIN_ONLY`) |
+| 6 | Admin dapat mengunci, penanggung jawab tercatat |
+| 7 | Angka kas tidak dapat diubah setelah dikunci (`RECONCILIATION_LOCKED`) |
+| 8 | Angka stok juga terkunci |
+| 9 | Admin dapat membuka kunci, dan pembukaannya tercatat di jejak audit |
+| 10 | Setelah dibuka, angka bisa dikoreksi lagi |
+| 11 | `admin_daily_summary` menjawab dalam satu query |
+| 12 | Driver tidak mendapat ringkasan admin |

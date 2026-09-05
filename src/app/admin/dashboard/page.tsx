@@ -52,38 +52,34 @@ export default function AdminDashboard() {
   }, [])
 
   async function loadData() {
-    const today = new Date().toISOString().slice(0, 10)
-
     try {
-      // Today's orders
-      const { data: todayOrders } = await supabase
-        .from('orders')
-        .select('total_amount')
-        .gte('created_at', `${today}T00:00:00`)
+      // Ringkasan dijumlahkan database. Versi lama menarik seluruh pesanan
+      // hari ini ke browser — pada 100 gerobak itu ribuan baris setiap kali
+      // halaman dibuka DAN setiap kali Realtime memicu pembaruan.
+      const [{ data: summary }, { data: recent }] = await Promise.all([
+        supabase.rpc('admin_daily_summary'),
+        supabase
+          .from('orders')
+          .select(`
+            id, order_number, total_amount, payment_method, created_at,
+            driver:profiles!orders_driver_id_fkey (full_name)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10),
+      ])
 
-      // Active drivers (shifts)
-      const { data: activeShifts } = await supabase
-        .from('shifts')
-        .select('driver_id')
-        .eq('status', 'active')
+      const row = (Array.isArray(summary) ? summary[0] : summary) as
+        | { orders_today: number; revenue_today: number; active_drivers: number }
+        | null
+        | undefined
 
-      // Recent orders
-      const { data: recent } = await supabase
-        .from('orders')
-        .select(`
-          id, order_number, total_amount, payment_method, created_at,
-          driver:profiles!orders_driver_id_fkey (full_name)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(10)
-
-      const totalRev = todayOrders ? todayOrders.reduce((s, o) => s + o.total_amount, 0) : 0
-      const orderCount = todayOrders ? todayOrders.length : 0
+      const orderCount = row?.orders_today ?? 0
+      const totalRev = Number(row?.revenue_today ?? 0)
 
       setStats({
         todayOrders: orderCount,
         todayRevenue: totalRev,
-        activeDrivers: activeShifts ? activeShifts.length : 0,
+        activeDrivers: row?.active_drivers ?? 0,
         avgOrderValue: orderCount > 0 ? Math.round(totalRev / orderCount) : 0,
       })
 

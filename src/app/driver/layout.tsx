@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import Logo from '@/components/ui/Logo'
 import FleetTracker from '@/components/driver/FleetTracker'
+import QueueStatus from '@/components/driver/QueueStatus'
 import { LayoutGrid, PlusCircle, History, User, LogOut } from 'lucide-react'
 
 const navItems = [
@@ -46,6 +47,8 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
 
       {/* Main Content Area */}
       <main className="flex-1 pb-24 max-w-lg mx-auto w-full">
+        {/* Pesanan yang belum sampai ke server terlihat di halaman mana pun */}
+        <QueueStatus />
         {children}
       </main>
 
