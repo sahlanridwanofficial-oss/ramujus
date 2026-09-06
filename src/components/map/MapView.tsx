@@ -168,7 +168,8 @@ export default function MapView({ fleet, orders, showOrders, focusDriverId }: Ma
               <div className="mt-1.5 space-y-0.5 text-[11px] text-zinc-500">
                 <div>Posisi {relativeTime(unit.seconds_since)}</div>
                 <div>
-                  Hari ini: <span className="font-bold text-zinc-800">{unit.orders_today} pesanan</span>
+                  Hari ini: <span className="font-bold text-zinc-800">{unit.cups_today} cup</span>
+                  <span className="text-zinc-400"> · {unit.orders_today} transaksi</span>
                 </div>
                 <div className="font-bold text-[#be1a1a]">{formatRupiah(unit.revenue_today)}</div>
                 {unit.accuracy != null && (

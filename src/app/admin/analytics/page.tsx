@@ -6,7 +6,7 @@ import { formatRupiah } from '@/lib/format'
 import { Loader2, TrendingUp, ShoppingBag, Award, BarChart2 } from 'lucide-react'
 import CustomerInsights from '@/components/admin/CustomerInsights'
 
-interface DailyData { date: string; revenue: number; orders: number }
+interface DailyData { date: string; revenue: number; orders: number; cups: number }
 interface ProductRank { name: string; total_qty: number; revenue: number }
 
 export default function AnalyticsPage() {
@@ -15,6 +15,7 @@ export default function AnalyticsPage() {
   const [topProducts, setTopProducts] = useState<ProductRank[]>([])
   const [totalRevenue, setTotalRevenue] = useState(0)
   const [totalOrders, setTotalOrders] = useState(0)
+  const [totalCups, setTotalCups] = useState(0)
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -33,10 +34,11 @@ export default function AnalyticsPage() {
         supabase.rpc('admin_top_products', { p_days: days, p_limit: 10 }),
       ])
 
-      const rows = (daily ?? []) as Array<{ day: string; revenue: number; orders: number }>
-      setDailyData(rows.map(r => ({ date: r.day, revenue: Number(r.revenue), orders: r.orders })))
+      const rows = (daily ?? []) as Array<{ day: string; revenue: number; orders: number; cups: number }>
+      setDailyData(rows.map(r => ({ date: r.day, revenue: Number(r.revenue), orders: r.orders, cups: r.cups })))
       setTotalRevenue(rows.reduce((s, r) => s + Number(r.revenue), 0))
       setTotalOrders(rows.reduce((s, r) => s + r.orders, 0))
+      setTotalCups(rows.reduce((s, r) => s + (r.cups ?? 0), 0))
 
       const products = (top ?? []) as Array<{ name: string; total_qty: number; revenue: number }>
       setTopProducts(products.map(p => ({
@@ -48,6 +50,7 @@ export default function AnalyticsPage() {
       setDailyData([])
       setTotalRevenue(0)
       setTotalOrders(0)
+      setTotalCups(0)
       setTopProducts([])
     } finally {
       setLoading(false)
@@ -111,9 +114,11 @@ export default function AnalyticsPage() {
             </div>
           </div>
           <p className="text-2xl font-black text-zinc-900 tracking-tight">
-            {totalOrders} <span className="text-sm font-semibold text-zinc-500">transaksi</span>
+            {totalCups} <span className="text-sm font-semibold text-zinc-500">cup</span>
           </p>
-          <span className="text-[11px] text-zinc-400 mt-1 block">Rata-rata {dailyData.length > 0 ? Math.round(totalOrders / dailyData.length) : 0} cup / hari</span>
+          <span className="text-[11px] text-zinc-400 mt-1 block">
+            {totalOrders} transaksi · rata-rata {dailyData.length > 0 ? Math.round(totalCups / dailyData.length) : 0} cup/hari
+          </span>
         </div>
       </div>
 

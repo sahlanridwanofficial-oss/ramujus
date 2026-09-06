@@ -23,6 +23,7 @@ psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0001_security_har
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0002_live_fleet_tracking.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0003_offline_orders_and_cash_lock.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0004_customer_profile.sql
+psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0005_cup_metrics.sql
 
 # lalu salah satu berkas uji, masing-masing pada basis data yang baru
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
@@ -100,3 +101,14 @@ pemindaian tabel penuh.
 | 5 | Laporan sebaran, jam ramai per usia, dan produk favorit per segmen |
 | 6 | Transaksi tanpa profil terlihat jelas sebagai `unknown`, bukan disembunyikan |
 | 7 | Driver tidak dapat membaca laporan pembeli |
+
+## 06 — Metrik cup vs transaksi
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | 3 transaksi berisi 9 cup + 2 topping → `admin_daily_summary` melaporkan 3 transaksi & **9 cup** (topping tidak dihitung) |
+| 2 | `admin_sales_daily` mengembalikan cup per hari yang benar |
+| 3 | `fleet_overview` mengembalikan `cups_today` per gerobak |
+| 4 | `admin_report_summary` menghitung cup, omzet, dan rincian pembayaran atas seluruh rentang |
+| 5 | `order_cup_count` menghitung cup satu pesanan multi-item |
+| 6 | Driver tidak dapat membaca ringkasan maupun laporan (nol baris) |
