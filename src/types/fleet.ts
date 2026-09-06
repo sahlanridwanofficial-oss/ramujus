@@ -17,6 +17,7 @@ export interface FleetOverviewRow {
   shift_started_at: string | null
   on_shift: boolean
   orders_today: number
+  cups_today: number
   revenue_today: number
 }
 

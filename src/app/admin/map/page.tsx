@@ -271,7 +271,7 @@ export default function MapPage() {
                   <div className="flex items-center justify-between gap-2 mt-1 pl-4">
                     <span className="text-[10px] text-zinc-500">{PRESENCE_LABEL[unit.presence]}</span>
                     <span className="text-[10px] font-bold text-zinc-700">
-                      {unit.orders_today} pesanan · {formatRupiah(unit.revenue_today)}
+                      {unit.cups_today} cup · {unit.orders_today} transaksi · {formatRupiah(unit.revenue_today)}
                     </span>
                   </div>
                 </button>

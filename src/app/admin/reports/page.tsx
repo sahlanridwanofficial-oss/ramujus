@@ -12,6 +12,18 @@ import {
 // tanggalnya, bukan ditarik sekaligus ke browser.
 const REPORT_ROW_LIMIT = 1000
 
+interface ReportSummary {
+  orders: number
+  cups: number
+  revenue: number
+  cash_revenue: number
+  qris_revenue: number
+  transfer_revenue: number
+  cash_orders: number
+  qris_orders: number
+  transfer_orders: number
+}
+
 interface ReportOrder {
   id: string
   order_number: string
@@ -25,6 +37,7 @@ export default function ReportsPage() {
   const [orders, setOrders] = useState<ReportOrder[]>([])
   const [loading, setLoading] = useState(true)
   const [truncated, setTruncated] = useState(false)
+  const [summary, setSummary] = useState<ReportSummary | null>(null)
   const [dateFrom, setDateFrom] = useState(
     shiftDate(jakartaToday(), -7)
   )
@@ -42,23 +55,45 @@ export default function ReportsPage() {
       // Laporan adalah daftar transaksi, jadi tetap per baris — tapi harus
       // berbatas. Pada 100 gerobak, rentang satu bulan tanpa batas berarti
       // ratusan ribu baris ditarik ke browser sekaligus.
-      const { data } = await supabase
-        .from('orders')
-        .select(`
-          id, order_number, total_amount, payment_method, created_at,
-          driver:profiles!orders_driver_id_fkey (full_name)
-        `)
-        .gte('created_at', jakartaDayRange(dateFrom).start)
-        .lt('created_at', jakartaDayRange(dateTo).endExclusive)
-        .order('created_at', { ascending: false })
-        .limit(REPORT_ROW_LIMIT)
+      // Daftar transaksi dibatasi untuk tampilan; ringkasan (volume, cup,
+      // omzet) dihitung server atas SELURUH rentang, jadi tetap benar walau
+      // daftar terpotong.
+      const [{ data }, { data: sum }] = await Promise.all([
+        supabase
+          .from('orders')
+          .select(`
+            id, order_number, total_amount, payment_method, created_at,
+            driver:profiles!orders_driver_id_fkey (full_name)
+          `)
+          .gte('created_at', jakartaDayRange(dateFrom).start)
+          .lt('created_at', jakartaDayRange(dateTo).endExclusive)
+          .order('created_at', { ascending: false })
+          .limit(REPORT_ROW_LIMIT),
+        supabase.rpc('admin_report_summary', { p_from: dateFrom, p_to: dateTo }),
+      ])
 
       const rows = (data ?? []) as ReportOrder[]
       setOrders(rows)
       setTruncated(rows.length >= REPORT_ROW_LIMIT)
+
+      const sumRow = (Array.isArray(sum) ? sum[0] : sum) as ReportSummary | null | undefined
+      setSummary(sumRow
+        ? {
+            orders: sumRow.orders,
+            cups: sumRow.cups,
+            revenue: Number(sumRow.revenue),
+            cash_revenue: Number(sumRow.cash_revenue),
+            qris_revenue: Number(sumRow.qris_revenue),
+            transfer_revenue: Number(sumRow.transfer_revenue),
+            cash_orders: sumRow.cash_orders,
+            qris_orders: sumRow.qris_orders,
+            transfer_orders: sumRow.transfer_orders,
+          }
+        : null)
     } catch {
       setOrders([])
       setTruncated(false)
+      setSummary(null)
     } finally {
       setLoading(false)
     }
@@ -86,9 +121,11 @@ export default function ReportsPage() {
     URL.revokeObjectURL(url)
   }
 
-  const totalRevenue = orders.reduce((s, o) => s + o.total_amount, 0)
-  const cashOrders = orders.filter(o => o.payment_method === 'cash')
-  const qrisOrders = orders.filter(o => o.payment_method === 'qris')
+  // Angka ringkasan diambil dari server (seluruh rentang), bukan dari
+  // daftar yang dibatasi 1000 baris.
+  const totalOrders = summary?.orders ?? 0
+  const totalCups = summary?.cups ?? 0
+  const totalRevenue = summary?.revenue ?? 0
 
   return (
     <div className="space-y-5">
@@ -148,13 +185,13 @@ export default function ReportsPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Volume Transaksi</span>
+            <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Cup Terjual</span>
             <div className="w-8 h-8 rounded-xl bg-zinc-100 text-zinc-800 flex items-center justify-center">
               <ShoppingBag strokeWidth={2} className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-zinc-900 tracking-tight">{orders.length} Cup</p>
-          <span className="text-[11px] text-zinc-400 mt-1 block">Pesanan tercatat</span>
+          <p className="text-2xl font-black text-zinc-900 tracking-tight">{totalCups.toLocaleString('id-ID')} Cup</p>
+          <span className="text-[11px] text-zinc-400 mt-1 block">{totalOrders.toLocaleString('id-ID')} transaksi</span>
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
@@ -171,17 +208,17 @@ export default function ReportsPage() {
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Penerimaan QRIS</span>
           <p className="text-xl font-black text-zinc-900 tracking-tight">
-            {formatRupiah(qrisOrders.reduce((s, o) => s + o.total_amount, 0))}
+            {formatRupiah(summary?.qris_revenue ?? 0)}
           </p>
-          <span className="text-[11px] text-zinc-400 mt-1 block">{qrisOrders.length} transaksi non-tunai</span>
+          <span className="text-[11px] text-zinc-400 mt-1 block">{(summary?.qris_orders ?? 0).toLocaleString('id-ID')} transaksi non-tunai</span>
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Penerimaan Tunai</span>
           <p className="text-xl font-black text-zinc-900 tracking-tight">
-            {formatRupiah(cashOrders.reduce((s, o) => s + o.total_amount, 0))}
+            {formatRupiah(summary?.cash_revenue ?? 0)}
           </p>
-          <span className="text-[11px] text-zinc-400 mt-1 block">{cashOrders.length} transaksi fisik</span>
+          <span className="text-[11px] text-zinc-400 mt-1 block">{(summary?.cash_orders ?? 0).toLocaleString('id-ID')} transaksi fisik</span>
         </div>
       </div>
 

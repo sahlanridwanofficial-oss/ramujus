@@ -11,6 +11,7 @@ import {
 
 interface Stats {
   todayOrders: number
+  todayCups: number
   todayRevenue: number
   activeDrivers: number
   avgOrderValue: number
@@ -27,7 +28,7 @@ interface RecentOrder {
 
 export default function AdminDashboard() {
   const [stats, setStats] = useState<Stats>({
-    todayOrders: 0, todayRevenue: 0, activeDrivers: 0, avgOrderValue: 0
+    todayOrders: 0, todayCups: 0, todayRevenue: 0, activeDrivers: 0, avgOrderValue: 0
   })
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,7 +70,7 @@ export default function AdminDashboard() {
       ])
 
       const row = (Array.isArray(summary) ? summary[0] : summary) as
-        | { orders_today: number; revenue_today: number; active_drivers: number }
+        | { orders_today: number; cups_today: number; revenue_today: number; active_drivers: number }
         | null
         | undefined
 
@@ -78,6 +79,7 @@ export default function AdminDashboard() {
 
       setStats({
         todayOrders: orderCount,
+        todayCups: row?.cups_today ?? 0,
         todayRevenue: totalRev,
         activeDrivers: row?.active_drivers ?? 0,
         avgOrderValue: orderCount > 0 ? Math.round(totalRev / orderCount) : 0,
@@ -87,6 +89,7 @@ export default function AdminDashboard() {
     } catch {
       setStats({
         todayOrders: 0,
+        todayCups: 0,
         todayRevenue: 0,
         activeDrivers: 0,
         avgOrderValue: 0,
@@ -115,9 +118,9 @@ export default function AdminDashboard() {
       accent: 'text-[#be1a1a] bg-red-50',
     },
     {
-      label: 'Pesanan Hari Ini',
-      value: stats.todayOrders.toString() + ' Cup',
-      sub: 'Volume transaksi',
+      label: 'Cup Terjual Hari Ini',
+      value: stats.todayCups.toString() + ' Cup',
+      sub: `${stats.todayOrders} transaksi`,
       icon: ShoppingBag,
       accent: 'text-zinc-900 bg-zinc-100',
     },
