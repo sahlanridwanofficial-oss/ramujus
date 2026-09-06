@@ -6,6 +6,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { formatRupiah, formatTime, formatDate } from '@/lib/format'
 import { ShoppingBag, MapPin, Clock, Loader2, ChevronRight, Calendar } from 'lucide-react'
 import type { Order, OrderItem, Product } from '@/types/database'
+import { jakartaToday, jakartaDayRange } from '@/lib/date'
 
 interface OrderWithItems extends Order {
   order_items: (OrderItem & { product: Product | null })[]
@@ -16,7 +17,7 @@ export default function HistoryPage() {
   const [orders, setOrders] = useState<OrderWithItems[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedDate, setSelectedDate] = useState(
-    new Date().toISOString().slice(0, 10)
+    jakartaToday()
   )
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const supabase = createClient()
@@ -40,8 +41,8 @@ export default function HistoryPage() {
           )
         `)
         .eq('driver_id', user.id)
-        .gte('created_at', `${selectedDate}T00:00:00`)
-        .lte('created_at', `${selectedDate}T23:59:59`)
+        .gte('created_at', jakartaDayRange(selectedDate).start)
+        .lt('created_at', jakartaDayRange(selectedDate).endExclusive)
         .order('created_at', { ascending: false })
 
       if (data) setOrders(data as OrderWithItems[])

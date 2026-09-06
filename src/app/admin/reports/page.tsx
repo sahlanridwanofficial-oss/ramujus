@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah, formatDate, formatTime } from '@/lib/format'
+import { jakartaToday, shiftDate, jakartaDayRange } from '@/lib/date'
 import {
   Loader2, Download, FileText, Calendar, ShoppingBag, TrendingUp, TriangleAlert
 } from 'lucide-react'
@@ -25,10 +26,10 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [truncated, setTruncated] = useState(false)
   const [dateFrom, setDateFrom] = useState(
-    new Date(Date.now() - 7 * 86400000).toISOString().slice(0, 10)
+    shiftDate(jakartaToday(), -7)
   )
   const [dateTo, setDateTo] = useState(
-    new Date().toISOString().slice(0, 10)
+    jakartaToday()
   )
   const supabase = createClient()
 
@@ -47,8 +48,8 @@ export default function ReportsPage() {
           id, order_number, total_amount, payment_method, created_at,
           driver:profiles!orders_driver_id_fkey (full_name)
         `)
-        .gte('created_at', `${dateFrom}T00:00:00`)
-        .lte('created_at', `${dateTo}T23:59:59`)
+        .gte('created_at', jakartaDayRange(dateFrom).start)
+        .lt('created_at', jakartaDayRange(dateTo).endExclusive)
         .order('created_at', { ascending: false })
         .limit(REPORT_ROW_LIMIT)
 
