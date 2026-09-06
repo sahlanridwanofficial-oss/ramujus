@@ -32,6 +32,8 @@ function InventoryContent() {
   const [products, setProducts] = useState<Product[]>([])
 
   const [allocItems, setAllocItems] = useState<{ [productId: string]: ProductAllocItem }>({})
+  // Muatan yang sudah tersimpan di server, untuk membandingkan dengan editan.
+  const [savedInitial, setSavedInitial] = useState<{ [productId: string]: number }>({})
   const [currentAllocation, setCurrentAllocation] = useState<DriverDailyAllocation | null>(null)
   
   // Financial Reconciliation State
@@ -177,6 +179,11 @@ function InventoryContent() {
       })
 
       setAllocItems(itemsMap)
+      // Simpan angka muatan yang sudah tersimpan sebagai patokan, agar
+      // perubahan yang belum disimpan bisa ditandai dengan jelas.
+      const baseline: { [id: string]: number } = {}
+      products.forEach(p => { baseline[p.id] = itemsMap[p.id]?.initial_quantity || 0 })
+      setSavedInitial(baseline)
     } catch {
       // fallback
     } finally {
@@ -279,9 +286,18 @@ function InventoryContent() {
         )
       }
 
+      // Rangkum apa yang benar-benar berubah agar admin melihat konfirmasi
+      // jelas — tambah, kurang, atau tetap.
+      const added = allocChanges.filter(c => c.delta > 0)
+      const reduced = allocChanges.filter(c => c.delta < 0)
+      const parts: string[] = []
+      if (added.length) parts.push('ditambah ' + added.map(c => `+${c.delta} ${c.name}`).join(', '))
+      if (reduced.length) parts.push('dikurangi ' + reduced.map(c => `${c.delta} ${c.name}`).join(', '))
       setAlertMessage({
         type: 'success',
-        text: 'Alokasi muatan gerobak pagi berhasil disimpan. Stok pusat berkurang otomatis dan mitra driver dapat melihat muatannya.'
+        text: parts.length
+          ? `Muatan gerobak diperbarui: ${parts.join('; ')}. Stok pusat menyesuaikan otomatis dan driver langsung melihat perubahannya.`
+          : 'Muatan gerobak tersimpan. Tidak ada perubahan jumlah.',
       })
       await loadAllocationForDriver(selectedDriverId, selectedDate)
     } catch (err: unknown) {
@@ -438,6 +454,20 @@ function InventoryContent() {
   // Tombolnya ikut dimatikan agar admin tidak mengira suntingannya tersimpan.
   const isReconciled = currentAllocation?.status === 'reconciled'
 
+  // Perubahan muatan yang belum disimpan: selisih editan vs yang tersimpan.
+  // Inilah dasar semua penanda "belum disimpan" dan pratinjau di UI.
+  const allocChanges = allocValues
+    .map(i => ({
+      id: i.product.id,
+      name: i.product.name,
+      delta: i.initial_quantity - (savedInitial[i.product.id] ?? 0),
+    }))
+    .filter(c => c.delta !== 0)
+  const hasUnsavedChanges = allocChanges.length > 0
+  const netDelta = allocChanges.reduce((s, c) => s + c.delta, 0)
+  const perProductDelta = (pid: string) =>
+    (allocItems[pid]?.initial_quantity ?? 0) - (savedInitial[pid] ?? 0)
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -579,9 +609,11 @@ function InventoryContent() {
                     <Sun className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="font-bold text-zinc-900 text-sm">Muatan Gerobak Pagi Hari</h3>
+                    <h3 className="font-bold text-zinc-900 text-sm">Muatan Gerobak</h3>
                     <p className="text-xs text-zinc-500">
-                      Tentukan jumlah cup/item yang dibawa driver sebelum memulai shift keliling.
+                      {isReconciled
+                        ? 'Hari ini sudah dikunci — muatan tidak bisa diubah lagi.'
+                        : 'Atur muatan pagi, atau tambah/kurangi kapan saja siang hari. Stok pusat menyesuaikan otomatis.'}
                     </p>
                   </div>
                 </div>
@@ -598,23 +630,53 @@ function InventoryContent() {
                   </div>
                   <button
                     onClick={handleSaveMorningAllocation}
-                    disabled={saving}
-                    className="flex items-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-50"
+                    disabled={saving || isReconciled || !hasUnsavedChanges}
+                    className="flex items-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
-                    <span>Simpan Muatan</span>
+                    <span>{hasUnsavedChanges ? 'Simpan Perubahan' : 'Tersimpan'}</span>
                   </button>
                 </div>
               </div>
+
+              {/* Bilah perubahan belum disimpan — kejelasan sebelum & sesudah simpan */}
+              {!isReconciled && hasUnsavedChanges && (
+                <div className="sticky top-2 z-20 bg-amber-50 border border-amber-300 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-card">
+                  <div className="flex items-center gap-2 text-xs text-amber-900">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span className="font-bold">
+                      {allocChanges.length} produk diubah
+                      <span className="font-semibold"> ({netDelta > 0 ? '+' : ''}{netDelta} cup)</span> — belum disimpan.
+                    </span>
+                    <span className="hidden sm:inline text-amber-800/80 truncate max-w-[38ch]">
+                      {allocChanges.map(c => `${c.delta > 0 ? '+' : ''}${c.delta} ${c.name}`).join(', ')}
+                    </span>
+                  </div>
+                  <button
+                    onClick={handleSaveMorningAllocation}
+                    disabled={saving}
+                    className="shrink-0 inline-flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-colors disabled:opacity-50"
+                  >
+                    {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                    Simpan Sekarang
+                  </button>
+                </div>
+              )}
 
               {/* Product Allocation Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                 {products.map(p => {
                   const item = allocItems[p.id] || { initial_quantity: 0, sold_quantity: 0 }
+                  const saved = savedInitial[p.id] ?? 0
+                  const delta = perProductDelta(p.id)
+                  const sold = item.sold_quantity || 0
+                  const remaining = Math.max(0, saved - sold) // sisa dari yang sudah tersimpan
                   return (
                     <div
                       key={p.id}
-                      className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card flex flex-col justify-between space-y-3"
+                      className={`bg-white rounded-2xl border p-4 shadow-card flex flex-col justify-between space-y-3 transition-colors ${
+                        delta !== 0 ? 'border-amber-300 ring-1 ring-amber-200' : 'border-zinc-200/80'
+                      }`}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div>
@@ -628,10 +690,33 @@ function InventoryContent() {
                           </p>
                         </div>
                         <div className="text-right">
-                          <span className="text-[11px] text-zinc-400 block">Bawa Pagi</span>
+                          <span className="text-[11px] text-zinc-400 block">Muat</span>
                           <span className="text-xl font-black text-zinc-900">{item.initial_quantity}</span>
+                          {delta !== 0 && (
+                            <span className={`block text-[10px] font-bold ${delta > 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
+                              {delta > 0 ? '+' : ''}{delta} belum disimpan
+                            </span>
+                          )}
                         </div>
                       </div>
+
+                      {/* Ringkasan tersimpan / terjual / sisa — dasar keputusan top-up siang */}
+                      {saved > 0 && (
+                        <div className="grid grid-cols-3 gap-1 text-center bg-zinc-50/70 rounded-lg py-1.5 border border-zinc-100">
+                          <div>
+                            <span className="block text-[9px] text-zinc-400 uppercase font-bold">Tersimpan</span>
+                            <span className="text-xs font-black text-zinc-800">{saved}</span>
+                          </div>
+                          <div className="border-x border-zinc-200/70">
+                            <span className="block text-[9px] text-zinc-400 uppercase font-bold">Terjual</span>
+                            <span className="text-xs font-black text-[#be1a1a]">{sold}</span>
+                          </div>
+                          <div>
+                            <span className="block text-[9px] text-zinc-400 uppercase font-bold">Sisa</span>
+                            <span className="text-xs font-black text-emerald-700">{remaining}</span>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Quick Adjust Buttons */}
                       <div className="space-y-2 pt-2 border-t border-zinc-100">
@@ -639,36 +724,41 @@ function InventoryContent() {
                           <input
                             type="number"
                             min={0}
+                            disabled={isReconciled}
                             value={item.initial_quantity}
                             onChange={(e) => setInitialQtyDirect(p.id, parseInt(e.target.value))}
-                            className="w-20 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#be1a1a]"
+                            className="w-20 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#be1a1a] disabled:opacity-50"
                           />
                           <button
                             type="button"
+                            disabled={isReconciled}
                             onClick={() => adjustInitialQty(p.id, 5)}
-                            className="flex-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg py-1.5 text-xs font-bold transition-colors"
+                            className="flex-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg py-1.5 text-xs font-bold transition-colors disabled:opacity-50"
                           >
                             +5
                           </button>
                           <button
                             type="button"
+                            disabled={isReconciled}
                             onClick={() => adjustInitialQty(p.id, 10)}
-                            className="flex-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg py-1.5 text-xs font-bold transition-colors"
+                            className="flex-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg py-1.5 text-xs font-bold transition-colors disabled:opacity-50"
                           >
                             +10
                           </button>
                           <button
                             type="button"
+                            disabled={isReconciled}
                             onClick={() => adjustInitialQty(p.id, 25)}
-                            className="flex-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg py-1.5 text-xs font-bold transition-colors"
+                            className="flex-1 bg-zinc-50 hover:bg-zinc-100 text-zinc-700 border border-zinc-200 rounded-lg py-1.5 text-xs font-bold transition-colors disabled:opacity-50"
                           >
                             +25
                           </button>
                           <button
                             type="button"
-                            onClick={() => setInitialQtyDirect(p.id, 0)}
-                            title="Reset 0"
-                            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors text-xs"
+                            disabled={isReconciled}
+                            onClick={() => setInitialQtyDirect(p.id, saved)}
+                            title="Batalkan perubahan"
+                            className="w-7 h-7 flex items-center justify-center text-zinc-400 hover:text-red-600 rounded-lg hover:bg-red-50 transition-colors text-xs disabled:opacity-50"
                           >
                             <RotateCcw className="w-3 h-3" />
                           </button>
