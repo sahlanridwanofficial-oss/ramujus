@@ -17,6 +17,7 @@ import { useOrderQueue } from '@/hooks/useOrderQueue'
 import SegmentedChoice from '@/components/ui/SegmentedChoice'
 import type { CustomerGender, CustomerAgeRange, CustomerType } from '@/types/customer'
 import { GENDER_OPTIONS, AGE_OPTIONS, CUSTOMER_TYPE_OPTIONS } from '@/types/customer'
+import { jakartaToday } from '@/lib/date'
 import Link from 'next/link'
 
 const paymentIcons = {
@@ -119,8 +120,9 @@ export default function OrderPage() {
         setProducts(prods)
       }
 
-      // 3. Get today's allocation stock for this driver
-      const today = new Date().toISOString().slice(0, 10)
+      // 3. Get today's allocation stock for this driver. Tanggal WIB agar
+      // cocok dengan alokasi yang dibuat admin dan dipotong create_order.
+      const today = jakartaToday()
       const { data: alloc } = await supabase
         .from('driver_daily_allocations')
         .select(`

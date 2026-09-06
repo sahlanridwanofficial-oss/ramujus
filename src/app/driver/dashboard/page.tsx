@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import type { Shift } from '@/types/database'
 import { isCupCategory } from '@/lib/constants'
+import { jakartaToday, jakartaDayRange } from '@/lib/date'
 
 interface CartStockItem {
   id: string
@@ -70,13 +71,15 @@ export default function DriverDashboard() {
 
       setActiveShift(shift)
 
-      // 2. Get today's stats
-      const today = new Date().toISOString().slice(0, 10)
+      // 2. Get today's stats — batas hari mengikuti WIB agar cocok dengan
+      // angka dashboard admin yang dihitung server dalam Asia/Jakarta.
+      const today = jakartaToday()
+      const { start: dayStart } = jakartaDayRange(today)
       const { data: orders } = await supabase
         .from('orders')
         .select('total_amount')
         .eq('driver_id', user.id)
-        .gte('created_at', `${today}T00:00:00`)
+        .gte('created_at', dayStart)
 
       if (orders) {
         setTodayStats({

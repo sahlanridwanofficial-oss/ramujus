@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import type { Profile, Product, DriverDailyAllocation, DriverAllocationItem } from '@/types/database'
 import { isCupCategory } from '@/lib/constants'
+import { jakartaToday, jakartaDayRange } from '@/lib/date'
 
 interface ProductAllocItem {
   product: Product
@@ -27,7 +28,7 @@ function InventoryContent() {
   const [activeTab, setActiveTab] = useState<'morning' | 'night'>('morning')
   const [drivers, setDrivers] = useState<Profile[]>([])
   const [selectedDriverId, setSelectedDriverId] = useState<string>(initialDriverId)
-  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [selectedDate, setSelectedDate] = useState<string>(jakartaToday())
   const [products, setProducts] = useState<Product[]>([])
 
   const [allocItems, setAllocItems] = useState<{ [productId: string]: ProductAllocItem }>({})
@@ -113,15 +114,16 @@ function InventoryContent() {
         if (items) existingItems = items
       }
 
-      // 3. Fetch real POS orders for this driver on this date
-      const startOfDay = `${date}T00:00:00`
-      const endOfDay = `${date}T23:59:59`
+      // 3. Fetch real POS orders for this driver on this date. Batas hari
+      // mengikuti WIB agar penjualan yang dijumlahkan di sini sama persis
+      // dengan yang dipotong create_order dan yang dilihat driver.
+      const { start: startOfDay, endExclusive: endOfDay } = jakartaDayRange(date)
       const { data: orders } = await supabase
         .from('orders')
         .select('id, total_amount, payment_method, order_items(product_id, quantity)')
         .eq('driver_id', driverId)
         .gte('created_at', startOfDay)
-        .lte('created_at', endOfDay)
+        .lt('created_at', endOfDay)
 
       // Calculate sold quantity per product from actual orders
       const realSoldByProduct: { [productId: string]: number } = {}
