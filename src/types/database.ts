@@ -34,6 +34,32 @@ export interface Product {
   category: ProductCategory
   is_available: boolean
   sort_order: number
+  stock_quantity: number
+  low_stock_threshold: number
+  created_at: string
+}
+
+export interface StockOverviewRow {
+  product_id: string
+  name: string
+  category: ProductCategory
+  price: number
+  is_available: boolean
+  stock_quantity: number
+  low_stock_threshold: number
+  allocated_today: number
+  status: 'ok' | 'low' | 'out'
+}
+
+export interface StockMovement {
+  id: string
+  product_id: string
+  delta: number
+  balance_after: number
+  reason: 'restock' | 'opname' | 'allocation' | 'allocation_return' | 'adjustment'
+  note: string | null
+  reference_id: string | null
+  actor_id: string | null
   created_at: string
 }
 

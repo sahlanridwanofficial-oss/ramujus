@@ -254,48 +254,34 @@ function InventoryContent() {
     setAlertMessage(null)
 
     try {
-      // 1. Create or get allocation header
-      let allocId = currentAllocation?.id
+      // Muat gerobak lewat RPC transaksional: header + item + pengurangan
+      // stok pusat dalam satu transaksi, dengan selisih dihitung server
+      // (idempoten). sold_quantity tidak dikirim — kolom itu dikelola
+      // create_order() saat driver menjual.
+      const { error: rpcError } = await supabase.rpc('save_morning_allocation', {
+        p_driver_id: selectedDriverId,
+        p_date: selectedDate,
+        p_items: Object.values(allocItems).map(item => ({
+          product_id: item.product.id,
+          initial_quantity: item.initial_quantity,
+          physical_remaining: item.physical_remaining,
+          waste_quantity: item.waste_quantity,
+        })),
+      })
 
-      if (!allocId) {
-        const { data: newAlloc, error: allocErr } = await supabase
-          .from('driver_daily_allocations')
-          .insert({
-            driver_id: selectedDriverId,
-            date: selectedDate,
-            status: 'allocated'
-          })
-          .select()
-          .single()
-
-        if (allocErr || !newAlloc) {
-          throw new Error(allocErr?.message || 'Gagal membuat alokasi harian.')
-        }
-        allocId = newAlloc.id
-        setCurrentAllocation(newAlloc)
-      }
-
-      // 2. Upsert allocation items.
-      //    sold_quantity sengaja TIDAK dikirim: kolom itu dikelola server
-      //    lewat create_order() setiap kali driver menjual. Mengirimnya dari
-      //    sini akan menimpa penjualan yang masuk setelah halaman dibuka.
-      const itemsToUpsert = Object.values(allocItems).map(item => ({
-        allocation_id: allocId,
-        product_id: item.product.id,
-        initial_quantity: item.initial_quantity,
-        physical_remaining: item.physical_remaining,
-        waste_quantity: item.waste_quantity
-      }))
-
-      for (const item of itemsToUpsert) {
-        await supabase
-          .from('driver_allocation_items')
-          .upsert(item, { onConflict: 'allocation_id,product_id' })
+      if (rpcError) {
+        throw new Error(
+          rpcError.message.includes('INSUFFICIENT_STOCK')
+            ? `Stok pusat tidak cukup untuk ${rpcError.message.split('INSUFFICIENT_STOCK:')[1]?.trim() || 'produk ini'}. Tambah stok di menu Inventori dulu.`
+            : rpcError.message.includes('RECONCILIATION_LOCKED')
+              ? 'Alokasi hari ini sudah dikunci dan tidak dapat diubah.'
+              : 'Gagal menyimpan alokasi.'
+        )
       }
 
       setAlertMessage({
         type: 'success',
-        text: 'Alokasi muatan gerobak pagi berhasil disimpan. Mitra driver dapat melihat stok di aplikasinya.'
+        text: 'Alokasi muatan gerobak pagi berhasil disimpan. Stok pusat berkurang otomatis dan mitra driver dapat melihat muatannya.'
       })
       await loadAllocationForDriver(selectedDriverId, selectedDate)
     } catch (err: unknown) {
@@ -637,6 +623,9 @@ function InventoryContent() {
                           </span>
                           <h4 className="font-black text-zinc-900 text-sm mt-1">{p.name}</h4>
                           <p className="text-xs font-mono text-[#be1a1a] font-semibold">{formatRupiah(p.price)}</p>
+                          <p className={`text-[10px] font-semibold mt-0.5 ${p.stock_quantity <= 0 ? 'text-[#be1a1a]' : 'text-zinc-400'}`}>
+                            Stok pusat: {p.stock_quantity} cup
+                          </p>
                         </div>
                         <div className="text-right">
                           <span className="text-[11px] text-zinc-400 block">Bawa Pagi</span>
