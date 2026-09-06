@@ -9,14 +9,13 @@ import { PAYMENT_METHODS } from '@/lib/constants'
 import {
   Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
   Loader2, Banknote, QrCode, ArrowRightLeft, X, ArrowLeft,
-  Receipt, PackageCheck, AlertCircle, CloudOff, UserRound, ChevronDown
+  Receipt, PackageCheck, AlertCircle, CloudOff
 } from 'lucide-react'
 import type { Product, CartItem, Shift } from '@/types/database'
 import { enqueueOrder, newClientOrderId, isPermanentFailure } from '@/lib/offlineQueue'
 import { useOrderQueue } from '@/hooks/useOrderQueue'
-import SegmentedChoice from '@/components/ui/SegmentedChoice'
 import type { CustomerGender, CustomerAgeRange, CustomerType } from '@/types/customer'
-import { GENDER_OPTIONS, AGE_OPTIONS, CUSTOMER_TYPE_OPTIONS } from '@/types/customer'
+import CustomerPersona from '@/components/driver/CustomerPersona'
 import { jakartaToday } from '@/lib/date'
 import Link from 'next/link'
 
@@ -80,7 +79,6 @@ export default function OrderPage() {
   const [queuedOffline, setQueuedOffline] = useState(false)
 
   // Profil pembeli — perkiraan driver, semuanya opsional.
-  const [showProfile, setShowProfile] = useState(false)
   const [customerGender, setCustomerGender] = useState<CustomerGender | null>(null)
   const [customerAge, setCustomerAge] = useState<CustomerAgeRange | null>(null)
   const [customerType, setCustomerType] = useState<CustomerType | null>(null)
@@ -218,7 +216,6 @@ export default function OrderPage() {
   )
 
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0)
-  const profileCount = [customerGender, customerAge, customerType].filter(Boolean).length
 
   async function submitOrder() {
     if (!activeShift || !user || cart.length === 0) return
@@ -307,7 +304,6 @@ export default function OrderPage() {
     setCustomerGender(null)
     setCustomerAge(null)
     setCustomerType(null)
-    setShowProfile(false)
   }
 
   function queueOrder(
@@ -686,56 +682,16 @@ export default function OrderPage() {
               </div>
             </div>
 
-            {/* Profil pembeli — tertutup secara bawaan supaya jalur cepat
-                tetap cepat. Driver yang sedang melayani antrean panjang tidak
-                perlu melewati satu langkah tambahan untuk menyimpan. */}
-            <div className="border-t border-zinc-100 pt-3">
-              <button
-                type="button"
-                onClick={() => setShowProfile(v => !v)}
-                className="w-full flex items-center justify-between text-left group"
-              >
-                <span className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-500 group-hover:text-zinc-700 transition-colors">
-                  <UserRound className="w-3.5 h-3.5" />
-                  Profil pembeli
-                  <span className="font-normal text-zinc-400">(opsional)</span>
-                </span>
-                <span className="flex items-center gap-1.5">
-                  {profileCount > 0 && (
-                    <span className="text-[10px] font-bold text-zinc-900 bg-zinc-100 px-1.5 py-0.5 rounded-full">
-                      {profileCount}/3
-                    </span>
-                  )}
-                  <ChevronDown
-                    className={`w-3.5 h-3.5 text-zinc-400 transition-transform ${showProfile ? 'rotate-180' : ''}`}
-                  />
-                </span>
-              </button>
-
-              {showProfile && (
-                <div className="space-y-3 mt-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                  <SegmentedChoice
-                    label="Jenis kelamin"
-                    options={GENDER_OPTIONS}
-                    value={customerGender}
-                    onChange={setCustomerGender}
-                  />
-                  <SegmentedChoice
-                    label="Perkiraan usia"
-                    hint="tebakan kasar"
-                    options={AGE_OPTIONS}
-                    value={customerAge}
-                    onChange={setCustomerAge}
-                  />
-                  <SegmentedChoice
-                    label="Pelanggan"
-                    options={CUSTOMER_TYPE_OPTIONS}
-                    value={customerType}
-                    onChange={setCustomerType}
-                  />
-                </div>
-              )}
-            </div>
+            {/* Pencatatan pembeli — tombol besar & jelas, tertutup default
+                agar jalur cepat tetap cepat. */}
+            <CustomerPersona
+              gender={customerGender}
+              age={customerAge}
+              type={customerType}
+              onGender={setCustomerGender}
+              onAge={setCustomerAge}
+              onType={setCustomerType}
+            />
 
             {/* Simpan */}
             <button

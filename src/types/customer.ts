@@ -1,5 +1,11 @@
-import { Baby, GraduationCap, User, UserRound, Sparkles, Repeat } from 'lucide-react'
-import type { ChoiceOption } from '@/components/ui/SegmentedChoice'
+import { Baby, GraduationCap, User, UserRound, Sparkles, Repeat, type LucideIcon } from 'lucide-react'
+
+/** Satu opsi pilihan persona: nilai, label tampil, dan ikon opsional. */
+export interface ChoiceOption<T extends string> {
+  value: T
+  label: string
+  icon?: LucideIcon
+}
 
 /**
  * Profil pembeli — perkiraan driver, bukan data identitas.
