@@ -115,9 +115,13 @@ export default function MapView({ fleet, orders, showOrders, focusDriverId }: Ma
       scrollWheelZoom
       className="w-full h-[560px] z-10"
     >
+      {/* Tile OpenStreetMap standar: gratis, tanpa API key, tanpa watermark.
+          Penyedia sebelumnya (CARTO) memunculkan watermark "API key required"
+          saat diakses anonim di produksi. */}
       <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
+        maxZoom={19}
       />
 
       <FocusController fleet={fleet} focusDriverId={focusDriverId} />
