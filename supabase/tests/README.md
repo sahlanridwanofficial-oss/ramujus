@@ -24,6 +24,7 @@ psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0002_live_fleet_t
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0003_offline_orders_and_cash_lock.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0004_customer_profile.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0005_cup_metrics.sql
+psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0006_product_inventory.sql
 
 # lalu salah satu berkas uji, masing-masing pada basis data yang baru
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
@@ -112,3 +113,18 @@ pemindaian tabel penuh.
 | 4 | `admin_report_summary` menghitung cup, omzet, dan rincian pembayaran atas seluruh rentang |
 | 5 | `order_cup_count` menghitung cup satu pesanan multi-item |
 | 6 | Driver tidak dapat membaca ringkasan maupun laporan (nol baris) |
+
+## 07 — Inventori stok produk
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Restock menaikkan stok dan mencatat pergerakan |
+| 2 | Muat gerobak mengurangi stok pusat |
+| 3 | Menyimpan alokasi yang sama lagi tidak menggeser stok (idempoten) |
+| 4 | Menaikkan muatan mengurangi stok sebesar selisihnya saja |
+| 5 | Menurunkan muatan mengembalikan stok, tercatat sebagai `allocation_return` |
+| 6 | Muat melebihi stok pusat ditolak (`INSUFFICIENT_STOCK`) |
+| 7 | Stock opname menyetel angka absolut dan mencatat selisih |
+| 8 | Ikhtisar stok memberi status `out`/`low`/`ok` yang benar |
+| 9 | Hitungan menipis/habis untuk lencana dashboard |
+| 10 | Driver ditolak restock, muat gerobak, ikhtisar, dan riwayat pergerakan |

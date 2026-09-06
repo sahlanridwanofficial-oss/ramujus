@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
 import {
   ShoppingBag, TrendingUp, Users, DollarSign,
-  Loader2, ArrowUpRight, Clock, CheckCircle2
+  Loader2, ArrowUpRight, Clock, CheckCircle2, PackageX, TriangleAlert
 } from 'lucide-react'
 
 interface Stats {
@@ -31,6 +31,7 @@ export default function AdminDashboard() {
     todayOrders: 0, todayCups: 0, todayRevenue: 0, activeDrivers: 0, avgOrderValue: 0
   })
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+  const [lowStock, setLowStock] = useState<{ out: number; low: number }>({ out: 0, low: 0 })
   const [loading, setLoading] = useState(true)
   const supabase = createClient()
 
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
       // Ringkasan dijumlahkan database. Versi lama menarik seluruh pesanan
       // hari ini ke browser — pada 100 gerobak itu ribuan baris setiap kali
       // halaman dibuka DAN setiap kali Realtime memicu pembaruan.
-      const [{ data: summary }, { data: recent }] = await Promise.all([
+      const [{ data: summary }, { data: recent }, { data: stock }] = await Promise.all([
         supabase.rpc('admin_daily_summary'),
         supabase
           .from('orders')
@@ -67,7 +68,12 @@ export default function AdminDashboard() {
           `)
           .order('created_at', { ascending: false })
           .limit(10),
+        supabase.rpc('admin_low_stock_count'),
       ])
+
+      const stockRow = (Array.isArray(stock) ? stock[0] : stock) as
+        | { out_of_stock: number; low_stock: number } | null | undefined
+      setLowStock({ out: stockRow?.out_of_stock ?? 0, low: stockRow?.low_stock ?? 0 })
 
       const row = (Array.isArray(summary) ? summary[0] : summary) as
         | { orders_today: number; cups_today: number; revenue_today: number; active_drivers: number }
@@ -159,6 +165,27 @@ export default function AdminDashboard() {
           </span>
         </div>
       </div>
+
+      {/* Peringatan stok menipis/habis */}
+      {(lowStock.out > 0 || lowStock.low > 0) && (
+        <Link
+          href="/admin/stock"
+          className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl hover:bg-amber-100/70 transition-colors"
+        >
+          {lowStock.out > 0
+            ? <PackageX className="w-5 h-5 text-[#be1a1a] shrink-0" />
+            : <TriangleAlert className="w-5 h-5 text-amber-600 shrink-0" />}
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-amber-900">
+              {lowStock.out > 0 && `${lowStock.out} produk habis`}
+              {lowStock.out > 0 && lowStock.low > 0 && ' · '}
+              {lowStock.low > 0 && `${lowStock.low} produk menipis`}
+            </p>
+            <p className="text-[11px] text-amber-800/80 mt-0.5">Ketuk untuk mengelola stok di menu Inventori.</p>
+          </div>
+          <ArrowUpRight className="w-4 h-4 text-amber-700 shrink-0" />
+        </Link>
+      )}
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
