@@ -196,3 +196,15 @@ pemindaian tabel penuh.
 | 9 | Tanpa sisa fisik, tidak ada pergerakan stok kosong yang tercatat |
 | 10 | Driver tidak dapat mengunci maupun mengubah angka pengembalian |
 | 11 | `admin_pending_returns` menampilkan cup yang belum masuk hitungan stok; tertutup untuk driver |
+
+## 13 — Angka audit tidak bisa berbohong
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Angka mustahil (terjual + sisa + rusak melebihi yang dibawa) **ditolak**, dan alokasinya tidak ikut terkunci |
+| 2 | Setelah angkanya dibetulkan, penguncian berjalan dan sisa cup kembali ke stok |
+| 3 | Penjualan setelah hari itu dikunci ditolak (`DAY_RECONCILED`); tidak ada pesanan siluman dan stok tidak bergerak |
+| 4 | Setelah kunci dibuka, penjualan diterima lagi dan memotong muatan seperti biasa |
+| 5 | Penguncian menyegarkan angka terjual dari transaksi — yang dibekukan kebenaran saat penguncian, bukan angka layar yang basi |
+| 6 | Selisih ke arah kehilangan tetap boleh dikunci; itu kejadian nyata yang perlu tercatat |
+| 7 | Penguncian yang ditolak tidak menyisakan perubahan apa pun |

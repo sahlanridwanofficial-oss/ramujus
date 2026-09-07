@@ -71,7 +71,13 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
     (13, '0013_return_unsold_stock', 'Sisa cup kembali ke stok otomatis',
          EXISTS (SELECT 1 FROM information_schema.columns
                   WHERE table_schema='public' AND table_name='driver_daily_allocations'
-                    AND column_name='stock_returned_at'))
+                    AND column_name='stock_returned_at')),
+
+    (14, '0014_audit_numbers_cannot_lie', 'Angka audit mustahil ditolak',
+         EXISTS (SELECT 1 FROM pg_proc p
+                  JOIN pg_namespace n ON n.oid = p.pronamespace
+                 WHERE n.nspname='public' AND p.proname='lock_reconciliation'
+                   AND pg_get_functiondef(p.oid) LIKE '%AUDIT_NUMBERS_IMPOSSIBLE%'))
 )
 SELECT migrasi,
        penjelasan,

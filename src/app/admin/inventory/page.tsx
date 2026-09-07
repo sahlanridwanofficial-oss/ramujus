@@ -7,7 +7,7 @@ import { formatRupiah } from '@/lib/format'
 import {
   PackageCheck, Sun, Moon, Loader2, Users, Calendar,
   CheckCircle2, AlertCircle, Save, RotateCcw,
-  Check, ArrowRight, ShieldCheck
+  Check, ArrowRight, ShieldCheck, TriangleAlert
 } from 'lucide-react'
 import type { Profile, Product, DriverDailyAllocation, DriverAllocationItem } from '@/types/database'
 import { isCupCategory } from '@/lib/constants'
@@ -433,6 +433,8 @@ function InventoryContent() {
           throw new Error(
             lockError.message.includes('ALLOCATION_NOT_FOUND_OR_ALREADY_LOCKED')
               ? 'Rekonsiliasi ini sudah terkunci sebelumnya.'
+              : lockError.message.includes('AUDIT_NUMBERS_IMPOSSIBLE')
+                ? `Angka untuk ${product || 'salah satu produk'} tidak mungkin: terjual + sisa + rusak melebihi yang dibawa. Muat ulang data lalu hitung ulang sisa fisiknya.`
               : lockError.message.includes('RETURN_EXCEEDS_REMAINING')
                 ? `Jumlah "Kembali ke Stok" untuk ${product || 'salah satu produk'} melebihi sisa fisiknya. Perbaiki angkanya lalu kunci lagi.`
                 : 'Gagal mengunci rekonsiliasi. Angka audit sudah tersimpan, silakan coba kunci lagi.'
@@ -482,6 +484,13 @@ function InventoryContent() {
 
   // Dua angka yang menentukan pergerakan stok pusat saat dikunci.
   const allItems = Object.values(allocItems)
+  // Baris yang tidak mungkin secara fisik: yang dipertanggungjawabkan
+  // melebihi yang dibawa. Server menolaknya saat penguncian; di sini
+  // ditampilkan lebih dulu supaya admin tahu sebelum menekan tombol.
+  const impossibleItems = allItems.filter(
+    i => i.sold_quantity + i.physical_remaining + i.waste_quantity > i.initial_quantity
+  )
+
   const totalReturning = allItems.reduce((sum, i) => sum + effectiveReturn(i), 0)
   const totalNotReturning = allItems.reduce(
     (sum, i) => sum + Math.max(0, i.physical_remaining - effectiveReturn(i)),
@@ -1064,9 +1073,33 @@ function InventoryContent() {
                   </div>
                 </div>
 
+                {impossibleItems.length > 0 && (
+                  <div role="alert" className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-300 rounded-2xl">
+                    <TriangleAlert className="w-5 h-5 text-[#be1a1a] shrink-0 mt-px" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-[#be1a1a]">
+                        {impossibleItems.length} produk angkanya tidak mungkin — audit belum bisa dikunci
+                      </p>
+                      <p className="text-[11px] text-red-900/85 mt-0.5 leading-relaxed">
+                        Terjual + sisa fisik + rusak melebihi jumlah yang dibawa pagi. Biasanya ini
+                        terjadi karena sisa fisik dicatat lebih awal lalu driver masih menjual lagi.
+                        Tekan &quot;Muat ulang data&quot; di atas, lalu hitung ulang sisa fisiknya.
+                      </p>
+                      <ul className="mt-1.5 space-y-0.5">
+                        {impossibleItems.slice(0, 5).map(i => (
+                          <li key={i.product.id} className="text-[11px] text-red-900/80 font-mono">
+                            {i.product.name}: dibawa {i.initial_quantity}, terjual {i.sold_quantity},
+                            sisa {i.physical_remaining}, rusak {i.waste_quantity}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
                 {/* Penguncian menggerakkan stok pusat, jadi akibatnya
                     disebutkan sebelum tombolnya ditekan — bukan setelahnya. */}
-                {!isReconciled && (totalReturning > 0 || totalNotReturning > 0) && (
+                {!isReconciled && impossibleItems.length === 0 && (totalReturning > 0 || totalNotReturning > 0) && (
                   <div className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl">
                     <PackageCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-px" />
                     <div className="flex-1 min-w-0">
@@ -1113,7 +1146,7 @@ function InventoryContent() {
                     <button
                       type="button"
                       onClick={() => handleSaveEveningAudit(true)}
-                      disabled={saving || isReconciled}
+                      disabled={saving || isReconciled || impossibleItems.length > 0}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-40"
                     >
                       {saving ? (
