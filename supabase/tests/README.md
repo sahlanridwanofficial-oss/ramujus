@@ -25,6 +25,7 @@ psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0003_offline_orde
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0004_customer_profile.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0005_cup_metrics.sql
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0006_product_inventory.sql
+psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0007_analytics_by_date.sql
 
 # lalu salah satu berkas uji, masing-masing pada basis data yang baru
 psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
@@ -128,3 +129,18 @@ pemindaian tabel penuh.
 | 8 | Ikhtisar stok memberi status `out`/`low`/`ok` yang benar |
 | 9 | Hitungan menipis/habis untuk lencana dashboard |
 | 10 | Driver ditolak restock, muat gerobak, ikhtisar, dan riwayat pergerakan |
+
+## 08 — Analitik per hari/tanggal
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | `admin_daily_summary` melaporkan cup **dan** item hari ini sebagai dua angka berbeda |
+| 2 | `admin_sales_range` memberi satu baris per tanggal kalender WIB; hari tanpa transaksi tetap muncul sebagai baris nol |
+| 3 | Transaksi 23:30 dan 00:30 WIB jatuh pada tanggal WIB yang benar, bukan tanggal UTC |
+| 4 | Rentang dengan dari/sampai tertukar dirapikan, bukan mengembalikan kosong |
+| 5 | `admin_sales_hourly` selalu 24 baris dan menaruh transaksi pada jam WIB yang benar |
+| 6 | `admin_top_products_range` mengikuti rentang tanggal terpilih dan membawa kategori produk |
+| 7 | `admin_sales_daily(N)` kini berarti N tanggal kalender WIB, bukan jendela N×24 jam |
+| 8 | `admin_report_summary` menghitung cup, item, omzet, dan rincian pembayaran atas seluruh rentang |
+| 9 | Produk yang salah kategori terbaca sebagai selisih cup vs item, bukan sebagai data yang hilang |
+| 10 | Driver tidak mendapat satu pun baris dari fungsi analitik admin |
