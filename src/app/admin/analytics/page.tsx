@@ -10,7 +10,7 @@ import {
 import { describeRpcError, isMissingFunction, LATEST_MIGRATION } from '@/lib/rpc'
 import {
   Loader2, TrendingUp, ShoppingBag, Award, BarChart2,
-  Calendar, CalendarDays, Clock, Receipt, ChevronDown, TriangleAlert, X,
+  Calendar, CalendarDays, Clock, Receipt, ChevronDown, TriangleAlert, X, PackageX,
 } from 'lucide-react'
 import CustomerInsights from '@/components/admin/CustomerInsights'
 
@@ -36,6 +36,32 @@ interface ProductRank {
   revenue: number
 }
 
+/** Satu menu pada rentang terpilih, lengkap dengan pembanding periode lalu. */
+interface MenuRow {
+  product_id: string
+  name: string
+  category: string | null
+  is_available: boolean
+  qty_sold: number
+  revenue: number
+  revenue_share: number
+  /** Berapa yang dibawa ke gerobak. Memisahkan "tidak laku" dari "tidak dibawa". */
+  loaded: number
+  days_sold: number
+  prev_qty: number
+  prev_revenue: number
+}
+
+/** Arah pergerakan satu menu dibanding periode sebelumnya yang sama panjang. */
+function menuTrend(row: MenuRow): { label: string; tone: 'naik' | 'turun' | 'baru' | 'henti' | 'datar' } {
+  if (row.prev_qty === 0 && row.qty_sold === 0) return { label: '—', tone: 'datar' }
+  if (row.prev_qty === 0) return { label: 'baru laku', tone: 'baru' }
+  if (row.qty_sold === 0) return { label: 'berhenti laku', tone: 'henti' }
+  const pct = Math.round(((row.qty_sold - row.prev_qty) / row.prev_qty) * 100)
+  if (pct === 0) return { label: 'tetap', tone: 'datar' }
+  return { label: `${pct > 0 ? '+' : ''}${pct}%`, tone: pct > 0 ? 'naik' : 'turun' }
+}
+
 type Preset = 'today' | '7d' | '30d' | '90d' | 'custom'
 
 // Rentang maksimum yang dilayani admin_sales_range dalam satu permintaan.
@@ -55,6 +81,7 @@ export default function AnalyticsPage() {
 
   const [rows, setRows] = useState<DailyRow[]>([])
   const [topProducts, setTopProducts] = useState<ProductRank[]>([])
+  const [menuRows, setMenuRows] = useState<MenuRow[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -86,10 +113,24 @@ export default function AnalyticsPage() {
     const days = daysInRange(from, to)
 
     try {
-      const [rangeRes, topRes] = await Promise.all([
+      const [rangeRes, topRes, menuRes] = await Promise.all([
         supabase.rpc('admin_sales_range', { p_from: from, p_to: to }),
         supabase.rpc('admin_top_products_range', { p_from: from, p_to: to, p_limit: 10 }),
+        supabase.rpc('admin_menu_performance', { p_from: from, p_to: to }),
       ])
+
+      // Analitik menu baru ada sejak migrasi 0015. Instance lama cukup jatuh
+      // kembali ke peringkat biasa, bukan menampilkan galat.
+      setMenuRows(
+        menuRes.error
+          ? []
+          : ((menuRes.data ?? []) as MenuRow[]).map(r => ({
+              ...r,
+              revenue: Number(r.revenue),
+              prev_revenue: Number(r.prev_revenue),
+              revenue_share: Number(r.revenue_share),
+            }))
+      )
 
       // Instance yang belum menjalankan migrasi 0007 masih punya fungsi
       // versi jendela-bergulir. Dipakai sebagai cadangan supaya halaman
@@ -211,6 +252,13 @@ export default function AnalyticsPage() {
     // Pekan operasional dibaca Senin→Minggu.
     return [1, 2, 3, 4, 5, 6, 0].map(i => buckets[i]).filter(b => b.days > 0)
   }, [rows])
+
+  // Dibawa ke gerobak tetapi tidak terjual satu pun: menu yang memakan
+  // muatan tanpa menghasilkan apa pun.
+  const menuTidakLaku = useMemo(
+    () => menuRows.filter(m => m.loaded > 0 && m.qty_sold === 0),
+    [menuRows]
+  )
 
   const maxRevenue = Math.max(...rows.map(r => r.revenue), 1)
   const maxWeekdayRevenue = Math.max(...byWeekday.map(b => b.revenue), 1)
@@ -475,49 +523,155 @@ export default function AnalyticsPage() {
             </div>
           )}
 
-          {/* Peringkat produk pada rentang yang sama */}
-          <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
-            <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
-              <Award className="w-4 h-4 text-[#be1a1a]" />
-              <h2 className="font-bold text-sm text-zinc-900">Peringkat Menu · {rangeLabel}</h2>
-            </div>
-
-            <div className="divide-y divide-zinc-100">
-              {topProducts.length === 0 ? (
-                <div className="px-6 py-12 text-center text-xs text-zinc-400">
-                  Belum ada produk terjual pada rentang ini.
-                </div>
-              ) : topProducts.map((p, i) => (
-                <div key={`${p.name}-${i}`} className="px-6 py-3.5 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black ${
-                      i === 0 ? 'bg-[#be1a1a] text-white shadow-card' :
-                      i === 1 ? 'bg-zinc-800 text-white' :
-                      i === 2 ? 'bg-zinc-200 text-zinc-800' :
-                      'bg-zinc-100 text-zinc-400'
-                    }`}>
-                      {i + 1}
-                    </span>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-zinc-900">{p.name}</p>
-                        {p.category && (
-                          <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">
-                            {p.category}
-                          </span>
-                        )}
-                      </div>
-                      {/* Satuan mengikuti kategori: topping dan add-on bukan cup. */}
-                      <p className="text-[11px] text-zinc-400 mt-0.5">
-                        {p.total_qty} {p.category === null || p.category === 'smoothie' ? 'cup' : 'porsi'} terjual
-                      </p>
-                    </div>
+          {/* Analitik menu.
+              Peringkat lama hanya mendaftar produk yang TERJUAL, jadi menu
+              yang tidak laku sama sekali tidak muncul di mana pun — padahal
+              justru itu yang perlu ditindaklanjuti karena tetap memakan
+              muatan gerobak setiap hari. */}
+          {menuRows.length > 0 ? (
+            <div className="flex flex-col gap-4">
+              {menuTidakLaku.length > 0 && (
+                <div className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl">
+                  <PackageX className="w-5 h-5 text-amber-700 shrink-0 mt-px" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-bold text-amber-900">
+                      {menuTidakLaku.length} menu dibawa tapi tidak laku sama sekali
+                    </p>
+                    <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
+                      Menu ini memakan muatan gerobak sepanjang periode tanpa menghasilkan
+                      satu rupiah pun. Pertimbangkan menghentikannya, atau tidak memuatnya dulu.
+                    </p>
+                    <ul className="mt-1.5 space-y-0.5">
+                      {menuTidakLaku.map(m => (
+                        <li key={m.product_id} className="text-[11px] text-amber-900/85 font-mono">
+                          {m.name} — {m.loaded} dibawa, 0 terjual
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <p className="text-sm font-black text-zinc-900 tracking-tight">{formatRupiah(p.revenue)}</p>
                 </div>
-              ))}
+              )}
+
+              <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
+                <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <Award className="w-4 h-4 text-[#be1a1a]" />
+                    <h2 className="font-bold text-sm text-zinc-900">Analitik Menu · {rangeLabel}</h2>
+                  </div>
+                  <span className="text-[11px] font-semibold text-zinc-400">
+                    Bandingan: {daysInRange(dateFrom, dateTo)} hari sebelumnya
+                  </span>
+                </div>
+
+                <div className="divide-y divide-zinc-100">
+                  {menuRows.map((m, i) => {
+                    const trend = menuTrend(m)
+                    const satuan = m.category === 'smoothie' || m.category === null ? 'cup' : 'porsi'
+                    const mati = m.qty_sold === 0
+                    const trendCls =
+                      trend.tone === 'naik' ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
+                      : trend.tone === 'turun' ? 'text-[#be1a1a] bg-red-50 border-red-200'
+                      : trend.tone === 'baru' ? 'text-blue-700 bg-blue-50 border-blue-200'
+                      : trend.tone === 'henti' ? 'text-amber-800 bg-amber-50 border-amber-200'
+                      : 'text-zinc-400 bg-zinc-50 border-zinc-200'
+
+                    return (
+                      <div key={m.product_id} className={`px-4 sm:px-6 py-3.5 ${mati ? 'bg-zinc-50/60' : ''}`}>
+                        <div className="flex items-center gap-3">
+                          <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                            mati ? 'bg-zinc-100 text-zinc-400' :
+                            i === 0 ? 'bg-[#be1a1a] text-white shadow-card' :
+                            i === 1 ? 'bg-zinc-800 text-white' :
+                            i === 2 ? 'bg-zinc-200 text-zinc-800' :
+                            'bg-zinc-100 text-zinc-400'
+                          }`}>
+                            {i + 1}
+                          </span>
+
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className={`text-xs font-bold ${mati ? 'text-zinc-500' : 'text-zinc-900'}`}>
+                                {m.name}
+                              </p>
+                              {m.category && (
+                                <span className="text-[10px] uppercase font-bold text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">
+                                  {m.category}
+                                </span>
+                              )}
+                              {!m.is_available && (
+                                <span className="text-[10px] font-bold text-zinc-500 bg-zinc-100 px-1.5 py-0.5 rounded">
+                                  nonaktif
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Kontribusi omzet: dibaca sekilas dari panjang batangnya. */}
+                            <div className="flex items-center gap-2 mt-1.5">
+                              <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden max-w-[16rem]">
+                                <div
+                                  className={`h-full rounded-full ${mati ? 'bg-zinc-200' : 'bg-[#be1a1a]'}`}
+                                  style={{ width: `${Math.max(m.revenue_share, m.revenue > 0 ? 2 : 0)}%` }}
+                                />
+                              </div>
+                              <span className="text-[10px] font-bold text-zinc-500 tabular-nums w-10">
+                                {m.revenue_share}%
+                              </span>
+                            </div>
+
+                            <p className="text-[11px] text-zinc-400 mt-1">
+                              {m.qty_sold} {satuan} terjual
+                              {m.days_sold > 0 && ` · laku ${m.days_sold} hari`}
+                              {m.loaded > 0 && ` · ${m.loaded} dibawa`}
+                            </p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <p className={`text-sm font-black tracking-tight ${mati ? 'text-zinc-400' : 'text-zinc-900'}`}>
+                              {formatRupiah(m.revenue)}
+                            </p>
+                            <span className={`inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${trendCls}`}>
+                              {trend.label}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
-          </div>
+          ) : (
+            /* Server belum mengenal analitik menu (migrasi 0015). Peringkat
+               biasa tetap ditampilkan supaya halaman ini tidak kosong. */
+            <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
+              <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
+                <Award className="w-4 h-4 text-[#be1a1a]" />
+                <h2 className="font-bold text-sm text-zinc-900">Peringkat Menu · {rangeLabel}</h2>
+              </div>
+              <div className="divide-y divide-zinc-100">
+                {topProducts.length === 0 ? (
+                  <div className="px-6 py-12 text-center text-xs text-zinc-400">
+                    Belum ada produk terjual pada rentang ini.
+                  </div>
+                ) : topProducts.map((p, i) => (
+                  <div key={`${p.name}-${i}`} className="px-6 py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black bg-zinc-100 text-zinc-500">
+                        {i + 1}
+                      </span>
+                      <div>
+                        <p className="text-xs font-bold text-zinc-900">{p.name}</p>
+                        <p className="text-[11px] text-zinc-400 mt-0.5">
+                          {p.total_qty} {p.category === null || p.category === 'smoothie' ? 'cup' : 'porsi'} terjual
+                        </p>
+                      </div>
+                    </div>
+                    <p className="text-sm font-black text-zinc-900 tracking-tight">{formatRupiah(p.revenue)}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Profil pembeli — hasil pencatatan driver saat transaksi */}
           <CustomerInsights days={rangeDays} />

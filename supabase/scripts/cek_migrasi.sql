@@ -77,7 +77,10 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          EXISTS (SELECT 1 FROM pg_proc p
                   JOIN pg_namespace n ON n.oid = p.pronamespace
                  WHERE n.nspname='public' AND p.proname='lock_reconciliation'
-                   AND pg_get_functiondef(p.oid) LIKE '%AUDIT_NUMBERS_IMPOSSIBLE%'))
+                   AND pg_get_functiondef(p.oid) LIKE '%AUDIT_NUMBERS_IMPOSSIBLE%')),
+
+    (15, '0015_menu_performance', 'Analitik menu: yang laku & yang tidak',
+         to_regprocedure('public.admin_menu_performance(date,date)') IS NOT NULL)
 )
 SELECT migrasi,
        penjelasan,

@@ -208,3 +208,16 @@ pemindaian tabel penuh.
 | 5 | Penguncian menyegarkan angka terjual dari transaksi — yang dibekukan kebenaran saat penguncian, bukan angka layar yang basi |
 | 6 | Selisih ke arah kehilangan tetap boleh dikunci; itu kejadian nyata yang perlu tercatat |
 | 7 | Penguncian yang ditolak tidak menyisakan perubahan apa pun |
+
+## 14 — Analitik menu
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Menu yang **tidak laku sama sekali** tetap muncul, lengkap dengan berapa yang dibawa |
+| 2 | "Tidak laku" dapat dibedakan dari "tidak pernah dibawa" — dua angka terpisah |
+| 3 | Kontribusi omzet per menu dalam persen, dan seluruhnya berjumlah 100 |
+| 4 | Pembanding periode sebelumnya sama panjang dan tidak tumpang tindih dengan rentang terpilih |
+| 5 | Menu yang baru laku terbaca nol di periode lalu, bukan disembunyikan |
+| 6 | `days_sold` menghitung hari kalender, bukan jumlah transaksi |
+| 7 | Seluruh produk ikut terdaftar, termasuk yang tidak pernah tersentuh |
+| 8 | Driver tidak dapat membaca analitik menu |
