@@ -141,5 +141,8 @@ export function isPermanentFailure(message: string | undefined): boolean {
     'EMPTY_CART',
     'INVALID_QUANTITY',
     'INVALID_PAYMENT_METHOD',
+    // Akun yang dinonaktifkan tidak akan aktif kembali karena dicoba ulang.
+    // Mengantrekannya hanya menahan penjualan yang tidak akan pernah masuk.
+    'ACCOUNT_INACTIVE',
   ].some(code => message.includes(code))
 }

@@ -48,6 +48,9 @@ function describeOrderError(message?: string): string {
   if (message.includes('PRODUCT_UNAVAILABLE')) {
     return 'Ada produk di keranjang yang sudah dinonaktifkan admin. Hapus produk itu lalu coba lagi.'
   }
+  if (message.includes('ACCOUNT_INACTIVE')) {
+    return 'Akun Anda sedang dinonaktifkan admin, jadi pesanan tidak dapat disimpan. Hubungi admin pangkalan.'
+  }
   if (message.includes('AUTH_REQUIRED')) {
     return 'Sesi Anda berakhir. Silakan masuk kembali.'
   }
