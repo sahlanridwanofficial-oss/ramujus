@@ -14,6 +14,7 @@ Sistem web aplikasi profesional untuk manajemen penjualan smoothies berbasis arm
 - **Admin Dashboard (Desktop & Tablet)**:
   - Real-time Omzet, Pesanan, & Mitra Aktif
   - Peta Persebaran Penjualan Gerobak (Leaflet Maps)
+  - Analitik per Tanggal, per Hari, & per Jam (rentang tanggal bebas)
   - Analitik Tren & Produk Terlaris
   - Manajemen Katalog Menu & Ketersediaan Stok
   - Manajemen Kinerja Driver

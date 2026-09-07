@@ -55,3 +55,45 @@ export function jakartaDayRange(dateStr: string): { start: string; endExclusive:
     endExclusive: `${shiftDate(dateStr, 1)}T00:00:00${JAKARTA_OFFSET}`,
   }
 }
+
+const WEEKDAY_NAMES = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu'] as const
+
+/**
+ * Menguraikan 'YYYY-MM-DD' sebagai tengah malam UTC.
+ *
+ * Tanggal kalender dari database tidak membawa jam maupun zona waktu, jadi
+ * ia diperlakukan sebagai label — bukan sebagai titik waktu yang harus
+ * digeser ke zona waktu browser. Tanpa ini, browser yang disetel ke zona
+ * barat Jakarta menampilkan setiap baris tren mundur satu hari.
+ */
+function parseCalendarDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(Date.UTC(y, (m || 1) - 1, d || 1))
+}
+
+/** Indeks hari dalam pekan untuk 'YYYY-MM-DD' — 0 Minggu … 6 Sabtu. */
+export function weekdayIndex(dateStr: string): number {
+  return parseCalendarDate(dateStr).getUTCDay()
+}
+
+/** Nama hari berbahasa Indonesia untuk indeks 0–6. */
+export function weekdayName(index: number): string {
+  return WEEKDAY_NAMES[((index % 7) + 7) % 7]
+}
+
+/** '2026-09-07' → '7 Sep' atau '7 Sep 2026'. */
+export function formatCalendarDate(dateStr: string, withYear = false): string {
+  return parseCalendarDate(dateStr).toLocaleDateString('id-ID', {
+    timeZone: 'UTC',
+    day: 'numeric',
+    month: 'short',
+    ...(withYear ? { year: 'numeric' } : {}),
+  })
+}
+
+/** Jumlah hari kalender pada rentang inklusif [from, to]; minimal 1. */
+export function daysInRange(from: string, to: string): number {
+  const a = parseCalendarDate(from).getTime()
+  const b = parseCalendarDate(to).getTime()
+  return Math.max(1, Math.round(Math.abs(b - a) / 86_400_000) + 1)
+}

@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah, formatDate, formatTime } from '@/lib/format'
 import { jakartaToday, shiftDate, jakartaDayRange } from '@/lib/date'
+import { describeRpcError, firstRow } from '@/lib/rpc'
 import {
   Loader2, Download, FileText, Calendar, ShoppingBag, TrendingUp, TriangleAlert
 } from 'lucide-react'
@@ -15,6 +16,7 @@ const REPORT_ROW_LIMIT = 1000
 interface ReportSummary {
   orders: number
   cups: number
+  items: number
   revenue: number
   cash_revenue: number
   qris_revenue: number
@@ -38,6 +40,9 @@ export default function ReportsPage() {
   const [loading, setLoading] = useState(true)
   const [truncated, setTruncated] = useState(false)
   const [summary, setSummary] = useState<ReportSummary | null>(null)
+  // Ringkasan yang gagal dibaca dulu tampil sebagai nol — tidak ada bedanya
+  // dengan "memang belum ada penjualan". Sekarang sebabnya dikatakan.
+  const [summaryError, setSummaryError] = useState<string | null>(null)
   const [dateFrom, setDateFrom] = useState(
     shiftDate(jakartaToday(), -7)
   )
@@ -58,7 +63,7 @@ export default function ReportsPage() {
       // Daftar transaksi dibatasi untuk tampilan; ringkasan (volume, cup,
       // omzet) dihitung server atas SELURUH rentang, jadi tetap benar walau
       // daftar terpotong.
-      const [{ data }, { data: sum }] = await Promise.all([
+      const [{ data }, sumRes] = await Promise.all([
         supabase
           .from('orders')
           .select(`
@@ -76,11 +81,19 @@ export default function ReportsPage() {
       setOrders(rows)
       setTruncated(rows.length >= REPORT_ROW_LIMIT)
 
-      const sumRow = (Array.isArray(sum) ? sum[0] : sum) as ReportSummary | null | undefined
+      const sumRow = firstRow<ReportSummary>(sumRes.data)
+      setSummaryError(
+        sumRes.error
+          ? describeRpcError(sumRes.error, 'admin_report_summary')
+          : !sumRow && rows.length > 0
+          ? 'Server tidak mengembalikan ringkasan untuk rentang ini walau ada transaksi. Pastikan akun yang masuk berperan admin.'
+          : null
+      )
       setSummary(sumRow
         ? {
             orders: sumRow.orders,
             cups: sumRow.cups,
+            items: sumRow.items ?? 0,
             revenue: Number(sumRow.revenue),
             cash_revenue: Number(sumRow.cash_revenue),
             qris_revenue: Number(sumRow.qris_revenue),
@@ -90,10 +103,14 @@ export default function ReportsPage() {
             transfer_orders: sumRow.transfer_orders,
           }
         : null)
-    } catch {
+    } catch (err) {
       setOrders([])
       setTruncated(false)
       setSummary(null)
+      setSummaryError(
+        'Tidak dapat menghubungi server laporan. ' +
+        (err instanceof Error ? err.message : 'Periksa koneksi lalu coba lagi.')
+      )
     } finally {
       setLoading(false)
     }
@@ -126,9 +143,20 @@ export default function ReportsPage() {
   const totalOrders = summary?.orders ?? 0
   const totalCups = summary?.cups ?? 0
   const totalRevenue = summary?.revenue ?? 0
+  const totalItems = summary?.items ?? 0
 
   return (
     <div className="space-y-5">
+      {summaryError && (
+        <div
+          role="alert"
+          className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-xs text-[#be1a1a] font-semibold"
+        >
+          <TriangleAlert className="w-4 h-4 shrink-0 mt-px" />
+          <span className="leading-relaxed">{summaryError}</span>
+        </div>
+      )}
+
       {truncated && (
         <div
           role="alert"
@@ -191,7 +219,10 @@ export default function ReportsPage() {
             </div>
           </div>
           <p className="text-2xl font-black text-zinc-900 tracking-tight">{totalCups.toLocaleString('id-ID')} Cup</p>
-          <span className="text-[11px] text-zinc-400 mt-1 block">{totalOrders.toLocaleString('id-ID')} transaksi</span>
+          <span className="text-[11px] text-zinc-400 mt-1 block">
+            {totalOrders.toLocaleString('id-ID')} transaksi
+            {totalItems > 0 && ` · ${totalItems.toLocaleString('id-ID')} unit terjual`}
+          </span>
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">

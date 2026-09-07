@@ -1,20 +1,33 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
+import { jakartaToday, jakartaDayRange } from '@/lib/date'
+import { CUP_CATEGORY } from '@/lib/constants'
+import { describeRpcError, firstRow, LATEST_MIGRATION } from '@/lib/rpc'
 import {
   ShoppingBag, TrendingUp, Users, DollarSign,
-  Loader2, ArrowUpRight, Clock, CheckCircle2, PackageX, TriangleAlert
+  Loader2, ArrowUpRight, Clock, CheckCircle2, PackageX, TriangleAlert,
+  RefreshCw, WifiOff
 } from 'lucide-react'
 
 interface Stats {
   todayOrders: number
   todayCups: number
+  todayItems: number
   todayRevenue: number
   activeDrivers: number
   avgOrderValue: number
+}
+
+interface SummaryRow {
+  orders_today: number
+  cups_today: number | null
+  items_today: number | null
+  revenue_today: number
+  active_drivers: number
 }
 
 interface RecentOrder {
@@ -26,39 +39,86 @@ interface RecentOrder {
   driver: { full_name: string }[] | null
 }
 
+const EMPTY_STATS: Stats = {
+  todayOrders: 0, todayCups: 0, todayItems: 0, todayRevenue: 0, activeDrivers: 0, avgOrderValue: 0,
+}
+
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats>({
-    todayOrders: 0, todayCups: 0, todayRevenue: 0, activeDrivers: 0, avgOrderValue: 0
-  })
+  const [stats, setStats] = useState<Stats>(EMPTY_STATS)
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
   const [lowStock, setLowStock] = useState<{ out: number; low: number }>({ out: 0, low: 0 })
   const [loading, setLoading] = useState(true)
-  const supabase = createClient()
+  const [refreshing, setRefreshing] = useState(false)
+  const [lastSync, setLastSync] = useState<Date | null>(null)
+  // Dua keadaan yang dulu sama-sama tampil sebagai angka nol: server menolak
+  // menjawab (error), dan server menjawab lewat jalur cadangan di browser
+  // karena fungsi ringkasannya versi lama (degraded).
+  const [error, setError] = useState<string | null>(null)
+  const [degraded, setDegraded] = useState(false)
+  const [supabase] = useState(() => createClient())
+  const reloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => {
-    loadData()
+  /**
+   * Jalur cadangan: hitung angka hari ini langsung dari tabel.
+   *
+   * Dipakai hanya bila fungsi ringkasan server tidak tersedia atau belum
+   * mengenal cup (instance yang belum menjalankan migrasi). Rentangnya
+   * sengaja cuma satu hari WIB dan dibatasi barisnya, jadi tetap ringan —
+   * ini penyelamat sementara, bukan pengganti agregasi di server.
+   */
+  const loadFallback = useCallback(async (): Promise<Partial<Stats> | null> => {
+    const { start, endExclusive } = jakartaDayRange(jakartaToday())
 
-    // Real-time subscription for new orders
-    const channel = supabase
-      .channel('admin-orders')
-      .on('postgres_changes', {
-        event: 'INSERT',
-        schema: 'public',
-        table: 'orders',
-      }, () => {
-        loadData()
-      })
-      .subscribe()
+    const [orderRes, itemRes, shiftRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('id, total_amount')
+        .gte('created_at', start)
+        .lt('created_at', endExclusive)
+        .limit(5000),
+      supabase
+        .from('order_items')
+        .select('quantity, products(category), orders!inner(created_at)')
+        .gte('orders.created_at', start)
+        .lt('orders.created_at', endExclusive)
+        .limit(5000),
+      supabase
+        .from('shifts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'active'),
+    ])
 
-    return () => { supabase.removeChannel(channel) }
-  }, [])
+    if (orderRes.error) return null
 
-  async function loadData() {
+    const orderRows = (orderRes.data ?? []) as Array<{ id: string; total_amount: number }>
+    const itemRows = (itemRes.data ?? []) as Array<{
+      quantity: number
+      products: { category: string } | { category: string }[] | null
+    }>
+
+    let cups = 0
+    let items = 0
+    for (const row of itemRows) {
+      const product = Array.isArray(row.products) ? row.products[0] : row.products
+      items += row.quantity
+      if (product?.category === CUP_CATEGORY) cups += row.quantity
+    }
+
+    const revenue = orderRows.reduce((sum, o) => sum + Number(o.total_amount ?? 0), 0)
+
+    return {
+      todayOrders: orderRows.length,
+      todayCups: itemRes.error ? 0 : cups,
+      todayItems: itemRes.error ? 0 : items,
+      todayRevenue: revenue,
+      activeDrivers: shiftRes.count ?? 0,
+    }
+  }, [supabase])
+
+  const loadData = useCallback(async () => {
+    setRefreshing(true)
     try {
-      // Ringkasan dijumlahkan database. Versi lama menarik seluruh pesanan
-      // hari ini ke browser — pada 100 gerobak itu ribuan baris setiap kali
-      // halaman dibuka DAN setiap kali Realtime memicu pembaruan.
-      const [{ data: summary }, { data: recent }, { data: stock }] = await Promise.all([
+      const [summaryRes, recentRes, stockRes] = await Promise.all([
         supabase.rpc('admin_daily_summary'),
         supabase
           .from('orders')
@@ -71,40 +131,109 @@ export default function AdminDashboard() {
         supabase.rpc('admin_low_stock_count'),
       ])
 
-      const stockRow = (Array.isArray(stock) ? stock[0] : stock) as
-        | { out_of_stock: number; low_stock: number } | null | undefined
+      const stockRow = firstRow<{ out_of_stock: number; low_stock: number }>(stockRes.data)
       setLowStock({ out: stockRow?.out_of_stock ?? 0, low: stockRow?.low_stock ?? 0 })
+      setRecentOrders((recentRes.data ?? []) as RecentOrder[])
 
-      const row = (Array.isArray(summary) ? summary[0] : summary) as
-        | { orders_today: number; cups_today: number; revenue_today: number; active_drivers: number }
-        | null
-        | undefined
+      const row = firstRow<SummaryRow>(summaryRes.data)
 
-      const orderCount = row?.orders_today ?? 0
-      const totalRev = Number(row?.revenue_today ?? 0)
+      // Server menolak menjawab. Jangan menampilkan nol seolah-olah itu
+      // hasil penjualan — katakan sebabnya, lalu coba jalur cadangan.
+      if (summaryRes.error || !row) {
+        const message = summaryRes.error
+          ? describeRpcError(summaryRes.error, 'admin_daily_summary')
+          : 'Server tidak mengembalikan ringkasan hari ini. Pastikan akun yang masuk berperan admin.'
+        const fallback = await loadFallback()
+        if (fallback) {
+          const orders = fallback.todayOrders ?? 0
+          const revenue = fallback.todayRevenue ?? 0
+          setStats({
+            todayOrders: orders,
+            todayCups: fallback.todayCups ?? 0,
+            todayItems: fallback.todayItems ?? 0,
+            todayRevenue: revenue,
+            activeDrivers: fallback.activeDrivers ?? 0,
+            avgOrderValue: orders > 0 ? Math.round(revenue / orders) : 0,
+          })
+          setDegraded(true)
+        } else {
+          setStats(EMPTY_STATS)
+          setDegraded(false)
+        }
+        setError(message)
+        return
+      }
+
+      // Ringkasan versi lama tidak punya cups_today. Angkanya dilengkapi
+      // dari tabel, jadi cup yang sudah terjual tetap terlihat sementara
+      // migrasi belum dijalankan.
+      let cups = row.cups_today
+      let items = row.items_today
+      let usedFallback = false
+      if (cups == null || items == null) {
+        const fallback = await loadFallback()
+        if (fallback) {
+          if (cups == null) cups = fallback.todayCups ?? 0
+          if (items == null) items = fallback.todayItems ?? 0
+          usedFallback = true
+        }
+      }
+
+      const orderCount = row.orders_today ?? 0
+      const totalRev = Number(row.revenue_today ?? 0)
 
       setStats({
         todayOrders: orderCount,
-        todayCups: row?.cups_today ?? 0,
+        todayCups: cups ?? 0,
+        todayItems: items ?? 0,
         todayRevenue: totalRev,
-        activeDrivers: row?.active_drivers ?? 0,
+        activeDrivers: row.active_drivers ?? 0,
         avgOrderValue: orderCount > 0 ? Math.round(totalRev / orderCount) : 0,
       })
-
-      setRecentOrders(recent ? (recent as RecentOrder[]) : [])
-    } catch {
-      setStats({
-        todayOrders: 0,
-        todayCups: 0,
-        todayRevenue: 0,
-        activeDrivers: 0,
-        avgOrderValue: 0,
-      })
-      setRecentOrders([])
+      setDegraded(usedFallback)
+      setError(
+        usedFallback
+          ? `Fungsi ringkasan di database masih versi lama sehingga jumlah cup dihitung di browser. Jalankan ${LATEST_MIGRATION} agar kembali dihitung server.`
+          : null
+      )
+      setLastSync(new Date())
+    } catch (err) {
+      setError(
+        'Tidak dapat menghubungi server. Periksa koneksi, lalu coba muat ulang. ' +
+        (err instanceof Error ? err.message : '')
+      )
     } finally {
       setLoading(false)
+      setRefreshing(false)
     }
-  }
+  }, [supabase, loadFallback])
+
+  useEffect(() => {
+    loadData()
+
+    // Satu pesanan menghasilkan beberapa perubahan (baris orders, lalu
+    // total_amount-nya diperbarui, lalu baris order_items). Muat ulang
+    // ditunda sebentar supaya rentetan itu menjadi satu kali pembacaan,
+    // bukan empat.
+    const scheduleReload = () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current)
+      reloadTimer.current = setTimeout(() => { loadData() }, 500)
+    }
+
+    const channel = supabase
+      .channel('admin-orders')
+      // Dulu hanya INSERT pada orders. Total pesanan ditulis lewat UPDATE
+      // sesudahnya dan cup baru muncul saat order_items masuk, jadi omzet
+      // dan cup bisa tertinggal satu langkah sampai halaman dimuat ulang.
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, scheduleReload)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'order_items' }, scheduleReload)
+      .subscribe()
+
+    return () => {
+      if (reloadTimer.current) clearTimeout(reloadTimer.current)
+      supabase.removeChannel(channel)
+    }
+  }, [supabase, loadData])
 
   if (loading) {
     return (
@@ -114,6 +243,10 @@ export default function AdminDashboard() {
       </div>
     )
   }
+
+  // Cup nol sementara ada unit terjual berarti produk yang laku bukan
+  // berkategori "smoothie" — salah kategori di katalog, bukan data hilang.
+  const miscategorised = stats.todayCups === 0 && stats.todayItems > 0
 
   const statCards = [
     {
@@ -126,7 +259,7 @@ export default function AdminDashboard() {
     {
       label: 'Cup Terjual Hari Ini',
       value: stats.todayCups.toString() + ' Cup',
-      sub: `${stats.todayOrders} transaksi`,
+      sub: `${stats.todayOrders} transaksi · ${stats.todayItems} unit terjual`,
       icon: ShoppingBag,
       accent: 'text-zinc-900 bg-zinc-100',
     },
@@ -159,12 +292,69 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => loadData()}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 bg-white border border-zinc-200/80 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 shadow-card hover:border-zinc-300 disabled:opacity-60 transition-colors"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>Muat Ulang</span>
+          </button>
           <span className="inline-flex items-center gap-1.5 bg-white border border-zinc-200/80 px-3 py-1.5 rounded-full text-xs font-semibold text-zinc-700 shadow-card">
-            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Sistem Realtime Aktif</span>
+            <span className={`w-2 h-2 rounded-full ${error ? 'bg-amber-500' : 'bg-emerald-500 animate-pulse'}`} />
+            <span>
+              {error
+                ? 'Sinkronisasi Bermasalah'
+                : lastSync
+                ? `Tersinkron ${lastSync.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}`
+                : 'Sistem Realtime Aktif'}
+            </span>
           </span>
         </div>
       </div>
+
+      {/* Kegagalan sinkronisasi — dulu tampil sebagai angka nol tanpa penjelasan */}
+      {error && (
+        <div
+          role="alert"
+          className={`flex items-start gap-3 p-3.5 rounded-2xl border ${
+            degraded
+              ? 'bg-amber-50 border-amber-300'
+              : 'bg-red-50 border-red-300'
+          }`}
+        >
+          <WifiOff className={`w-5 h-5 shrink-0 mt-px ${degraded ? 'text-amber-600' : 'text-[#be1a1a]'}`} />
+          <div className="flex-1 min-w-0">
+            <p className={`text-xs font-bold ${degraded ? 'text-amber-900' : 'text-[#be1a1a]'}`}>
+              {degraded
+                ? 'Angka ditampilkan lewat perhitungan cadangan di browser'
+                : 'Ringkasan hari ini tidak dapat dibaca dari server'}
+            </p>
+            <p className={`text-[11px] mt-0.5 leading-relaxed ${degraded ? 'text-amber-800/90' : 'text-red-900/80'}`}>
+              {error}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Selisih cup vs unit terjual: katalog salah kategori */}
+      {miscategorised && (
+        <Link
+          href="/admin/products"
+          className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl hover:bg-amber-100/70 transition-colors"
+        >
+          <TriangleAlert className="w-5 h-5 text-amber-600 shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-amber-900">
+              {stats.todayItems} unit terjual hari ini, tetapi 0 dihitung sebagai cup
+            </p>
+            <p className="text-[11px] text-amber-800/80 mt-0.5">
+              Hanya produk berkategori &quot;Smoothie&quot; yang dihitung sebagai cup. Ketuk untuk memperbaiki kategori menu.
+            </p>
+          </div>
+          <ArrowUpRight className="w-4 h-4 text-amber-700 shrink-0" />
+        </Link>
+      )}
 
       {/* Peringatan stok menipis/habis */}
       {(lowStock.out > 0 || lowStock.low > 0) && (
