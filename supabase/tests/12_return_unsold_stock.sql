@@ -55,12 +55,27 @@ $$;
 
 -- ------------------------------------------------------------
 \echo ''
-\echo '=== 2. Audit malam: sisa fisik 6, rusak 2, yang diseal ulang 5 ==='
+\echo '=== 2. Audit malam TANPA mengisi apa pun: seluruh sisa fisik kembali ==='
+-- Inti perilaku otomatis: admin hanya mencatat sisa fisik dan cup rusak,
+-- lalu mengunci. returned_quantity dibiarkan NULL — tidak disentuh sama
+-- sekali — dan keenam cup sisa tetap kembali ke stok pusat.
 SET test.uid = '22222222-2222-2222-2222-222222222222';
 UPDATE public.driver_allocation_items
-   SET physical_remaining = 6, waste_quantity = 2, returned_quantity = 5
+   SET physical_remaining = 6, waste_quantity = 2
  WHERE allocation_id = (SELECT id FROM public.driver_daily_allocations
                          WHERE driver_id = '11111111-1111-1111-1111-111111111111');
+
+DO $$
+DECLARE v_ret INTEGER;
+BEGIN
+  SELECT returned_quantity INTO v_ret FROM public.driver_allocation_items
+   WHERE allocation_id = (SELECT id FROM public.driver_daily_allocations
+                           WHERE driver_id = '11111111-1111-1111-1111-111111111111');
+  IF v_ret IS NOT NULL THEN
+    RAISE EXCEPTION 'Prasyarat uji salah: returned_quantity = %, harusnya NULL', v_ret;
+  END IF;
+END;
+$$;
 
 DO $$
 DECLARE v_alloc UUID; v_stock INTEGER; v_mv INTEGER; v_flag TIMESTAMPTZ;
@@ -72,41 +87,41 @@ BEGIN
 
   SELECT stock_quantity INTO v_stock FROM public.products
    WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  IF v_stock <> 55 THEN
-    RAISE EXCEPTION 'GAGAL: stok = %, harusnya 55 (50 + 5 yang diseal ulang)', v_stock;
+  IF v_stock <> 56 THEN
+    RAISE EXCEPTION 'GAGAL: stok = %, harusnya 56 (50 + 6 sisa fisik)', v_stock;
   END IF;
 
   SELECT count(*) INTO v_mv FROM public.stock_movements
-   WHERE reason = 'allocation_return' AND reference_id = v_alloc AND delta = 5;
+   WHERE reason = 'allocation_return' AND reference_id = v_alloc AND delta = 6;
   IF v_mv <> 1 THEN RAISE EXCEPTION 'GAGAL: pergerakan allocation_return = % baris', v_mv; END IF;
 
   SELECT stock_returned_at INTO v_flag FROM public.driver_daily_allocations WHERE id = v_alloc;
   IF v_flag IS NULL THEN RAISE EXCEPTION 'GAGAL: penanda pengembalian tidak tercatat'; END IF;
 
-  RAISE NOTICE 'OK: 5 cup kembali ke stok (50 -> 55), tercatat sebagai allocation_return';
+  RAISE NOTICE 'OK: 6 cup kembali otomatis (50 -> 56) tanpa admin mengisi apa pun';
 END;
 $$;
 
 \echo ''
-\echo '=== 3. Yang TIDAK diseal ulang tidak ikut kembali ==='
+\echo '=== 3. Cup rusak TIDAK ikut kembali ==='
 DO $$
 DECLARE v_stock INTEGER;
 BEGIN
   SELECT stock_quantity INTO v_stock FROM public.products
    WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  -- Sisa fisik 6, tetapi hanya 5 yang dikembalikan. Kalau seluruh sisa
-  -- otomatis kembali, angkanya akan 56 — justru salah ke arah sebaliknya.
-  IF v_stock = 56 THEN
-    RAISE EXCEPTION 'GAGAL: seluruh sisa fisik dikembalikan otomatis';
+  -- Dibawa 50, laku 42, sisa fisik 6, rusak 2. Yang kembali hanya 6.
+  -- Kalau cup rusak ikut terhitung, angkanya jadi 58.
+  IF v_stock = 58 THEN
+    RAISE EXCEPTION 'GAGAL: cup rusak ikut dikembalikan ke stok';
   END IF;
-  IF v_stock <> 55 THEN RAISE EXCEPTION 'GAGAL: stok = %', v_stock; END IF;
-  RAISE NOTICE 'OK: 1 cup yang tidak diseal ulang tetap di luar stok — keputusan admin dihormati';
+  IF v_stock <> 56 THEN RAISE EXCEPTION 'GAGAL: stok = %', v_stock; END IF;
+  RAISE NOTICE 'OK: 2 cup rusak tetap di luar stok — hanya sisa fisik yang kembali';
 END;
 $$;
 
 -- ------------------------------------------------------------
 \echo ''
-\echo '=== 4. Buka kunci membalik pengembalian (55 -> 50) ==='
+\echo '=== 4. Buka kunci membalik pengembalian (56 -> 50) ==='
 DO $$
 DECLARE v_alloc UUID; v_stock INTEGER; v_flag TIMESTAMPTZ; v_mv INTEGER;
 BEGIN
@@ -123,7 +138,7 @@ BEGIN
   IF v_flag IS NOT NULL THEN RAISE EXCEPTION 'GAGAL: penanda pengembalian tidak dihapus'; END IF;
 
   SELECT count(*) INTO v_mv FROM public.stock_movements
-   WHERE reference_id = v_alloc AND delta = -5 AND reason = 'adjustment';
+   WHERE reference_id = v_alloc AND delta = -6 AND reason = 'adjustment';
   IF v_mv <> 1 THEN RAISE EXCEPTION 'GAGAL: pembatalan tidak tercatat di jejak'; END IF;
 
   RAISE NOTICE 'OK: stok kembali 50 dan pembatalannya tercatat, bukan menghilang diam-diam';
@@ -142,9 +157,9 @@ BEGIN
 
   SELECT stock_quantity INTO v_stock FROM public.products
    WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001';
-  IF v_stock = 60 THEN RAISE EXCEPTION 'GAGAL: pengembalian terhitung dua kali (60)'; END IF;
-  IF v_stock <> 55 THEN RAISE EXCEPTION 'GAGAL: stok = %, harusnya 55', v_stock; END IF;
-  RAISE NOTICE 'OK: buka-kunci-lalu-kunci-lagi tetap 55 — tidak ada cup yang terhitung dua kali';
+  IF v_stock = 62 THEN RAISE EXCEPTION 'GAGAL: pengembalian terhitung dua kali (62)'; END IF;
+  IF v_stock <> 56 THEN RAISE EXCEPTION 'GAGAL: stok = %, harusnya 56', v_stock; END IF;
+  RAISE NOTICE 'OK: buka-kunci-lalu-kunci-lagi tetap 56 — tidak ada cup yang terhitung dua kali';
 END;
 $$;
 
@@ -234,7 +249,9 @@ BEGIN
    WHERE driver_id = '33333333-3333-3333-3333-333333333333';
 
   -- Rapikan gerobak kedua lalu habiskan stok pusat ke gerobak itu.
-  UPDATE public.driver_allocation_items SET returned_quantity = 0 WHERE allocation_id = v_alloc2;
+  UPDATE public.driver_allocation_items
+     SET returned_quantity = 0, physical_remaining = 0
+   WHERE allocation_id = v_alloc2;
 
   SELECT stock_quantity INTO v_stock FROM public.products
    WHERE id = 'aaaaaaaa-0000-0000-0000-000000000001';
@@ -293,7 +310,7 @@ BEGIN
   IF (SELECT count(*) FROM public.stock_movements) <> v_mv THEN
     RAISE EXCEPTION 'GAGAL: ada pergerakan stok kosong yang tercatat';
   END IF;
-  RAISE NOTICE 'OK: returned_quantity 0 tidak menghasilkan pergerakan apa pun';
+  RAISE NOTICE 'OK: tanpa sisa fisik, tidak ada pergerakan stok kosong yang tercatat';
 END;
 $$;
 

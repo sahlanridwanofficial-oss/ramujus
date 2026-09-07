@@ -11,33 +11,46 @@
 -- kembali ke base: muat 50, laku 42, kembali 8 — stok pusat tetap berkurang
 -- 50, dan delapan cup itu ada secara fisik tetapi hilang dari angka sistem.
 --
--- Pengembalian TIDAK dibuat otomatis penuh. Cup yang sudah keluar seharian
--- belum tentu layak dijual lagi; memasukkan semuanya kembali ke stok justru
--- membuat angkanya salah ke arah sebaliknya. Yang ditambahkan di sini adalah
--- keputusan eksplisit sekali per malam:
+-- Perilakunya OTOMATIS: begitu audit malam dikunci, seluruh sisa fisik
+-- kembali ke stok pusat tanpa admin perlu mengisi apa pun.
 --
 --     dibawa = terjual + sisa fisik + rusak + selisih
 --     sisa fisik = kembali ke stok + tidak dikembalikan
 --
--- returned_quantity adalah bagian sisa fisik yang diseal ulang dan kembali
--- ke stok pusat. Sisanya tetap tercatat sebagai sisa yang tidak kembali,
--- sehingga keduanya terlihat, bukan salah satu disembunyikan.
+-- Cup rusak tetap tidak ikut kembali — itulah gunanya kolom waste_quantity,
+-- dan memang bukan barang yang bisa dijual lagi.
+--
+-- returned_quantity menyimpan pengecualian, bukan aturannya:
+--
+--     NULL  → otomatis, seluruh sisa fisik kembali ke stok (bawaan)
+--     angka → admin menurunkannya, mis. sebagian tidak diseal ulang
+--
+-- Bawaannya NULL supaya sifat otomatis itu ada di database, bukan cuma di
+-- layar: baris yang tidak pernah disentuh aplikasi pun tetap dikembalikan.
 --
 -- Penerapannya menempel pada penguncian rekonsiliasi supaya stok hanya
 -- bergerak saat angka malam itu sudah final — dan dibalik saat kunci dibuka,
 -- supaya membuka lalu mengunci ulang tidak pernah menghitung ganda.
+--
+-- TIDAK berlaku surut: audit yang sudah dikunci sebelum berkas ini dijalankan
+-- tidak punya penanda pengembalian, jadi selisih yang sudah menumpuk selama
+-- ini tetap ada. Untuk menghitung besarnya, jalankan
+-- supabase/scripts/hitung_selisih_stok_historis.sql — berkas itu hanya
+-- melaporkan, dan koreksinya diserahkan kepada Anda.
 -- ============================================================
 
 -- ------------------------------------------------------------
 -- 1. Kolom baru
 -- ------------------------------------------------------------
+-- NULL = otomatis (seluruh sisa fisik). Angka = admin menurunkannya.
 ALTER TABLE public.driver_allocation_items
-  ADD COLUMN IF NOT EXISTS returned_quantity INTEGER NOT NULL DEFAULT 0;
+  ADD COLUMN IF NOT EXISTS returned_quantity INTEGER;
 
 DO $$
 BEGIN
   ALTER TABLE public.driver_allocation_items
-    ADD CONSTRAINT allocation_items_returned_nonneg CHECK (returned_quantity >= 0);
+    ADD CONSTRAINT allocation_items_returned_nonneg
+    CHECK (returned_quantity IS NULL OR returned_quantity >= 0);
 EXCEPTION WHEN duplicate_object THEN NULL;
 END;
 $$;
@@ -90,6 +103,7 @@ BEGIN
       FROM public.driver_allocation_items ai
       JOIN public.products p ON p.id = ai.product_id
      WHERE ai.allocation_id = p_allocation_id
+       AND ai.returned_quantity IS NOT NULL
        AND ai.returned_quantity > COALESCE(ai.physical_remaining, 0)
   LOOP
     RAISE EXCEPTION 'RETURN_EXCEEDS_REMAINING:%', v_item.name USING ERRCODE = '22023';
@@ -112,10 +126,11 @@ BEGIN
   -- jadi penguncian ini menerapkannya lagi dari awal.
   IF NOT v_already_returned THEN
     FOR v_item IN
-      SELECT ai.product_id, ai.returned_quantity
+      SELECT ai.product_id,
+             COALESCE(ai.returned_quantity, COALESCE(ai.physical_remaining, 0)) AS returned_quantity
         FROM public.driver_allocation_items ai
        WHERE ai.allocation_id = p_allocation_id
-         AND ai.returned_quantity > 0
+         AND COALESCE(ai.returned_quantity, COALESCE(ai.physical_remaining, 0)) > 0
     LOOP
       UPDATE public.products
          SET stock_quantity = stock_quantity + v_item.returned_quantity
@@ -173,11 +188,16 @@ BEGIN
 
     IF OLD.stock_returned_at IS NOT NULL THEN
       FOR v_item IN
-        SELECT ai.product_id, ai.returned_quantity, p.name, p.stock_quantity
+        -- Angka yang sama dengan yang diterapkan saat mengunci: selama
+        -- terkunci, baris muatan tidak bisa diubah (guard di 0003), jadi
+        -- menghitung ulang di sini pasti menghasilkan jumlah yang identik.
+        SELECT ai.product_id,
+               COALESCE(ai.returned_quantity, COALESCE(ai.physical_remaining, 0)) AS returned_quantity,
+               p.name, p.stock_quantity
           FROM public.driver_allocation_items ai
           JOIN public.products p ON p.id = ai.product_id
          WHERE ai.allocation_id = OLD.id
-           AND ai.returned_quantity > 0
+           AND COALESCE(ai.returned_quantity, COALESCE(ai.physical_remaining, 0)) > 0
          FOR UPDATE OF p
       LOOP
         -- Cup yang tadi dikembalikan bisa saja sudah dimuat ke gerobak lain
@@ -217,11 +237,11 @@ CREATE TRIGGER allocations_reconciled_guard
   FOR EACH ROW EXECUTE FUNCTION public.guard_reconciled_allocation();
 
 -- ------------------------------------------------------------
--- 4. Ikhtisar stok memisahkan yang benar-benar ada di base
+-- 4. Cup yang akan kembali begitu auditnya dikunci
 --
 -- Sebelum ini "stok pusat" diam-diam berarti "stok pusat dikurangi seluruh
--- cup yang pernah dibawa ke gerobak dan belum pernah dikembalikan". Kolom
--- baru membuat cup yang menunggu keputusan pengembalian terlihat sebagai
+-- cup yang pernah dibawa ke gerobak dan belum pernah dikembalikan". Fungsi
+-- ini membuat cup yang masih menunggu penguncian audit terlihat sebagai
 -- angka tersendiri, bukan lenyap begitu saja.
 -- ------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.admin_pending_returns()
@@ -240,16 +260,17 @@ AS $$
   SELECT p.id,
          p.name,
          p.category,
-         COALESCE(sum(ai.physical_remaining - ai.returned_quantity), 0)::INTEGER,
+         COALESCE(sum(
+           COALESCE(ai.returned_quantity, COALESCE(ai.physical_remaining, 0))
+         ), 0)::INTEGER,
          count(DISTINCT ai.allocation_id)::INTEGER
     FROM public.driver_allocation_items ai
     JOIN public.driver_daily_allocations a ON a.id = ai.allocation_id
     JOIN public.products p                ON p.id = ai.product_id
    WHERE a.status <> 'reconciled'
-     AND COALESCE(ai.physical_remaining, 0) - ai.returned_quantity > 0
+     AND COALESCE(ai.returned_quantity, COALESCE(ai.physical_remaining, 0)) > 0
      AND public.get_user_role(auth.uid()) = 'admin'
    GROUP BY p.id, p.name, p.category
-  HAVING COALESCE(sum(ai.physical_remaining - ai.returned_quantity), 0) > 0
    ORDER BY 4 DESC;
 $$;
 

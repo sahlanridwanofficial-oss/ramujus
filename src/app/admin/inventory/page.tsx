@@ -18,8 +18,11 @@ interface ProductAllocItem {
   initial_quantity: number
   sold_quantity: number
   physical_remaining: number
-  /** Bagian sisa fisik yang diseal ulang dan kembali ke stok pusat saat dikunci. */
-  returned_quantity: number
+  /**
+   * Berapa cup sisa yang kembali ke stok pusat saat audit dikunci.
+   * null = otomatis, seluruh sisa fisik kembali. Angka = admin menurunkannya.
+   */
+  returned_quantity: number | null
   waste_quantity: number
 }
 
@@ -176,7 +179,7 @@ function InventoryContent() {
           physical_remaining: found?.physical_remaining !== null && found?.physical_remaining !== undefined
             ? found.physical_remaining
             : expectedRem,
-          returned_quantity: found?.returned_quantity || 0,
+          returned_quantity: found?.returned_quantity ?? null,
           waste_quantity: found?.waste_quantity || 0,
         }
       })
@@ -239,28 +242,37 @@ function InventoryContent() {
         [productId]: {
           ...current,
           physical_remaining: remaining,
-          // Yang dikembalikan tidak boleh melebihi yang ada di tangan.
-          // Server menolaknya saat penguncian; di sini dicegah lebih awal
-          // supaya admin tidak baru tahu setelah menekan "Kunci".
-          returned_quantity: Math.min(current.returned_quantity, remaining),
+          // null dibiarkan null: baris itu masih mengikuti sisa fisik secara
+          // otomatis. Angka eksplisit dijepit supaya tidak melebihi yang ada
+          // di tangan — server menolaknya saat penguncian, dan admin tidak
+          // seharusnya baru tahu setelah menekan "Kunci".
+          returned_quantity: current.returned_quantity === null
+            ? null
+            : Math.min(current.returned_quantity, remaining),
         }
       }
     })
   }
 
-  function setReturnedQty(productId: string, val: number) {
+  function setReturnedQty(productId: string, val: number | null) {
     setAllocItems(prev => {
       const current = prev[productId]
       if (!current) return prev
-      const wanted = Math.max(0, isNaN(val) ? 0 : val)
       return {
         ...prev,
         [productId]: {
           ...current,
-          returned_quantity: Math.min(wanted, current.physical_remaining),
+          returned_quantity: val === null
+            ? null
+            : Math.min(Math.max(0, isNaN(val) ? 0 : val), current.physical_remaining),
         }
       }
     })
+  }
+
+  /** Berapa yang benar-benar akan kembali: null berarti seluruh sisa fisik. */
+  function effectiveReturn(item: { physical_remaining: number; returned_quantity: number | null }) {
+    return item.returned_quantity ?? item.physical_remaining
   }
 
   function setWasteQty(productId: string, val: number) {
@@ -470,9 +482,9 @@ function InventoryContent() {
 
   // Dua angka yang menentukan pergerakan stok pusat saat dikunci.
   const allItems = Object.values(allocItems)
-  const totalReturning = allItems.reduce((sum, i) => sum + i.returned_quantity, 0)
+  const totalReturning = allItems.reduce((sum, i) => sum + effectiveReturn(i), 0)
   const totalNotReturning = allItems.reduce(
-    (sum, i) => sum + Math.max(0, i.physical_remaining - i.returned_quantity),
+    (sum, i) => sum + Math.max(0, i.physical_remaining - effectiveReturn(i)),
     0
   )
 
@@ -907,9 +919,10 @@ function InventoryContent() {
                           initial_quantity: 0,
                           sold_quantity: 0,
                           physical_remaining: 0,
-                          returned_quantity: 0,
+                          returned_quantity: null,
                           waste_quantity: 0
                         }
+                        const returned = effectiveReturn(item)
                         const expectedRemaining = Math.max(0, item.initial_quantity - item.sold_quantity)
                         // Variance = Initial - (Sold + Physical Remaining + Waste)
                         const variance = item.initial_quantity - (item.sold_quantity + item.physical_remaining + item.waste_quantity)
@@ -948,26 +961,30 @@ function InventoryContent() {
                                   min={0}
                                   max={item.physical_remaining}
                                   disabled={isReconciled || item.physical_remaining === 0}
-                                  value={item.returned_quantity}
+                                  value={returned}
                                   onChange={(e) => setReturnedQty(p.id, parseInt(e.target.value))}
                                   className="w-16 bg-white border border-emerald-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-zinc-100 disabled:text-zinc-400"
                                 />
-                                {!isReconciled && item.physical_remaining > 0 && (
+                                {/* Mengembalikan baris ini ke perilaku otomatis:
+                                    ikut sisa fisik berapa pun angkanya nanti. */}
+                                {!isReconciled && item.returned_quantity !== null && item.physical_remaining > 0 && (
                                   <button
                                     type="button"
-                                    onClick={() => setReturnedQty(p.id, item.physical_remaining)}
-                                    title="Kembalikan seluruh sisa fisik ke stok"
+                                    onClick={() => setReturnedQty(p.id, null)}
+                                    title="Ikuti sisa fisik secara otomatis"
                                     className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-1.5 py-1 rounded transition-colors"
                                   >
-                                    Semua
+                                    Auto
                                   </button>
                                 )}
                               </div>
-                              {item.physical_remaining > item.returned_quantity && (
-                                <span className="text-[10px] text-zinc-400 block mt-0.5">
-                                  {item.physical_remaining - item.returned_quantity} tidak kembali
+                              {item.physical_remaining > returned ? (
+                                <span className="text-[10px] text-amber-700 block mt-0.5 font-semibold">
+                                  {item.physical_remaining - returned} tidak kembali
                                 </span>
-                              )}
+                              ) : item.returned_quantity === null && item.physical_remaining > 0 ? (
+                                <span className="text-[10px] text-zinc-400 block mt-0.5">otomatis</span>
+                              ) : null}
                             </td>
                             <td className="py-2.5 px-3 text-center bg-amber-50/30">
                               <input
@@ -1060,8 +1077,8 @@ function InventoryContent() {
                       </p>
                       <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">
                         {totalNotReturning > 0
-                          ? `${totalNotReturning} cup sisa lainnya tidak dikembalikan dan tetap keluar dari stok. Isi kolom "Kembali ke Stok" untuk cup yang diseal ulang dan masih layak dijual.`
-                          : 'Seluruh sisa fisik ditandai kembali ke stok. Pastikan cup-nya memang diseal ulang dan masih layak dijual.'}
+                          ? `${totalNotReturning} cup sisa lainnya Anda tandai tidak kembali dan tetap keluar dari stok. Tekan "Auto" pada barisnya bila seharusnya ikut kembali.`
+                          : 'Seluruh sisa fisik kembali otomatis. Turunkan angkanya pada baris tertentu bila ada cup yang tidak diseal ulang — cup rusak isikan di kolom Rusak / Waste.'}
                       </p>
                     </div>
                   </div>

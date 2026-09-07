@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import type { StockOverviewRow, StockMovement } from '@/types/database'
 
-/** Sisa cup di gerobak yang belum diputuskan kembali ke stok atau tidak. */
+/** Sisa cup di gerobak yang akan kembali ke stok begitu auditnya dikunci. */
 interface PendingReturnRow {
   product_id: string
   name: string
@@ -184,10 +184,10 @@ export default function StockPage() {
         </div>
       </div>
 
-      {/* Cup yang sudah keluar dari angka stok, ada secara fisik di base, dan
-          menunggu keputusan dikembalikan atau tidak. Tanpa panel ini selisih
-          itu tidak terlihat di mana pun — hanya membuat stok terbaca lebih
-          rendah dari kenyataan. */}
+      {/* Cup yang sudah keluar dari angka stok dan ada secara fisik di base,
+          tetapi auditnya belum dikunci sehingga belum masuk hitungan. Tanpa
+          panel ini selisih itu tidak terlihat di mana pun — hanya membuat
+          stok terbaca lebih rendah dari kenyataan. */}
       {pendingTotal > 0 && (
         <Link
           href="/admin/inventory"
@@ -196,12 +196,12 @@ export default function StockPage() {
           <PackageCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-px" />
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-emerald-900">
-              {pendingTotal.toLocaleString('id-ID')} cup sisa menunggu keputusan pengembalian
+              {pendingTotal.toLocaleString('id-ID')} cup sisa belum masuk hitungan stok
               <span className="font-semibold"> · {pending.length} produk</span>
             </p>
             <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">
-              Cup ini sudah keluar dari angka stok di atas tetapi masih ada di base. Selesaikan
-              audit malam gerobaknya untuk menentukan berapa yang diseal ulang dan kembali ke stok.
+              Cup ini sudah keluar dari angka stok di atas tetapi masih ada di base. Kunci audit
+              malam gerobaknya, dan seluruhnya kembali ke stok secara otomatis.
             </p>
             <p className="text-[11px] text-emerald-800/70 mt-1 font-mono">
               {pending.slice(0, 4).map(r => `${r.name} ${r.pending_cups}`).join(' · ')}

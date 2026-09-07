@@ -186,13 +186,13 @@ pemindaian tabel penuh.
 | Tes | Perilaku yang dijamin |
 |-----|----------------------|
 | 1 | Muat gerobak tetap mengurangi stok pusat seperti sebelumnya |
-| 2 | Mengunci audit mengembalikan cup yang diseal ulang ke stok, tercatat sebagai `allocation_return` |
-| 3 | Sisa yang **tidak** diseal ulang tidak ikut kembali — keputusan admin dihormati, bukan diganti asumsi |
+| 2 | Mengunci audit **tanpa mengisi apa pun** mengembalikan seluruh sisa fisik ke stok, tercatat sebagai `allocation_return` |
+| 3 | Cup rusak (`waste_quantity`) tidak ikut kembali |
 | 4 | Membuka kunci membalik pengembalian dan mencatat pembatalannya |
 | 5 | Buka lalu kunci ulang menghitung **sekali**, bukan dua kali |
 | 6 | Penguncian kedua ditolak dan tidak menyentuh stok |
-| 7 | Mengembalikan lebih banyak dari sisa fisik ditolak (`RETURN_EXCEEDS_REMAINING`); stok tidak bergerak dan alokasi tidak terkunci |
+| 7 | Menurunkan angka pengembalian melebihi sisa fisik ditolak (`RETURN_EXCEEDS_REMAINING`); stok tidak bergerak dan alokasi tidak terkunci |
 | 8 | Membuka kunci ditolak bila cup-nya sudah dimuat ke gerobak lain (`UNLOCK_STOCK_UNAVAILABLE`); kunci tetap utuh, stok tidak dipaksa negatif |
-| 9 | Tanpa pengembalian, tidak ada pergerakan stok kosong yang tercatat |
+| 9 | Tanpa sisa fisik, tidak ada pergerakan stok kosong yang tercatat |
 | 10 | Driver tidak dapat mengunci maupun mengubah angka pengembalian |
-| 11 | `admin_pending_returns` menampilkan cup yang menunggu keputusan; tertutup untuk driver |
+| 11 | `admin_pending_returns` menampilkan cup yang belum masuk hitungan stok; tertutup untuk driver |
