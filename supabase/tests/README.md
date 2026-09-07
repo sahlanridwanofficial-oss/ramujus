@@ -180,3 +180,19 @@ pemindaian tabel penuh.
 | 6 | `prune_location_logs_job` menghapus histori tua dan menyisakan yang masih berlaku |
 | 7 | Migrasi retensi tidak gagal walau pg_cron tidak tersedia |
 | 8 | Driver tidak dapat memangkas histori GPS armada |
+
+## 12 — Sisa cup kembali ke stok pusat
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Muat gerobak tetap mengurangi stok pusat seperti sebelumnya |
+| 2 | Mengunci audit mengembalikan cup yang diseal ulang ke stok, tercatat sebagai `allocation_return` |
+| 3 | Sisa yang **tidak** diseal ulang tidak ikut kembali — keputusan admin dihormati, bukan diganti asumsi |
+| 4 | Membuka kunci membalik pengembalian dan mencatat pembatalannya |
+| 5 | Buka lalu kunci ulang menghitung **sekali**, bukan dua kali |
+| 6 | Penguncian kedua ditolak dan tidak menyentuh stok |
+| 7 | Mengembalikan lebih banyak dari sisa fisik ditolak (`RETURN_EXCEEDS_REMAINING`); stok tidak bergerak dan alokasi tidak terkunci |
+| 8 | Membuka kunci ditolak bila cup-nya sudah dimuat ke gerobak lain (`UNLOCK_STOCK_UNAVAILABLE`); kunci tetap utuh, stok tidak dipaksa negatif |
+| 9 | Tanpa pengembalian, tidak ada pergerakan stok kosong yang tercatat |
+| 10 | Driver tidak dapat mengunci maupun mengubah angka pengembalian |
+| 11 | `admin_pending_returns` menampilkan cup yang menunggu keputusan; tertutup untuk driver |

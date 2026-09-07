@@ -3,11 +3,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
+import Link from 'next/link'
 import {
   Loader2, Boxes, Plus, ClipboardCheck, TriangleAlert, PackageX,
-  Search, History, X, ArrowUp, ArrowDown,
+  Search, History, X, ArrowUp, ArrowDown, PackageCheck, ArrowUpRight,
 } from 'lucide-react'
 import type { StockOverviewRow, StockMovement } from '@/types/database'
+
+/** Sisa cup di gerobak yang belum diputuskan kembali ke stok atau tidak. */
+interface PendingReturnRow {
+  product_id: string
+  name: string
+  category: string
+  pending_cups: number
+  carts: number
+}
 
 type StatusFilter = 'all' | 'low' | 'out'
 
@@ -45,16 +55,28 @@ export default function StockPage() {
   const [history, setHistory] = useState<StockMovement[]>([])
   const [historyLoading, setHistoryLoading] = useState(false)
 
+  // Cup yang sudah keluar dari stok pusat, kini ada di base, tetapi
+  // rekonsiliasinya belum dikunci — jadi belum diputuskan kembali atau tidak.
+  const [pending, setPending] = useState<PendingReturnRow[]>([])
+
   const [supabase] = useState(() => createClient())
 
   const load = useCallback(async () => {
-    const { data, error: rpcError } = await supabase.rpc('admin_stock_overview')
-    if (rpcError) {
+    const [overview, pendingRes] = await Promise.all([
+      supabase.rpc('admin_stock_overview'),
+      supabase.rpc('admin_pending_returns'),
+    ])
+
+    if (overview.error) {
       setError('Gagal memuat data stok. Coba muat ulang.')
     } else {
-      setRows((data ?? []) as StockOverviewRow[])
+      setRows((overview.data ?? []) as StockOverviewRow[])
       setError(null)
     }
+
+    // Fungsi ini baru ada sejak migrasi 0013; instance lama cukup tidak
+    // menampilkan panelnya, bukan menampilkan galat.
+    setPending(pendingRes.error ? [] : ((pendingRes.data ?? []) as PendingReturnRow[]))
     setLoading(false)
   }, [supabase])
 
@@ -65,6 +87,11 @@ export default function StockPage() {
     low: rows.filter(r => r.status === 'low').length,
     totalCups: rows.reduce((s, r) => s + r.stock_quantity, 0),
   }), [rows])
+
+  const pendingTotal = useMemo(
+    () => pending.reduce((s, r) => s + r.pending_cups, 0),
+    [pending]
+  )
 
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -136,7 +163,8 @@ export default function StockPage() {
         <div>
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Inventori Stok Produk</h1>
           <p className="text-xs text-zinc-500 mt-0.5">
-            Stok cup tersegel per produk di base. Muat gerobak otomatis mengurangi stok ini.
+            Stok cup tersegel per produk di base. Muat gerobak mengurangi stok ini, dan sisa
+            yang diseal ulang mengembalikannya saat audit malam dikunci.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -155,6 +183,34 @@ export default function StockPage() {
           </span>
         </div>
       </div>
+
+      {/* Cup yang sudah keluar dari angka stok, ada secara fisik di base, dan
+          menunggu keputusan dikembalikan atau tidak. Tanpa panel ini selisih
+          itu tidak terlihat di mana pun — hanya membuat stok terbaca lebih
+          rendah dari kenyataan. */}
+      {pendingTotal > 0 && (
+        <Link
+          href="/admin/inventory"
+          className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-300 rounded-2xl hover:bg-emerald-100/60 transition-colors"
+        >
+          <PackageCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-px" />
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-bold text-emerald-900">
+              {pendingTotal.toLocaleString('id-ID')} cup sisa menunggu keputusan pengembalian
+              <span className="font-semibold"> · {pending.length} produk</span>
+            </p>
+            <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">
+              Cup ini sudah keluar dari angka stok di atas tetapi masih ada di base. Selesaikan
+              audit malam gerobaknya untuk menentukan berapa yang diseal ulang dan kembali ke stok.
+            </p>
+            <p className="text-[11px] text-emerald-800/70 mt-1 font-mono">
+              {pending.slice(0, 4).map(r => `${r.name} ${r.pending_cups}`).join(' · ')}
+              {pending.length > 4 && ` · +${pending.length - 4} lainnya`}
+            </p>
+          </div>
+          <ArrowUpRight className="w-4 h-4 text-emerald-700 shrink-0" />
+        </Link>
+      )}
 
       {error && (
         <div role="alert" className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-center gap-2 text-xs text-[#be1a1a] font-semibold">

@@ -218,6 +218,8 @@ export interface DriverDailyAllocation {
   cash_settled: number
   reconciled_at: string | null
   reconciled_by: string | null
+  /** Terisi saat pengembalian sisa cup sudah diterapkan ke stok pusat. */
+  stock_returned_at: string | null
   created_at: string
   updated_at: string
 }
@@ -229,6 +231,8 @@ export interface DriverAllocationItem {
   initial_quantity: number
   sold_quantity: number
   physical_remaining: number | null
+  /** Bagian sisa fisik yang kembali ke stok pusat saat rekonsiliasi dikunci. */
+  returned_quantity: number
   waste_quantity: number
   notes: string | null
   created_at: string

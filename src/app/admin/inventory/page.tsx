@@ -18,6 +18,8 @@ interface ProductAllocItem {
   initial_quantity: number
   sold_quantity: number
   physical_remaining: number
+  /** Bagian sisa fisik yang diseal ulang dan kembali ke stok pusat saat dikunci. */
+  returned_quantity: number
   waste_quantity: number
 }
 
@@ -174,6 +176,7 @@ function InventoryContent() {
           physical_remaining: found?.physical_remaining !== null && found?.physical_remaining !== undefined
             ? found.physical_remaining
             : expectedRem,
+          returned_quantity: found?.returned_quantity || 0,
           waste_quantity: found?.waste_quantity || 0,
         }
       })
@@ -230,11 +233,31 @@ function InventoryContent() {
     setAllocItems(prev => {
       const current = prev[productId]
       if (!current) return prev
+      const remaining = Math.max(0, isNaN(val) ? 0 : val)
       return {
         ...prev,
         [productId]: {
           ...current,
-          physical_remaining: Math.max(0, isNaN(val) ? 0 : val)
+          physical_remaining: remaining,
+          // Yang dikembalikan tidak boleh melebihi yang ada di tangan.
+          // Server menolaknya saat penguncian; di sini dicegah lebih awal
+          // supaya admin tidak baru tahu setelah menekan "Kunci".
+          returned_quantity: Math.min(current.returned_quantity, remaining),
+        }
+      }
+    })
+  }
+
+  function setReturnedQty(productId: string, val: number) {
+    setAllocItems(prev => {
+      const current = prev[productId]
+      if (!current) return prev
+      const wanted = Math.max(0, isNaN(val) ? 0 : val)
+      return {
+        ...prev,
+        [productId]: {
+          ...current,
+          returned_quantity: Math.min(wanted, current.physical_remaining),
         }
       }
     })
@@ -272,6 +295,7 @@ function InventoryContent() {
           product_id: item.product.id,
           initial_quantity: item.initial_quantity,
           physical_remaining: item.physical_remaining,
+          returned_quantity: item.returned_quantity,
           waste_quantity: item.waste_quantity,
         })),
       })
@@ -371,6 +395,7 @@ function InventoryContent() {
           product_id: item.product.id,
           initial_quantity: item.initial_quantity,
           physical_remaining: item.physical_remaining,
+          returned_quantity: item.returned_quantity,
           waste_quantity: item.waste_quantity
         }))
 
@@ -390,10 +415,15 @@ function InventoryContent() {
         })
 
         if (lockError) {
+          // Penolakan dari 0013 punya sebab yang bisa ditindaklanjuti;
+          // jangan disamarkan menjadi "coba lagi".
+          const product = lockError.message.split(':')[1]?.trim()
           throw new Error(
             lockError.message.includes('ALLOCATION_NOT_FOUND_OR_ALREADY_LOCKED')
               ? 'Rekonsiliasi ini sudah terkunci sebelumnya.'
-              : 'Gagal mengunci rekonsiliasi. Angka audit sudah tersimpan, silakan coba kunci lagi.'
+              : lockError.message.includes('RETURN_EXCEEDS_REMAINING')
+                ? `Jumlah "Kembali ke Stok" untuk ${product || 'salah satu produk'} melebihi sisa fisiknya. Perbaiki angkanya lalu kunci lagi.`
+                : 'Gagal mengunci rekonsiliasi. Angka audit sudah tersimpan, silakan coba kunci lagi.'
           )
         }
       }
@@ -437,6 +467,14 @@ function InventoryContent() {
   const totalInitialCups = sumField(cupItems, 'initial_quantity')
   const totalSoldCups = sumField(cupItems, 'sold_quantity')
   const cupVariance = sumVariance(cupItems)
+
+  // Dua angka yang menentukan pergerakan stok pusat saat dikunci.
+  const allItems = Object.values(allocItems)
+  const totalReturning = allItems.reduce((sum, i) => sum + i.returned_quantity, 0)
+  const totalNotReturning = allItems.reduce(
+    (sum, i) => sum + Math.max(0, i.physical_remaining - i.returned_quantity),
+    0
+  )
 
   const totalInitialAddons = sumField(addonItems, 'initial_quantity')
   const totalSoldAddons = sumField(addonItems, 'sold_quantity')
@@ -858,7 +896,8 @@ function InventoryContent() {
                         <th className="py-3 px-3 text-center">2. Terjual POS</th>
                         <th className="py-3 px-3 text-center">Estimasi Sisa</th>
                         <th className="py-3 px-3 text-center bg-blue-50/60 text-blue-900">3. Sisa Fisik Gerobak</th>
-                        <th className="py-3 px-3 text-center bg-amber-50/60 text-amber-900">4. Rusak / Waste</th>
+                        <th className="py-3 px-3 text-center bg-emerald-50/60 text-emerald-900">4. Kembali ke Stok</th>
+                        <th className="py-3 px-3 text-center bg-amber-50/60 text-amber-900">5. Rusak / Waste</th>
                         <th className="py-3 px-4 text-center">Selisih</th>
                       </tr>
                     </thead>
@@ -868,6 +907,7 @@ function InventoryContent() {
                           initial_quantity: 0,
                           sold_quantity: 0,
                           physical_remaining: 0,
+                          returned_quantity: 0,
                           waste_quantity: 0
                         }
                         const expectedRemaining = Math.max(0, item.initial_quantity - item.sold_quantity)
@@ -897,6 +937,37 @@ function InventoryContent() {
                                 onChange={(e) => setPhysicalRemaining(p.id, parseInt(e.target.value))}
                                 className="w-16 mx-auto bg-white border border-blue-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-100"
                               />
+                            </td>
+                            {/* Dari sisa fisik itu, berapa yang diseal ulang dan
+                                benar-benar kembali ke stok pusat. Sisanya tetap
+                                tercatat sebagai sisa yang tidak kembali. */}
+                            <td className="py-2.5 px-3 text-center bg-emerald-50/30">
+                              <div className="flex items-center justify-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={item.physical_remaining}
+                                  disabled={isReconciled || item.physical_remaining === 0}
+                                  value={item.returned_quantity}
+                                  onChange={(e) => setReturnedQty(p.id, parseInt(e.target.value))}
+                                  className="w-16 bg-white border border-emerald-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-zinc-100 disabled:text-zinc-400"
+                                />
+                                {!isReconciled && item.physical_remaining > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReturnedQty(p.id, item.physical_remaining)}
+                                    title="Kembalikan seluruh sisa fisik ke stok"
+                                    className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-1.5 py-1 rounded transition-colors"
+                                  >
+                                    Semua
+                                  </button>
+                                )}
+                              </div>
+                              {item.physical_remaining > item.returned_quantity && (
+                                <span className="text-[10px] text-zinc-400 block mt-0.5">
+                                  {item.physical_remaining - item.returned_quantity} tidak kembali
+                                </span>
+                              )}
                             </td>
                             <td className="py-2.5 px-3 text-center bg-amber-50/30">
                               <input
@@ -975,6 +1046,36 @@ function InventoryContent() {
                     />
                   </div>
                 </div>
+
+                {/* Penguncian menggerakkan stok pusat, jadi akibatnya
+                    disebutkan sebelum tombolnya ditekan — bukan setelahnya. */}
+                {!isReconciled && (totalReturning > 0 || totalNotReturning > 0) && (
+                  <div className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                    <PackageCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-px" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-emerald-900">
+                        {totalReturning > 0
+                          ? `${totalReturning} cup akan kembali ke stok pusat saat dikunci`
+                          : 'Tidak ada cup yang dikembalikan ke stok pusat'}
+                      </p>
+                      <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">
+                        {totalNotReturning > 0
+                          ? `${totalNotReturning} cup sisa lainnya tidak dikembalikan dan tetap keluar dari stok. Isi kolom "Kembali ke Stok" untuk cup yang diseal ulang dan masih layak dijual.`
+                          : 'Seluruh sisa fisik ditandai kembali ke stok. Pastikan cup-nya memang diseal ulang dan masih layak dijual.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isReconciled && currentAllocation?.stock_returned_at && (
+                  <div className="flex items-start gap-3 p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl">
+                    <PackageCheck className="w-5 h-5 text-zinc-500 shrink-0 mt-px" />
+                    <p className="text-[11px] text-zinc-600 leading-relaxed">
+                      Pengembalian sisa cup sudah diterapkan ke stok pusat saat audit ini dikunci.
+                      Membuka kuncinya akan membatalkan pengembalian itu.
+                    </p>
+                  </div>
+                )}
 
                 <div className="pt-3 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <p className="text-xs text-zinc-400">
