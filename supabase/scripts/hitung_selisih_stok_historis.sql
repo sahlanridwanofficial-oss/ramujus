@@ -2,8 +2,7 @@
 -- Sekali jalan: berapa banyak stok yang sudah melayang sebelum 0013
 --
 -- BUKAN migrasi. Jangan ditaruh di supabase/migrations/ dan jangan
--- dijadwalkan. Jalankan manual di SQL Editor Supabase, sekali, setelah
--- 0013 terpasang.
+-- dijadwalkan. Jalankan manual, sekali, setelah 0013 terpasang.
 --
 -- Latar: sebelum 0013, muat gerobak pagi mengurangi products.stock_quantity
 -- tetapi audit malam tidak pernah mengembalikan apa pun. Setiap hari, cup
@@ -11,97 +10,87 @@
 -- sebelum 0013 tidak ikut terkoreksi oleh migrasi itu — perbaikannya hanya
 -- berlaku untuk audit yang dikunci setelahnya.
 --
--- Berkas ini TIDAK mengubah apa pun. Ia hanya menghitung dan menampilkan.
--- Bagian penerapan sengaja dikomentari di bawah: memasukkan kembali cup
--- yang mungkin sudah dibuang berbulan-bulan lalu adalah keputusan Anda,
+-- Seluruh berkas ini SQL biasa, tanpa perintah khusus psql, supaya bisa
+-- ditempel apa adanya ke SQL Editor Supabase. Editor itu hanya menampilkan
+-- hasil query TERAKHIR, jadi bagian 1 dan bagian 2 sebaiknya dijalankan
+-- bergantian: sorot satu bagian, lalu Run.
+--
+-- Bagian 1 dan 2 TIDAK mengubah apa pun; keduanya hanya membaca.
+-- Bagian 3 adalah penerapan, dan sengaja dikomentari: memasukkan kembali
+-- cup yang mungkin sudah dibuang berbulan-bulan lalu adalah keputusan Anda,
 -- bukan keputusan sebuah skrip.
 -- ============================================================
 
-\echo ''
-\echo '=== 1. Ringkasan per produk: cup yang hilang dari angka stok ==='
 
-WITH melayang AS (
-  SELECT ai.product_id,
-         sum(COALESCE(ai.physical_remaining, 0))::INTEGER AS cup_melayang,
-         count(DISTINCT ai.allocation_id)::INTEGER        AS jumlah_audit,
-         min(a.date)                                      AS sejak,
-         max(a.date)                                      AS sampai
-    FROM public.driver_allocation_items ai
-    JOIN public.driver_daily_allocations a ON a.id = ai.allocation_id
-   WHERE a.status = 'reconciled'
-     -- Hanya audit yang dikunci SEBELUM 0013 berlaku. Yang dikunci sesudahnya
-     -- sudah mengembalikan cupnya sendiri, jadi tidak boleh dihitung lagi.
-     AND a.stock_returned_at IS NULL
-     AND COALESCE(ai.physical_remaining, 0) > 0
-   GROUP BY ai.product_id
-)
-SELECT p.name                AS produk,
-       p.category            AS kategori,
-       p.stock_quantity      AS stok_tercatat_sekarang,
-       m.cup_melayang        AS cup_tidak_pernah_kembali,
-       (p.stock_quantity + m.cup_melayang) AS stok_bila_semua_dikembalikan,
-       m.jumlah_audit        AS dari_berapa_audit,
-       m.sejak,
-       m.sampai
-  FROM melayang m
-  JOIN public.products p ON p.id = m.product_id
- ORDER BY m.cup_melayang DESC;
+-- ============================================================
+-- BAGIAN 1 — Berapa yang melayang, per produk dan totalnya
+--
+-- Baris terakhir (produk = 'TOTAL SEMUA PRODUK') adalah jumlah keseluruhan.
+-- ============================================================
 
-\echo ''
-\echo '=== 2. Total keseluruhan ==='
-
-SELECT count(*)                                    AS produk_terdampak,
-       COALESCE(sum(COALESCE(ai.physical_remaining, 0)), 0)::INTEGER AS total_cup_melayang
+SELECT COALESCE(p.name, 'TOTAL SEMUA PRODUK')            AS produk,
+       COALESCE(p.category, '')                          AS kategori,
+       sum(COALESCE(ai.physical_remaining, 0))::INTEGER  AS cup_tidak_pernah_kembali,
+       count(DISTINCT ai.allocation_id)::INTEGER         AS dari_berapa_audit,
+       min(a.date)                                       AS audit_terlama,
+       max(a.date)                                       AS audit_terbaru
   FROM public.driver_allocation_items ai
   JOIN public.driver_daily_allocations a ON a.id = ai.allocation_id
+  JOIN public.products p                ON p.id = ai.product_id
  WHERE a.status = 'reconciled'
+   -- Hanya audit yang dikunci SEBELUM 0013 berlaku. Yang dikunci sesudahnya
+   -- sudah mengembalikan cupnya sendiri, jadi tidak boleh dihitung lagi.
    AND a.stock_returned_at IS NULL
-   AND COALESCE(ai.physical_remaining, 0) > 0;
+   AND COALESCE(ai.physical_remaining, 0) > 0
+ GROUP BY GROUPING SETS ((p.name, p.category), ())
+ ORDER BY (p.name IS NULL), 3 DESC;
 
-\echo ''
-\echo '=== 3. Rinciannya per audit, untuk ditelusuri bila angkanya mengejutkan ==='
 
-SELECT a.date            AS tanggal,
-       pr.full_name      AS mitra,
-       p.name            AS produk,
-       ai.initial_quantity AS dibawa,
-       ai.sold_quantity    AS terjual,
-       ai.physical_remaining AS sisa_fisik,
-       ai.waste_quantity     AS rusak
+-- ============================================================
+-- BAGIAN 2 — Rincian per audit, untuk ditelusuri bila angkanya mengejutkan
+-- ============================================================
+
+SELECT a.date                 AS tanggal,
+       pr.full_name           AS mitra,
+       p.name                 AS produk,
+       ai.initial_quantity    AS dibawa,
+       ai.sold_quantity       AS terjual,
+       ai.physical_remaining  AS sisa_fisik_tidak_kembali,
+       ai.waste_quantity      AS rusak
   FROM public.driver_allocation_items ai
   JOIN public.driver_daily_allocations a ON a.id = ai.allocation_id
-  JOIN public.profiles pr ON pr.id = a.driver_id
-  JOIN public.products p  ON p.id = ai.product_id
+  JOIN public.profiles pr               ON pr.id = a.driver_id
+  JOIN public.products p                ON p.id = ai.product_id
  WHERE a.status = 'reconciled'
    AND a.stock_returned_at IS NULL
    AND COALESCE(ai.physical_remaining, 0) > 0
  ORDER BY a.date DESC, pr.full_name, p.name;
 
+
 -- ============================================================
--- 4. PENERAPAN — jalankan hanya bila Anda memang ingin mengoreksi stok
+-- BAGIAN 3 — PENERAPAN. Jalankan hanya bila Anda memang ingin mengoreksi.
 --
 -- Angka di atas adalah cup yang PERNAH kembali ke base menurut catatan
 -- audit. Belum tentu semuanya masih ada: sebagian mungkin sudah dibuang,
--- dipakai sendiri, atau memang tidak layak jual sejak awal. Karena itu
--- jangan menerapkannya membabi buta.
+-- dipakai sendiri, atau memang tidak layak jual sejak awal.
 --
--- Cara yang disarankan, berurutan:
+-- Cara yang disarankan, dan yang lebih jujur:
 --
 --   a. Hitung fisik cup yang benar-benar ada di base sekarang.
 --   b. Pakai "Stock Opname" di halaman Inventori Stok untuk menyetel angka
---      sistem ke hasil hitungan itu. Cara ini paling jujur: yang dicatat
---      adalah kenyataan, bukan rekonstruksi dari riwayat.
+--      sistem ke hasil hitungan itu. Yang dicatat jadi kenyataan hari ini,
+--      bukan rekonstruksi dari riwayat yang belum tentu masih berlaku.
 --
 -- Bila Anda tetap ingin mengembalikan seluruh angka historis di atas apa
--- adanya, hapus komentar blok di bawah lalu jalankan. Ia menaikkan stok dan
--- menandai audit-audit lama sebagai sudah dikembalikan, sehingga menjalankan
--- skrip ini dua kali tidak menghitung ganda.
+-- adanya, hapus tanda komentar pada blok di bawah lalu jalankan. Ia menaikkan
+-- stok dan menandai audit-audit lama sebagai sudah dikembalikan, sehingga
+-- menjalankannya dua kali tidak menghitung ganda.
 --
 -- Penjaga rekonsiliasi dimatikan sementara di dalam transaksi yang sama.
 -- Penjaga itu menolak SEMUA perubahan atas alokasi terkunci — termasuk
 -- penandaan ini, yang justru diperlukan supaya koreksinya tidak terulang.
--- Karena satu transaksi, kegagalan di tengah jalan mengembalikan penjaga
--- itu apa adanya.
+-- Karena satu transaksi, kegagalan di tengah jalan mengembalikan penjaga itu
+-- apa adanya.
 -- ============================================================
 
 -- BEGIN;
