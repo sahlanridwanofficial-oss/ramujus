@@ -12,6 +12,12 @@
 --
 -- Jalankan berkas migrasi yang berstatus BELUM, berurutan dari nomor
 -- terkecil. Semuanya aman dijalankan ulang bila ragu.
+--
+-- Batasnya: satu penanda hanya membuktikan sebuah migrasi PERNAH DIMULAI,
+-- bukan bahwa ia tuntas. Berkas yang berhenti di tengah jalan tetap bisa
+-- terbaca "sudah" bila penandanya dibuat di bagian awal. Karena itu,
+-- menjalankan ulang berkas yang sudah berstatus "sudah" tidak pernah
+-- merugikan — seluruh migrasi di repositori ini dirancang aman diulang.
 -- ============================================================
 
 WITH penanda(urutan, migrasi, penjelasan, ada) AS (

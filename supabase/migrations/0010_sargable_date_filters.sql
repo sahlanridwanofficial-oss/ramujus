@@ -25,6 +25,17 @@
 -- sama dengan jakartaDayRange di sisi klien.
 -- ============================================================
 
+-- Setiap fungsi di bawah dilepas dulu dengan DROP sebelum dibuat ulang.
+-- CREATE OR REPLACE menolak mengubah bentuk kolom keluaran sebuah fungsi,
+-- dan bentuk yang tersimpan di satu database belum tentu sama dengan yang
+-- diharapkan berkas ini — sebuah migrasi lama bisa saja berhenti di tengah
+-- jalan dan meninggalkan versi fungsi yang lebih tua. DROP membuat berkas
+-- ini berlaku apa pun keadaan awalnya, bukan hanya pada database yang
+-- dibangun dari nol secara berurutan.
+--
+-- Hak akses ditegakkan ulang di bagian akhir berkas, karena DROP ikut
+-- menghapus GRANT yang menempel pada fungsi lama.
+
 -- ------------------------------------------------------------
 -- Awal hari WIB sebagai timestamptz.
 --
@@ -48,6 +59,8 @@ GRANT EXECUTE ON FUNCTION public.wib_day_start(DATE) TO authenticated;
 -- ------------------------------------------------------------
 -- admin_daily_summary
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_daily_summary();
+
 CREATE OR REPLACE FUNCTION public.admin_daily_summary()
 RETURNS TABLE (
   orders_today        INTEGER,
@@ -104,6 +117,8 @@ $$;
 -- ------------------------------------------------------------
 -- driver_daily_summary
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.driver_daily_summary();
+
 CREATE OR REPLACE FUNCTION public.driver_daily_summary()
 RETURNS TABLE (
   orders_today  INTEGER,
@@ -148,6 +163,8 @@ $$;
 -- ------------------------------------------------------------
 -- admin_sales_range
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_sales_range(DATE, DATE);
+
 CREATE OR REPLACE FUNCTION public.admin_sales_range(p_from DATE, p_to DATE)
 RETURNS TABLE (
   day              DATE,
@@ -218,6 +235,8 @@ $$;
 -- ------------------------------------------------------------
 -- admin_sales_hourly
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_sales_hourly(DATE);
+
 CREATE OR REPLACE FUNCTION public.admin_sales_hourly(p_date DATE)
 RETURNS TABLE (
   hour    INTEGER,
@@ -268,6 +287,8 @@ $$;
 -- ------------------------------------------------------------
 -- admin_top_products_range
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_top_products_range(DATE, DATE, INTEGER);
+
 CREATE OR REPLACE FUNCTION public.admin_top_products_range(
   p_from  DATE,
   p_to    DATE,
@@ -307,6 +328,8 @@ $$;
 -- ------------------------------------------------------------
 -- admin_report_summary
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_report_summary(DATE, DATE);
+
 CREATE OR REPLACE FUNCTION public.admin_report_summary(p_from DATE, p_to DATE)
 RETURNS TABLE (
   orders           INTEGER,
@@ -358,6 +381,8 @@ $$;
 -- ------------------------------------------------------------
 -- admin_driver_stats_range
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.admin_driver_stats_range(DATE, DATE);
+
 CREATE OR REPLACE FUNCTION public.admin_driver_stats_range(p_from DATE, p_to DATE)
 RETURNS TABLE (
   driver_id      UUID,
@@ -429,6 +454,8 @@ $$;
 -- ------------------------------------------------------------
 -- fleet_overview
 -- ------------------------------------------------------------
+DROP FUNCTION IF EXISTS public.fleet_overview();
+
 CREATE OR REPLACE FUNCTION public.fleet_overview()
 RETURNS TABLE (
   driver_id        UUID,
