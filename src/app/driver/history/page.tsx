@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { formatRupiah, formatTime, formatDate } from '@/lib/format'
 import { ShoppingBag, MapPin, Clock, Loader2, ChevronRight, Calendar } from 'lucide-react'
+import { isCupCategory } from '@/lib/constants'
 import type { Order, OrderItem, Product } from '@/types/database'
 import { jakartaToday, jakartaDayRange } from '@/lib/date'
 
@@ -53,6 +54,20 @@ export default function HistoryPage() {
 
   const totalRevenue = orders.reduce((sum, o) => sum + o.total_amount, 0)
 
+  // Cup dihitung dari item pesanan yang memang sudah ikut termuat di layar
+  // ini, memakai aturan yang sama dengan server: hanya kategori smoothie.
+  // Sebelumnya jumlah transaksi yang dilabeli "Cup", sehingga satu nota
+  // berisi tiga cup terhitung satu.
+  const totalCups = orders.reduce(
+    (sum, o) =>
+      sum +
+      (o.order_items ?? []).reduce(
+        (n, item) => n + (isCupCategory(item.product?.category) ? item.quantity : 0),
+        0
+      ),
+    0
+  )
+
   return (
     <div className="p-4 space-y-4">
       {/* Header */}
@@ -84,11 +99,12 @@ export default function HistoryPage() {
         </div>
         <div className="text-right">
           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">
-            Transaksi
+            Cup Terjual
           </span>
           <p className="text-xl font-black text-[#be1a1a] tracking-tight">
-            {orders.length} <span className="text-xs font-medium text-zinc-500">Cup</span>
+            {totalCups} <span className="text-xs font-medium text-zinc-500">cup</span>
           </p>
+          <span className="text-[11px] text-zinc-400">{orders.length} transaksi</span>
         </div>
       </div>
 

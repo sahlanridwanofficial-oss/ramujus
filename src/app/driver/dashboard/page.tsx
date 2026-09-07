@@ -12,8 +12,18 @@ import {
   PackageCheck, Package
 } from 'lucide-react'
 import type { Shift } from '@/types/database'
-import { isCupCategory } from '@/lib/constants'
+import { isCupCategory, CUP_CATEGORY } from '@/lib/constants'
 import { jakartaToday, jakartaDayRange } from '@/lib/date'
+import { firstRow, isMissingFunction, describeRpcError } from '@/lib/rpc'
+
+interface TodayStats {
+  orders: number
+  cups: number
+  items: number
+  revenue: number
+}
+
+const EMPTY_STATS: TodayStats = { orders: 0, cups: 0, items: 0, revenue: 0 }
 
 interface CartStockItem {
   id: string
@@ -42,7 +52,8 @@ export default function DriverDashboard() {
   const { user } = useAuth()
   const { latitude, longitude, getPosition, loading: gpsLoading } = useGeolocation()
   const [activeShift, setActiveShift] = useState<Shift | null>(null)
-  const [todayStats, setTodayStats] = useState({ orders: 0, revenue: 0 })
+  const [todayStats, setTodayStats] = useState<TodayStats>(EMPTY_STATS)
+  const [statsNotice, setStatsNotice] = useState<string | null>(null)
   const [cartAllocation, setCartAllocation] = useState<CartAllocationSummary | null>(null)
   const [loading, setLoading] = useState(true)
   const [shiftLoading, setShiftLoading] = useState(false)
@@ -55,6 +66,51 @@ export default function DriverDashboard() {
       getPosition()
     }
   }, [user])
+
+  /**
+   * Jalur cadangan bila server belum mengenal driver_daily_summary.
+   * Rentangnya satu hari WIB dan hanya pesanan milik driver sendiri, jadi
+   * tetap ringan — RLS pun tidak mengizinkan yang lain.
+   */
+  async function loadStatsFallback(today: string): Promise<TodayStats> {
+    const { start, endExclusive } = jakartaDayRange(today)
+
+    const [orderRes, itemRes] = await Promise.all([
+      supabase
+        .from('orders')
+        .select('total_amount')
+        .eq('driver_id', user!.id)
+        .gte('created_at', start)
+        .lt('created_at', endExclusive),
+      supabase
+        .from('order_items')
+        .select('quantity, products(category), orders!inner(driver_id, created_at)')
+        .eq('orders.driver_id', user!.id)
+        .gte('orders.created_at', start)
+        .lt('orders.created_at', endExclusive),
+    ])
+
+    const orders = (orderRes.data ?? []) as Array<{ total_amount: number }>
+    const items = (itemRes.data ?? []) as Array<{
+      quantity: number
+      products: { category: string } | { category: string }[] | null
+    }>
+
+    let cups = 0
+    let unitCount = 0
+    for (const row of items) {
+      const product = Array.isArray(row.products) ? row.products[0] : row.products
+      unitCount += row.quantity
+      if (product?.category === CUP_CATEGORY) cups += row.quantity
+    }
+
+    return {
+      orders: orders.length,
+      cups,
+      items: unitCount,
+      revenue: orders.reduce((sum, o) => sum + Number(o.total_amount ?? 0), 0),
+    }
+  }
 
   async function loadData() {
     if (!user) return
@@ -71,21 +127,39 @@ export default function DriverDashboard() {
 
       setActiveShift(shift)
 
-      // 2. Get today's stats — batas hari mengikuti WIB agar cocok dengan
-      // angka dashboard admin yang dihitung server dalam Asia/Jakarta.
+      // 2. Angka hari ini dari server, sumber yang sama persis dengan
+      // dashboard admin: cup dihitung dari order_items berkategori
+      // smoothie. Sebelumnya layar ini menghitung sendiri dan menampilkan
+      // jumlah transaksi di bawah judul "Cup Terjual", sementara jumlah cup
+      // sungguhan diambil dari sold_quantity alokasi — yang tidak pernah
+      // bertambah bila admin belum membuat muatan gerobak hari itu.
       const today = jakartaToday()
-      const { start: dayStart } = jakartaDayRange(today)
-      const { data: orders } = await supabase
-        .from('orders')
-        .select('total_amount')
-        .eq('driver_id', user.id)
-        .gte('created_at', dayStart)
+      const summaryRes = await supabase.rpc('driver_daily_summary')
+      const summary = firstRow<{
+        orders_today: number
+        cups_today: number
+        items_today: number
+        revenue_today: number
+      }>(summaryRes.data)
 
-      if (orders) {
+      if (summary) {
         setTodayStats({
-          orders: orders.length,
-          revenue: orders.reduce((sum, o) => sum + o.total_amount, 0),
+          orders: summary.orders_today ?? 0,
+          cups: summary.cups_today ?? 0,
+          items: summary.items_today ?? 0,
+          revenue: Number(summary.revenue_today ?? 0),
         })
+        setStatsNotice(null)
+      } else {
+        // Database belum menjalankan migrasi 0009. Dihitung di perangkat
+        // supaya driver tetap melihat angkanya, dengan pemberitahuan.
+        const fallback = await loadStatsFallback(today)
+        setTodayStats(fallback)
+        setStatsNotice(
+          summaryRes.error && !isMissingFunction(summaryRes.error)
+            ? describeRpcError(summaryRes.error, 'driver_daily_summary')
+            : 'Angka di bawah dihitung di ponsel Anda karena server belum diperbarui. Beri tahu admin bila terus muncul.'
+        )
       }
 
       // 3. Get today's cart allocation for this driver
@@ -336,6 +410,14 @@ export default function DriverDashboard() {
         </div>
       </div>
 
+      {/* Angka dihitung di perangkat karena server belum diperbarui */}
+      {statsNotice && (
+        <div className="flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-2xl">
+          <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-px" />
+          <p className="text-[11px] text-amber-900 font-medium leading-relaxed">{statsNotice}</p>
+        </div>
+      )}
+
       {/* Main KPI Stats Grid */}
       <div className="grid grid-cols-2 gap-3">
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
@@ -359,9 +441,12 @@ export default function DriverDashboard() {
             </div>
           </div>
           <p className="text-xl font-black text-zinc-900 tracking-tight">
-            {todayStats.orders} <span className="text-xs font-medium text-zinc-500">transaksi</span>
+            {todayStats.cups} <span className="text-xs font-medium text-zinc-500">cup</span>
           </p>
-          <span className="text-[11px] text-zinc-400 mt-1 block">Tercatat hari ini</span>
+          <span className="text-[11px] text-zinc-400 mt-1 block">
+            {todayStats.orders} transaksi
+            {todayStats.items > todayStats.cups && ` · ${todayStats.items} unit`}
+          </span>
         </div>
       </div>
 
@@ -401,7 +486,11 @@ export default function DriverDashboard() {
                 <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
               <div className="border-x border-zinc-200/80">
-                <span className="text-[10px] text-zinc-400 block font-medium">Terjual</span>
+                {/* Angka ini milik muatan gerobak, bukan penjualan hari ini:
+                    cup yang dijual di luar muatan tidak menaikkannya. Diberi
+                    label apa adanya supaya tidak lagi bertabrakan dengan
+                    kartu "Cup Terjual" di atas. */}
+                <span className="text-[10px] text-zinc-400 block font-medium">Terjual dari muatan</span>
                 <span className="text-base font-black text-[#be1a1a]">{cartAllocation.total_sold}</span>
                 <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
@@ -411,6 +500,18 @@ export default function DriverDashboard() {
                 <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
             </div>
+
+            {/* Dua angka cup yang sah-sah saja berbeda: yang di atas adalah
+                seluruh penjualan hari ini, yang ini hanya yang keluar dari
+                muatan pagi. Selisihnya dijelaskan, bukan dibiarkan menjadi
+                teka-teki seperti sebelumnya. */}
+            {todayStats.cups !== cartAllocation.total_sold && (
+              <p className="text-[11px] text-zinc-500 bg-zinc-50/80 border border-zinc-100 rounded-xl px-3 py-2 leading-relaxed">
+                Hari ini Anda menjual <b className="text-zinc-800">{todayStats.cups} cup</b>, sedangkan{' '}
+                <b className="text-zinc-800">{cartAllocation.total_sold} cup</b> di antaranya keluar dari muatan pagi.
+                Selisihnya adalah produk yang tidak tercatat di muatan hari ini.
+              </p>
+            )}
 
             {/* Topping dan add-on dihitung terpisah — satuannya bukan cup */}
             {cartAllocation.addon_initial > 0 && (

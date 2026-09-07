@@ -152,3 +152,17 @@ pemindaian tabel penuh.
 | 6 | Driver tidak dapat mengaktifkan dirinya sendiri kembali (`FORBIDDEN_STATUS_CHANGE`) |
 | 7 | Setelah diaktifkan admin, penjualan tercatat lagi dan stok terpotong benar |
 | 8 | Aturan ini tidak ikut mengunci akun admin |
+
+## 10 — Satu definisi cup untuk driver dan admin
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Menjual **tanpa** muatan gerobak yang dicatat admin: `driver_daily_summary` tetap melaporkan cup yang benar — keadaan yang dulu membuat driver melihat 0 |
+| 2 | Jumlah cup seluruh driver sama persis dengan cup di `admin_daily_summary` |
+| 3 | Driver hanya melihat angkanya sendiri, bukan angka armada |
+| 4 | Driver tanpa penjualan mendapat satu baris berisi nol, bukan tabel kosong |
+| 5 | `admin_driver_stats_range` memberi cup, item, omzet, dan hari aktif per mitra |
+| 6 | Mitra tanpa penjualan tetap muncul sebagai baris nol |
+| 7 | Rentang tanggal benar-benar mempersempit, dan dari/sampai tertukar dirapikan |
+| 8 | Total per mitra sama dengan total per tanggal di `admin_sales_range` |
+| 9 | Driver tidak dapat membaca statistik mitra lain (nol baris) |

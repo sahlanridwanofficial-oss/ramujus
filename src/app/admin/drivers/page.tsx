@@ -1,31 +1,53 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
+import { jakartaToday, shiftDate, daysInRange, formatCalendarDate } from '@/lib/date'
+import { describeRpcError, isMissingFunction } from '@/lib/rpc'
 import {
   Loader2, Users, TrendingUp, ShoppingBag, UserPlus,
-  X, CheckCircle2, AlertCircle, PackageCheck, Eye, EyeOff
+  X, CheckCircle2, AlertCircle, PackageCheck, Eye, EyeOff,
+  CalendarDays, TriangleAlert
 } from 'lucide-react'
 import type { Profile } from '@/types/database'
 
 interface DriverWithStats extends Profile {
+  orders: number
+  /** null = server versi lama tidak dapat memberi angka cup. */
+  cups: number | null
+  items: number
+  revenue: number
+  active_days: number
+  has_active_shift: boolean
+}
+
+/** Baris agregat dari RPC admin_driver_stats_range(). */
+interface DriverStatsRow {
+  driver_id: string
+  orders: number
+  cups: number
+  items: number
+  revenue: number
+  active_days: number
+  last_order_at: string | null
+  has_active_shift: boolean
+}
+
+/** Bentuk lama, dipakai bila migrasi 0009 belum dijalankan. */
+interface LegacyStatsRow {
+  driver_id: string
   total_orders: number
   total_revenue: number
   has_active_shift: boolean
 }
 
-/** Baris agregat dari RPC admin_driver_stats(). */
-interface DriverStatsRow {
-  driver_id: string
-  total_orders: number
-  total_revenue: number
-  orders_today: number
-  revenue_today: number
-  has_active_shift: boolean
-  last_order_at: string | null
-}
+const PRESETS = [
+  { key: '7d', label: '7 Hari', days: 7 },
+  { key: '30d', label: '30 Hari', days: 30 },
+  { key: '90d', label: '90 Hari', days: 90 },
+] as const
 
 export default function DriversPage() {
   const [drivers, setDrivers] = useState<DriverWithStats[]>([])
@@ -35,6 +57,14 @@ export default function DriversPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [formError, setFormError] = useState('')
   const [formSuccess, setFormSuccess] = useState('')
+  // Kegagalan memuat statistik dulu tampil sebagai nol, sama saja dengan
+  // "mitra ini belum menjual apa pun".
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [statusError, setStatusError] = useState<string | null>(null)
+
+  const [preset, setPreset] = useState<string>('30d')
+  const [dateFrom, setDateFrom] = useState(() => shiftDate(jakartaToday(), -29))
+  const [dateTo, setDateTo] = useState(() => jakartaToday())
 
   // Form State
   const [fullName, setFullName] = useState('')
@@ -42,65 +72,120 @@ export default function DriversPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
-  const supabase = createClient()
+  const [supabase] = useState(() => createClient())
 
-  useEffect(() => {
-    loadDrivers()
-  }, [])
+  const loadDrivers = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
 
-  async function loadDrivers() {
+    const from = dateFrom <= dateTo ? dateFrom : dateTo
+    const to = dateFrom <= dateTo ? dateTo : dateFrom
+
     try {
       // Versi lama menjalankan 1 + 2N query dan menarik SELURUH riwayat
       // pesanan tiap driver hanya untuk dijumlahkan di browser. Pada 100
       // mitra itu 201 query dan puluhan ribu baris per pembukaan halaman.
       // Sekarang dua query tetap, dengan agregasi dikerjakan database.
-      const [{ data: profiles }, { data: stats }] = await Promise.all([
+      const [profileRes, statsRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('*')
           .eq('role', 'driver')
           .order('created_at', { ascending: false }),
-        supabase.rpc('admin_driver_stats'),
+        supabase.rpc('admin_driver_stats_range', { p_from: from, p_to: to }),
       ])
 
-      if (!profiles || profiles.length === 0) {
+      if (profileRes.error) {
         setDrivers([])
+        setLoadError(`Gagal memuat daftar mitra: ${profileRes.error.message}`)
         return
       }
 
-      const statsById = new Map(
-        ((stats ?? []) as DriverStatsRow[]).map(row => [row.driver_id, row])
-      )
+      const profiles = (profileRes.data ?? []) as Profile[]
+      const byId = new Map<string, Omit<DriverWithStats, keyof Profile>>()
+
+      if (statsRes.error && isMissingFunction(statsRes.error)) {
+        // Database belum menjalankan migrasi 0009: pakai fungsi lama, yang
+        // tidak mengenal cup maupun rentang tanggal. Angkanya tetap
+        // ditampilkan, tetapi apa adanya — total sepanjang masa.
+        const legacy = await supabase.rpc('admin_driver_stats')
+        for (const row of (legacy.data ?? []) as LegacyStatsRow[]) {
+          byId.set(row.driver_id, {
+            orders: row.total_orders ?? 0,
+            cups: null,
+            items: 0,
+            revenue: Number(row.total_revenue ?? 0),
+            active_days: 0,
+            has_active_shift: row.has_active_shift ?? false,
+          })
+        }
+        setLoadError(
+          'Server belum mengenal statistik per rentang tanggal, jadi angka di bawah adalah total sepanjang masa dan belum memisahkan cup dari transaksi. Jalankan supabase/migrations/0009_shared_cup_definition.sql di SQL Editor Supabase.'
+        )
+      } else if (statsRes.error) {
+        setLoadError(describeRpcError(statsRes.error, 'admin_driver_stats_range'))
+      } else {
+        for (const row of (statsRes.data ?? []) as DriverStatsRow[]) {
+          byId.set(row.driver_id, {
+            orders: row.orders ?? 0,
+            cups: row.cups ?? 0,
+            items: row.items ?? 0,
+            revenue: Number(row.revenue ?? 0),
+            active_days: row.active_days ?? 0,
+            has_active_shift: row.has_active_shift ?? false,
+          })
+        }
+      }
 
       setDrivers(
-        profiles.map(driver => {
-          const stat = statsById.get(driver.id)
-          return {
-            ...driver,
-            total_orders: stat?.total_orders ?? 0,
-            total_revenue: stat?.total_revenue ?? 0,
-            has_active_shift: stat?.has_active_shift ?? false,
-          }
-        })
+        profiles.map(driver => ({
+          ...driver,
+          orders: 0,
+          cups: 0,
+          items: 0,
+          revenue: 0,
+          active_days: 0,
+          has_active_shift: false,
+          ...byId.get(driver.id),
+        }))
       )
-    } catch {
+    } catch (err) {
       setDrivers([])
+      setLoadError(
+        'Tidak dapat menghubungi server. ' +
+        (err instanceof Error ? err.message : 'Periksa koneksi lalu coba lagi.')
+      )
     } finally {
       setLoading(false)
     }
+  }, [supabase, dateFrom, dateTo])
+
+  useEffect(() => { loadDrivers() }, [loadDrivers])
+
+  function applyPreset(key: string, days: number) {
+    setPreset(key)
+    setDateFrom(shiftDate(jakartaToday(), -(days - 1)))
+    setDateTo(jakartaToday())
   }
 
   async function toggleStatus(driver: DriverWithStats) {
     const nextStatus = driver.status === 'active' ? 'inactive' : 'active'
+    setStatusError(null)
     setDrivers(prev => prev.map(d => d.id === driver.id ? { ...d, status: nextStatus } : d))
 
-    try {
-      await supabase
-        .from('profiles')
-        .update({ status: nextStatus })
-        .eq('id', driver.id)
-    } catch {
-      // optimistic update
+    const { error } = await supabase
+      .from('profiles')
+      .update({ status: nextStatus })
+      .eq('id', driver.id)
+
+    // Menonaktifkan mitra kini benar-benar memutus aksesnya, jadi
+    // penyimpanan yang gagal tidak boleh lagi tampil sebagai berhasil:
+    // tampilan dikembalikan ke keadaan sebenarnya dan sebabnya dikatakan.
+    if (error) {
+      setDrivers(prev => prev.map(d => d.id === driver.id ? { ...d, status: driver.status } : d))
+      setStatusError(
+        `Gagal mengubah status ${driver.full_name}. Perubahan tidak tersimpan — ${error.message}`
+      )
     }
   }
 
@@ -165,7 +250,9 @@ export default function DriversPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-zinc-200/70">
         <div>
           <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Armada Mitra Driver</h1>
-          <p className="text-xs text-zinc-500 mt-0.5">Daftar personel operator gerobak keliling ramu.</p>
+          <p className="text-xs text-zinc-500 mt-0.5">
+            Kinerja per mitra pada {formatCalendarDate(dateFrom, true)} – {formatCalendarDate(dateTo, true)} ({daysInRange(dateFrom, dateTo)} hari).
+          </p>
         </div>
 
         <button
@@ -180,6 +267,65 @@ export default function DriversPage() {
           <span>Tambah Mitra Driver</span>
         </button>
       </div>
+
+      {/* Pemilih rentang tanggal — kinerja mitra kini bisa dinilai per periode,
+          bukan hanya sebagai total sepanjang masa */}
+      <div className="bg-white rounded-2xl border border-zinc-200/80 p-3.5 shadow-card flex flex-col lg:flex-row lg:items-end gap-3">
+        <div className="flex items-center gap-2 text-zinc-500 shrink-0">
+          <CalendarDays className="w-4 h-4" />
+          <span className="text-xs font-bold uppercase tracking-wider">Periode</span>
+        </div>
+        <div className="flex flex-wrap items-end gap-3 flex-1">
+          <div className="flex bg-zinc-100 rounded-xl p-1">
+            {PRESETS.map(p => (
+              <button
+                key={p.key}
+                onClick={() => applyPreset(p.key, p.days)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  preset === p.key ? 'bg-zinc-900 text-white shadow-card' : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-zinc-500">Dari</span>
+            <input
+              type="date"
+              value={dateFrom}
+              max={dateTo}
+              onChange={e => { setPreset('custom'); setDateFrom(e.target.value) }}
+              className="border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20"
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[11px] font-semibold text-zinc-500">Sampai</span>
+            <input
+              type="date"
+              value={dateTo}
+              min={dateFrom}
+              max={jakartaToday()}
+              onChange={e => { setPreset('custom'); setDateTo(e.target.value) }}
+              className="border border-zinc-200 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20"
+            />
+          </label>
+        </div>
+      </div>
+
+      {loadError && (
+        <div role="alert" className="flex items-start gap-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl">
+          <TriangleAlert className="w-5 h-5 text-amber-600 shrink-0 mt-px" />
+          <p className="text-[11px] text-amber-900 font-semibold leading-relaxed">{loadError}</p>
+        </div>
+      )}
+
+      {statusError && (
+        <div role="alert" className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-300 rounded-2xl">
+          <AlertCircle className="w-5 h-5 text-[#be1a1a] shrink-0 mt-px" />
+          <p className="text-[11px] text-[#be1a1a] font-semibold leading-relaxed">{statusError}</p>
+        </div>
+      )}
 
       {/* Empty State */}
       {drivers.length === 0 ? (
@@ -241,22 +387,39 @@ export default function DriversPage() {
                 </button>
               </div>
 
-              {/* Driver Stats */}
+              {/* Driver Stats — cup dan transaksi adalah dua angka berbeda.
+                  Sebelumnya jumlah transaksi ditampilkan dengan satuan "Cup",
+                  jadi satu nota berisi tiga cup terhitung satu. */}
               <div className="grid grid-cols-2 gap-2 pt-2 border-t border-zinc-100">
                 <div className="bg-zinc-50/80 rounded-xl p-3 border border-zinc-100">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 mb-1">
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>Total Transaksi</span>
+                    <span>Cup Terjual</span>
                   </div>
-                  <p className="text-base font-black text-zinc-900">{driver.total_orders} Cup</p>
+                  {driver.cups === null ? (
+                    <p className="text-base font-black text-zinc-400">—</p>
+                  ) : (
+                    <p className="text-base font-black text-zinc-900">
+                      {driver.cups} <span className="text-xs font-medium text-zinc-500">cup</span>
+                    </p>
+                  )}
+                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5">
+                    {driver.orders} transaksi
+                    {driver.active_days > 0 && ` · ${driver.active_days} hari aktif`}
+                  </p>
                 </div>
 
                 <div className="bg-zinc-50/80 rounded-xl p-3 border border-zinc-100">
                   <div className="flex items-center gap-1.5 text-[11px] font-semibold text-zinc-400 mb-1">
                     <TrendingUp className="w-3.5 h-3.5" />
-                    <span>Total Omzet</span>
+                    <span>Omzet</span>
                   </div>
-                  <p className="text-base font-black text-[#be1a1a]">{formatRupiah(driver.total_revenue)}</p>
+                  <p className="text-base font-black text-[#be1a1a]">{formatRupiah(driver.revenue)}</p>
+                  <p className="text-[10px] text-zinc-400 font-medium mt-0.5">
+                    {driver.orders > 0
+                      ? `${formatRupiah(Math.round(driver.revenue / driver.orders))}/nota`
+                      : 'Belum ada penjualan'}
+                  </p>
                 </div>
               </div>
 
