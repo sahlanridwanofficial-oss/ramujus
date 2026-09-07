@@ -1,17 +1,42 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import Logo from '@/components/ui/Logo'
-import { Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react'
+import { Eye, EyeOff, Loader2, ArrowRight, Ban } from 'lucide-react'
 
-export default function LoginPage() {
+/** Alasan sebuah sesi ditolak middleware, dan penjelasannya untuk pengguna. */
+const ACCOUNT_NOTICE: Record<string, { title: string; body: string }> = {
+  nonaktif: {
+    title: 'Akun dinonaktifkan',
+    body: 'Akun Anda sedang dinonaktifkan oleh admin, jadi tidak dapat membuka shift maupun mencatat penjualan. Hubungi admin pangkalan untuk mengaktifkannya kembali.',
+  },
+  'tanpa-profil': {
+    title: 'Akun belum lengkap',
+    body: 'Akun Anda ada, tetapi belum memiliki profil di sistem, jadi belum bisa dipakai. Hubungi admin pangkalan untuk melengkapinya.',
+  },
+}
+
+function LoginForm() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [notice, setNotice] = useState<{ title: string; body: string } | null>(null)
+  const searchParams = useSearchParams()
   const supabase = createClient()
+
+  // Middleware melempar sesi yang ditolak ke sini dengan ?akun=<alasan>.
+  // Sesinya ditutup supaya orang itu tidak terus dipantulkan bolak-balik
+  // tanpa penjelasan setiap kali membuka aplikasi.
+  useEffect(() => {
+    const reason = searchParams.get('akun')
+    if (!reason || !ACCOUNT_NOTICE[reason]) return
+    setNotice(ACCOUNT_NOTICE[reason])
+    supabase.auth.signOut().catch(() => {})
+  }, [searchParams, supabase])
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,12 +62,21 @@ export default function LoginPage() {
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, status')
         .eq('id', user.id)
         .single()
 
       if (profileError || !profile) {
         setError('Akun Anda belum memiliki profil aktif. Hubungi admin.')
+        return
+      }
+
+      // Ditolak di sini, bukan dibiarkan masuk lalu dipantulkan middleware:
+      // driver berhak tahu sebabnya di layar tempat ia menekan "Masuk".
+      if (profile.status !== 'active') {
+        await supabase.auth.signOut().catch(() => {})
+        setNotice(ACCOUNT_NOTICE.nonaktif)
+        setError('')
         return
       }
 
@@ -69,6 +103,23 @@ export default function LoginPage() {
             Masuk ke akun Mitra Driver atau Panel Administrasi
           </p>
         </div>
+
+        {/* Akun dinonaktifkan admin — dijelaskan di luar kotak error biasa,
+            karena ini bukan salah ketik yang bisa diperbaiki sendiri. */}
+        {notice && (
+          <div
+            role="alert"
+            className="mb-4 p-4 bg-amber-50 border border-amber-300 rounded-2xl flex items-start gap-3"
+          >
+            <Ban strokeWidth={2} className="w-5 h-5 text-amber-600 shrink-0 mt-px" />
+            <div>
+              <p className="text-xs font-bold text-amber-900">{notice.title}</p>
+              <p className="text-[11px] text-amber-800/90 mt-0.5 leading-relaxed">
+                {notice.body}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Main Card Form */}
         <div className="bg-white border border-zinc-200/80 rounded-2xl p-6 sm:p-7 shadow-card">
@@ -150,5 +201,21 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// useSearchParams membutuhkan batas Suspense agar halaman ini tetap dapat
+// dirender statis saat build.
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#FBFBFB] flex items-center justify-center">
+          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   )
 }

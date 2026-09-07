@@ -141,5 +141,48 @@ export function isPermanentFailure(message: string | undefined): boolean {
     'EMPTY_CART',
     'INVALID_QUANTITY',
     'INVALID_PAYMENT_METHOD',
+    // Akun yang dinonaktifkan tidak akan aktif kembali karena dicoba ulang.
+    // Mengantrekannya hanya menahan penjualan yang tidak akan pernah masuk.
+    'ACCOUNT_INACTIVE',
+    // Sudah melewati batas umur server. Mencoba lagi hanya membuat antrean
+    // menumpuk selamanya.
+    'ORDER_TOO_OLD',
   ].some(code => message.includes(code))
+}
+
+/**
+ * Umur antrean.
+ *
+ * Server menolak pesanan yang lebih tua dari MAX_QUEUE_AGE_HOURS
+ * (ORDER_TOO_OLD), karena menyimpannya dengan tanggal hari pengiriman akan
+ * memindahkan omzet ke hari yang salah. Driver perlu diperingatkan jauh
+ * sebelum batas itu, selagi masih ada waktu mencari sinyal.
+ */
+export const QUEUE_WARN_AGE_HOURS = 12
+export const MAX_QUEUE_AGE_HOURS = 48
+
+/** Umur pesanan tertua di antrean dalam jam; 0 bila antrean kosong. */
+export function oldestQueueAgeHours(queue: QueuedOrder[]): number {
+  let oldest = 0
+  for (const order of queue) {
+    const placed = Date.parse(order.created_at)
+    if (Number.isNaN(placed)) continue
+    const hours = (Date.now() - placed) / 3_600_000
+    if (hours > oldest) oldest = hours
+  }
+  return oldest
+}
+
+/**
+ * Alasan penolakan dalam bahasa yang bisa ditindaklanjuti driver.
+ * Dipusatkan di sini supaya layar kasir dan lencana antrean tidak
+ * menerjemahkan kode yang sama dengan kata-kata yang berbeda.
+ */
+export function describeRejection(reason: string): string {
+  if (reason.includes('INSUFFICIENT_STOCK')) return 'stok gerobak tidak cukup'
+  if (reason.includes('SHIFT_NOT_ACTIVE')) return 'shift sudah ditutup'
+  if (reason.includes('PRODUCT_UNAVAILABLE')) return 'produk dinonaktifkan admin'
+  if (reason.includes('ACCOUNT_INACTIVE')) return 'akun dinonaktifkan admin'
+  if (reason.includes('ORDER_TOO_OLD')) return 'terlalu lama menunggu sinyal'
+  return 'ditolak server'
 }

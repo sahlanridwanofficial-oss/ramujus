@@ -4,35 +4,30 @@ Menjalankan `schema.sql` + seluruh migrasi di Postgres lokal, lalu memeriksa
 aturan keamanan, alur pembuatan pesanan, pelacakan armada, penguncian audit
 kas, dan perilaku pada skala 100 gerobak. Tidak menyentuh proyek Supabase milik siapa pun.
 
-`00_supabase_stub.sql` menyediakan tiruan minimal dari hal-hal yang disediakan
-Supabase (`auth.users`, `auth.uid()`, role `authenticated`, publikasi
-realtime), supaya skema yang sama bisa dijalankan di Postgres polos.
-`auth.uid()` versi tiruan membaca GUC sesi `test.uid`, sehingga tes dapat
-berpura-pura menjadi driver atau admin tertentu.
-
 ## Menjalankan
 
-Butuh Postgres 14+ yang sedang berjalan. Setiap berkas uji memerlukan basis
-data yang bersih.
+Butuh Postgres 14+ yang sedang berjalan, `psql`, dan hak membuat basis data.
+Setiap berkas uji menyemai datanya sendiri dan berasumsi tabelnya kosong,
+jadi masing-masing memerlukan basis data yang baru.
 
 ```bash
-createdb ramujus_test
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/00_supabase_stub.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/schema.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0001_security_hardening.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0002_live_fleet_tracking.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0003_offline_orders_and_cash_lock.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0004_customer_profile.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0005_cup_metrics.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0006_product_inventory.sql
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/migrations/0007_analytics_by_date.sql
-
-# lalu salah satu berkas uji, masing-masing pada basis data yang baru
-psql -d ramujus_test -v ON_ERROR_STOP=1 -f supabase/tests/01_security_and_orders.sql
+supabase/tests/run.sh          # seluruh berkas uji, satu basis data baru per berkas
+supabase/tests/run.sh 06 09    # hanya nomor yang disebut
 ```
 
-Setiap tes berhenti dengan error bila perilakunya salah, jadi keluaran yang
-berakhir dengan exit code 0 berarti semuanya lolos.
+Koneksi diambil dari variabel lingkungan psql yang biasa (`PGHOST`, `PGPORT`,
+`PGUSER`, `PGPASSWORD`). Skrip yang sama dijalankan CI pada setiap pull
+request, jadi kegagalan di CI dapat direproduksi persis di mesin sendiri.
+
+Skrip itu memasang, berurutan: `00_supabase_stub.sql`, `schema.sql`, lalu
+seluruh berkas di `supabase/migrations/` menurut nomornya. `00_supabase_stub.sql`
+menyediakan tiruan minimal dari hal-hal yang disediakan Supabase (`auth.users`,
+`auth.uid()`, role `authenticated`, publikasi realtime), supaya skema yang sama
+bisa dijalankan di Postgres polos. `auth.uid()` versi tiruan membaca GUC sesi
+`test.uid`, sehingga tes dapat berpura-pura menjadi driver atau admin tertentu.
+
+Setiap tes berhenti dengan error bila perilakunya salah; skrip keluar dengan
+kode bukan-nol bila ada satu saja yang gagal.
 
 ## 01 — Keamanan & pesanan
 
@@ -82,7 +77,8 @@ pemindaian tabel penuh.
 | 1 | Enam percobaan kirim dengan kunci idempotensi sama menghasilkan **satu** pesanan, stok terpotong sekali |
 | 2 | Kunci berbeda tetap membuat pesanan baru |
 | 3 | Waktu transaksi asli dipertahankan untuk pesanan dari antrean |
-| 4 | Waktu yang tidak masuk akal dikoreksi ke sekarang (anti sisip mundur) |
+| 4a | Waktu di masa depan dikoreksi ke sekarang (anti sisip maju) |
+| 4b | Waktu yang lebih tua dari dua hari **ditolak** (`ORDER_TOO_OLD`), tidak digeser ke hari pengiriman |
 | 5 | Driver tidak boleh mengunci rekonsiliasi (`ADMIN_ONLY`) |
 | 6 | Admin dapat mengunci, penanggung jawab tercatat |
 | 7 | Angka kas tidak dapat diubah setelah dikunci (`RECONCILIATION_LOCKED`) |
@@ -144,3 +140,43 @@ pemindaian tabel penuh.
 | 8 | `admin_report_summary` menghitung cup, item, omzet, dan rincian pembayaran atas seluruh rentang |
 | 9 | Produk yang salah kategori terbaca sebagai selisih cup vs item, bukan sebagai data yang hilang |
 | 10 | Driver tidak mendapat satu pun baris dari fungsi analitik admin |
+
+## 09 — Status akun berlaku
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Akun aktif membuka shift dan menjual seperti biasa (garis dasar) |
+| 2 | Admin dapat menonaktifkan driver; `get_user_status` membacanya |
+| 3 | Driver nonaktif **tidak** dapat membuka shift baru — ditolak policy RLS |
+| 4 | Driver nonaktif tetap dapat menutup shift lamanya, jadi tidak ada shift menggantung |
+| 5 | Shift yang telanjur aktif tidak menolong: `create_order` menolak dengan `ACCOUNT_INACTIVE`, tanpa pesanan separuh dan tanpa stok terpotong |
+| 6 | Driver tidak dapat mengaktifkan dirinya sendiri kembali (`FORBIDDEN_STATUS_CHANGE`) |
+| 7 | Setelah diaktifkan admin, penjualan tercatat lagi dan stok terpotong benar |
+| 8 | Aturan ini tidak ikut mengunci akun admin |
+
+## 10 — Satu definisi cup untuk driver dan admin
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Menjual **tanpa** muatan gerobak yang dicatat admin: `driver_daily_summary` tetap melaporkan cup yang benar — keadaan yang dulu membuat driver melihat 0 |
+| 2 | Jumlah cup seluruh driver sama persis dengan cup di `admin_daily_summary` |
+| 3 | Driver hanya melihat angkanya sendiri, bukan angka armada |
+| 4 | Driver tanpa penjualan mendapat satu baris berisi nol, bukan tabel kosong |
+| 5 | `admin_driver_stats_range` memberi cup, item, omzet, dan hari aktif per mitra |
+| 6 | Mitra tanpa penjualan tetap muncul sebagai baris nol |
+| 7 | Rentang tanggal benar-benar mempersempit, dan dari/sampai tertukar dirapikan |
+| 8 | Total per mitra sama dengan total per tanggal di `admin_sales_range` |
+| 9 | Driver tidak dapat membaca statistik mitra lain (nol baris) |
+
+## 11 — Predikat tanggal ber-indeks & retensi
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | `wib_day_start` memberi tepat 24 jam per hari WIB, batas atas eksklusif |
+| 2 | Rentang 7 hari atas 5.000 pesanan dijawab lewat indeks — rencana kueri diperiksa, bukan diasumsikan |
+| 3 | Bentuk predikat lama memang `Seq Scan` pada data yang sama, jadi perbedaannya nyata |
+| 4 | Angkanya tidak bergeser: fungsi cocok dengan hitungan langsung |
+| 5 | Transaksi 23:59:30 dan 00:00:30 WIB tetap jatuh di harinya masing-masing |
+| 6 | `prune_location_logs_job` menghapus histori tua dan menyisakan yang masih berlaku |
+| 7 | Migrasi retensi tidak gagal walau pg_cron tidak tersedia |
+| 8 | Driver tidak dapat memangkas histori GPS armada |

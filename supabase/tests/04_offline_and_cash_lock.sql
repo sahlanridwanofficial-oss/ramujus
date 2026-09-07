@@ -84,14 +84,46 @@ SELECT (created_at < NOW() - INTERVAL '30 minutes') AS waktu_asli_dipakai
     NOW() - INTERVAL '45 minutes');
 
 \echo ''
-\echo '=== TES 4: waktu yang tidak masuk akal diabaikan (anti sisip mundur) ==='
-SELECT (created_at > NOW() - INTERVAL '5 minutes') AS waktu_dikoreksi_ke_sekarang
+\echo '=== TES 4a: waktu di MASA DEPAN dikoreksi ke sekarang (anti sisip maju) ==='
+SELECT (created_at < NOW() + INTERVAL '1 minute') AS waktu_dikoreksi_ke_sekarang
   FROM public.create_order(
     'cccccccc-0000-0000-0000-000000000001'::uuid,
     '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
     'cash', NULL, NULL, NULL, NULL,
     'dddddddd-0000-0000-0000-000000000004'::uuid,
-    NOW() - INTERVAL '300 days');
+    NOW() + INTERVAL '30 days');
+
+\echo ''
+\echo '=== TES 4b: waktu yang terlalu tua DITOLAK, tidak digeser ke hari ini ==='
+-- Sejak 0012 pesanan antrean yang basi tidak lagi diam-diam tersimpan
+-- dengan tanggal hari pengiriman. Memindahkan omzet ke hari yang salah
+-- merusak laporan harian dan rekonsiliasi kas tanpa jejak apa pun.
+DO $$
+DECLARE v_before INTEGER; v_after INTEGER; v_msg TEXT;
+BEGIN
+  SELECT count(*) INTO v_before FROM public.orders;
+  BEGIN
+    PERFORM public.create_order(
+      'cccccccc-0000-0000-0000-000000000001'::uuid,
+      '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
+      'cash', NULL, NULL, NULL, NULL,
+      'dddddddd-0000-0000-0000-000000000005'::uuid,
+      NOW() - INTERVAL '300 days');
+    RAISE EXCEPTION 'GAGAL: pesanan berumur 300 hari tetap tersimpan';
+  EXCEPTION WHEN SQLSTATE '22023' THEN
+    GET STACKED DIAGNOSTICS v_msg = MESSAGE_TEXT;
+    IF v_msg <> 'ORDER_TOO_OLD' THEN
+      RAISE EXCEPTION 'GAGAL: kode error = %, harusnya ORDER_TOO_OLD', v_msg;
+    END IF;
+  END;
+
+  SELECT count(*) INTO v_after FROM public.orders;
+  IF v_after <> v_before THEN
+    RAISE EXCEPTION 'GAGAL: pesanan bertambah dari % ke % walau ditolak', v_before, v_after;
+  END IF;
+  RAISE NOTICE 'OK: ORDER_TOO_OLD, tidak ada pesanan tersimpan di tanggal yang salah';
+END;
+$$;
 
 \echo ''
 \echo '=== TES 5: driver TIDAK boleh mengunci rekonsiliasi ==='

@@ -1,8 +1,73 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createClient as createServerClient } from '@/lib/supabase/server'
+
+/**
+ * Memastikan pemanggil adalah admin yang sedang masuk.
+ *
+ * Endpoint ini memegang service-role key: apa pun yang lolos ke bawah dapat
+ * membuat akun auth baru dengan hak penuh. Sebelumnya tidak ada pemeriksaan
+ * sama sekali di sini, dan middleware pun tidak menutupinya — gate perannya
+ * hanya mencocokkan awalan '/admin', sedangkan jalur ini diawali '/api'.
+ * Akibatnya setiap akun driver yang sudah masuk dapat membuat akun baru.
+ *
+ * Middleware sekarang menjaga '/api/admin' juga, tetapi pemeriksaan di sini
+ * tetap ada dengan sengaja: satu-satunya penjaga untuk kunci paling
+ * istimewa yang dimiliki sistem tidak boleh berupa pencocokan awalan yang
+ * bisa meleset saat rutenya dipindah.
+ */
+async function requireAdmin(): Promise<
+  { ok: true } | { ok: false; response: NextResponse }
+> {
+  let supabase
+  try {
+    supabase = await createServerClient()
+  } catch {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Server belum dikonfigurasi untuk terhubung ke Supabase. Hubungi pengelola sistem.' },
+        { status: 503 }
+      ),
+    }
+  }
+
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+
+  if (userError || !user) {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Anda harus masuk sebagai admin untuk mendaftarkan mitra driver.' },
+        { status: 401 }
+      ),
+    }
+  }
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, status')
+    .eq('id', user.id)
+    .single()
+
+  if (profile?.role !== 'admin' || profile.status !== 'active') {
+    return {
+      ok: false,
+      response: NextResponse.json(
+        { error: 'Akun Anda tidak berhak mendaftarkan mitra driver.' },
+        { status: 403 }
+      ),
+    }
+  }
+
+  return { ok: true }
+}
 
 export async function POST(request: Request) {
   try {
+    const guard = await requireAdmin()
+    if (!guard.ok) return guard.response
+
     const { full_name, phone, email, password } = await request.json()
 
     if (!full_name || !email || !password) {

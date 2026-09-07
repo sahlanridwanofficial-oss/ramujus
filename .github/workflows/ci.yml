@@ -42,3 +42,46 @@ jobs:
 
       - name: Build
         run: npx next build
+
+  # Aturan yang paling mahal bila rusak — RLS, rollback stok, idempotensi
+  # pesanan offline, penguncian kas, dan batas tengah malam WIB — hidup di
+  # database, bukan di TypeScript. Sebelumnya kesembilan berkas uji hanya
+  # berjalan bila seseorang ingat menjalankannya di mesinnya sendiri.
+  database:
+    name: Uji migrasi & aturan database
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGUSER: postgres
+      PGPASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Runner ubuntu-latest sudah membawa psql; langkah ini hanya jaring
+      # pengaman bila image runner berubah.
+      - name: Pastikan psql tersedia
+        run: |
+          command -v psql >/dev/null 2>&1 && exit 0
+          sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+
+      # Memasang schema.sql + seluruh migrasi pada basis data BARU untuk
+      # setiap berkas uji, lalu menjalankannya. Skrip yang sama dipakai di
+      # mesin lokal, jadi kegagalan di CI dapat direproduksi apa adanya.
+      - name: Jalankan seluruh berkas uji
+        run: supabase/tests/run.sh
