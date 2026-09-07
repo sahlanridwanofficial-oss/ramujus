@@ -48,6 +48,9 @@ function describeOrderError(message?: string): string {
   if (message.includes('PRODUCT_UNAVAILABLE')) {
     return 'Ada produk di keranjang yang sudah dinonaktifkan admin. Hapus produk itu lalu coba lagi.'
   }
+  if (message.includes('ORDER_TOO_OLD')) {
+    return 'Pesanan ini sudah menunggu sinyal lebih dari dua hari, jadi tidak bisa disimpan di tanggal penjualannya. Laporkan ke admin untuk dicatat manual.'
+  }
   if (message.includes('ACCOUNT_INACTIVE')) {
     return 'Akun Anda sedang dinonaktifkan admin, jadi pesanan tidak dapat disimpan. Hubungi admin pangkalan.'
   }

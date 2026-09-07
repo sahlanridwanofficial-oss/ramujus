@@ -77,7 +77,8 @@ pemindaian tabel penuh.
 | 1 | Enam percobaan kirim dengan kunci idempotensi sama menghasilkan **satu** pesanan, stok terpotong sekali |
 | 2 | Kunci berbeda tetap membuat pesanan baru |
 | 3 | Waktu transaksi asli dipertahankan untuk pesanan dari antrean |
-| 4 | Waktu yang tidak masuk akal dikoreksi ke sekarang (anti sisip mundur) |
+| 4a | Waktu di masa depan dikoreksi ke sekarang (anti sisip maju) |
+| 4b | Waktu yang lebih tua dari dua hari **ditolak** (`ORDER_TOO_OLD`), tidak digeser ke hari pengiriman |
 | 5 | Driver tidak boleh mengunci rekonsiliasi (`ADMIN_ONLY`) |
 | 6 | Admin dapat mengunci, penanggung jawab tercatat |
 | 7 | Angka kas tidak dapat diubah setelah dikunci (`RECONCILIATION_LOCKED`) |
@@ -166,3 +167,16 @@ pemindaian tabel penuh.
 | 7 | Rentang tanggal benar-benar mempersempit, dan dari/sampai tertukar dirapikan |
 | 8 | Total per mitra sama dengan total per tanggal di `admin_sales_range` |
 | 9 | Driver tidak dapat membaca statistik mitra lain (nol baris) |
+
+## 11 — Predikat tanggal ber-indeks & retensi
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | `wib_day_start` memberi tepat 24 jam per hari WIB, batas atas eksklusif |
+| 2 | Rentang 7 hari atas 5.000 pesanan dijawab lewat indeks — rencana kueri diperiksa, bukan diasumsikan |
+| 3 | Bentuk predikat lama memang `Seq Scan` pada data yang sama, jadi perbedaannya nyata |
+| 4 | Angkanya tidak bergeser: fungsi cocok dengan hitungan langsung |
+| 5 | Transaksi 23:59:30 dan 00:00:30 WIB tetap jatuh di harinya masing-masing |
+| 6 | `prune_location_logs_job` menghapus histori tua dan menyisakan yang masih berlaku |
+| 7 | Migrasi retensi tidak gagal walau pg_cron tidak tersedia |
+| 8 | Driver tidak dapat memangkas histori GPS armada |
