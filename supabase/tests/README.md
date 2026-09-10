@@ -221,3 +221,27 @@ pemindaian tabel penuh.
 | 6 | `days_sold` menghitung hari kalender, bukan jumlah transaksi |
 | 7 | Seluruh produk ikut terdaftar, termasuk yang tidak pernah tersentuh |
 | 8 | Driver tidak dapat membaca analitik menu |
+
+## 15 — Analitik operasional (jam & lokasi)
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Jam yang totalnya dua kali lebih besar **bukan** jam yang lebih ramai bila hari aktifnya juga dua kali lebih banyak — setelah dinormalkan keduanya identik |
+| 2 | Pembagi (`days_active`) ikut dikembalikan, sehingga angka bagus dari satu hari tidak bisa menyamar sebagai pola |
+| 3 | Koordinat berjarak ~55 m menyatu jadi satu titik mangkal; yang berjarak ~3 km terpisah |
+| 4 | Petak di bawah 50 m dijepit — hasil petak 5 m dan 0 m identik dengan petak 50 m, baris demi baris |
+| 5 | Dua gerobak dengan cup per **hari** yang sama terbaca sangat berbeda pada cup per **jam** — inilah yang memisahkan lokasi bagus dari jam kerja panjang |
+| 6 | Jam kerja dijumlahkan per gerobak, bukan jam dinding: dua gerobak yang jalan bersamaan 5 dan 2 jam menghasilkan 7 jam-gerobak |
+| 7 | Hari dengan satu pesanan (rentang nol) dijepit ke 1 jam, bukan pembagian dengan nol |
+| 8 | Matriks hari × jam memisahkan hari yang berbeda, tidak menumpuknya jadi satu angka |
+| 9 | Kelima fungsi tertutup untuk non-admin |
+
+## 16 — Fungsi admin tertutup untuk anon
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Nol fungsi `admin_*` dan `fleet_overview` yang bisa dipanggil peran `anon` |
+| 2 | Pencabutan tidak kebablasan — seluruh fungsi itu tetap bisa dipanggil `authenticated`, sehingga dashboard tidak ikut mati |
+| 3 | `driver_daily_summary` tidak ikut tercabut; pola nama di 0017 sengaja tidak menyentuh fungsi driver |
+| 4 | Kelima fungsi baru dari 0016 ikut tertutup, bukan terlewat |
+| 5 | Lapis kedua tetap ada: driver yang **sudah login** pun ditolak gerbang peran di dalam fungsi, bukan hanya oleh izin |

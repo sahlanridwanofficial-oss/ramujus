@@ -13,6 +13,7 @@ import {
   Calendar, CalendarDays, Clock, Receipt, ChevronDown, TriangleAlert, X, PackageX,
 } from 'lucide-react'
 import CustomerInsights from '@/components/admin/CustomerInsights'
+import OpsAnalytics from '@/components/admin/OpsAnalytics'
 
 interface DailyRow {
   day: string
@@ -672,6 +673,9 @@ export default function AnalyticsPage() {
               </div>
             </div>
           )}
+
+          {/* Keputusan jam & lokasi — memakai cup per jam, bukan cup per hari */}
+          <OpsAnalytics from={dateFrom} to={dateTo} />
 
           {/* Profil pembeli — hasil pencatatan driver saat transaksi */}
           <CustomerInsights days={rangeDays} />
