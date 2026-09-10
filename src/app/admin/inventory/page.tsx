@@ -7,7 +7,7 @@ import { formatRupiah } from '@/lib/format'
 import {
   PackageCheck, Sun, Moon, Loader2, Users, Calendar,
   CheckCircle2, AlertCircle, Save, RotateCcw,
-  Check, ArrowRight, ShieldCheck
+  Check, ArrowRight, ShieldCheck, TriangleAlert
 } from 'lucide-react'
 import type { Profile, Product, DriverDailyAllocation, DriverAllocationItem } from '@/types/database'
 import { isCupCategory } from '@/lib/constants'
@@ -18,6 +18,11 @@ interface ProductAllocItem {
   initial_quantity: number
   sold_quantity: number
   physical_remaining: number
+  /**
+   * Berapa cup sisa yang kembali ke stok pusat saat audit dikunci.
+   * null = otomatis, seluruh sisa fisik kembali. Angka = admin menurunkannya.
+   */
+  returned_quantity: number | null
   waste_quantity: number
 }
 
@@ -174,6 +179,7 @@ function InventoryContent() {
           physical_remaining: found?.physical_remaining !== null && found?.physical_remaining !== undefined
             ? found.physical_remaining
             : expectedRem,
+          returned_quantity: found?.returned_quantity ?? null,
           waste_quantity: found?.waste_quantity || 0,
         }
       })
@@ -230,14 +236,43 @@ function InventoryContent() {
     setAllocItems(prev => {
       const current = prev[productId]
       if (!current) return prev
+      const remaining = Math.max(0, isNaN(val) ? 0 : val)
       return {
         ...prev,
         [productId]: {
           ...current,
-          physical_remaining: Math.max(0, isNaN(val) ? 0 : val)
+          physical_remaining: remaining,
+          // null dibiarkan null: baris itu masih mengikuti sisa fisik secara
+          // otomatis. Angka eksplisit dijepit supaya tidak melebihi yang ada
+          // di tangan — server menolaknya saat penguncian, dan admin tidak
+          // seharusnya baru tahu setelah menekan "Kunci".
+          returned_quantity: current.returned_quantity === null
+            ? null
+            : Math.min(current.returned_quantity, remaining),
         }
       }
     })
+  }
+
+  function setReturnedQty(productId: string, val: number | null) {
+    setAllocItems(prev => {
+      const current = prev[productId]
+      if (!current) return prev
+      return {
+        ...prev,
+        [productId]: {
+          ...current,
+          returned_quantity: val === null
+            ? null
+            : Math.min(Math.max(0, isNaN(val) ? 0 : val), current.physical_remaining),
+        }
+      }
+    })
+  }
+
+  /** Berapa yang benar-benar akan kembali: null berarti seluruh sisa fisik. */
+  function effectiveReturn(item: { physical_remaining: number; returned_quantity: number | null }) {
+    return item.returned_quantity ?? item.physical_remaining
   }
 
   function setWasteQty(productId: string, val: number) {
@@ -272,6 +307,7 @@ function InventoryContent() {
           product_id: item.product.id,
           initial_quantity: item.initial_quantity,
           physical_remaining: item.physical_remaining,
+          returned_quantity: item.returned_quantity,
           waste_quantity: item.waste_quantity,
         })),
       })
@@ -371,6 +407,7 @@ function InventoryContent() {
           product_id: item.product.id,
           initial_quantity: item.initial_quantity,
           physical_remaining: item.physical_remaining,
+          returned_quantity: item.returned_quantity,
           waste_quantity: item.waste_quantity
         }))
 
@@ -390,10 +427,17 @@ function InventoryContent() {
         })
 
         if (lockError) {
+          // Penolakan dari 0013 punya sebab yang bisa ditindaklanjuti;
+          // jangan disamarkan menjadi "coba lagi".
+          const product = lockError.message.split(':')[1]?.trim()
           throw new Error(
             lockError.message.includes('ALLOCATION_NOT_FOUND_OR_ALREADY_LOCKED')
               ? 'Rekonsiliasi ini sudah terkunci sebelumnya.'
-              : 'Gagal mengunci rekonsiliasi. Angka audit sudah tersimpan, silakan coba kunci lagi.'
+              : lockError.message.includes('AUDIT_NUMBERS_IMPOSSIBLE')
+                ? `Angka untuk ${product || 'salah satu produk'} tidak mungkin: terjual + sisa + rusak melebihi yang dibawa. Muat ulang data lalu hitung ulang sisa fisiknya.`
+              : lockError.message.includes('RETURN_EXCEEDS_REMAINING')
+                ? `Jumlah "Kembali ke Stok" untuk ${product || 'salah satu produk'} melebihi sisa fisiknya. Perbaiki angkanya lalu kunci lagi.`
+                : 'Gagal mengunci rekonsiliasi. Angka audit sudah tersimpan, silakan coba kunci lagi.'
           )
         }
       }
@@ -437,6 +481,21 @@ function InventoryContent() {
   const totalInitialCups = sumField(cupItems, 'initial_quantity')
   const totalSoldCups = sumField(cupItems, 'sold_quantity')
   const cupVariance = sumVariance(cupItems)
+
+  // Dua angka yang menentukan pergerakan stok pusat saat dikunci.
+  const allItems = Object.values(allocItems)
+  // Baris yang tidak mungkin secara fisik: yang dipertanggungjawabkan
+  // melebihi yang dibawa. Server menolaknya saat penguncian; di sini
+  // ditampilkan lebih dulu supaya admin tahu sebelum menekan tombol.
+  const impossibleItems = allItems.filter(
+    i => i.sold_quantity + i.physical_remaining + i.waste_quantity > i.initial_quantity
+  )
+
+  const totalReturning = allItems.reduce((sum, i) => sum + effectiveReturn(i), 0)
+  const totalNotReturning = allItems.reduce(
+    (sum, i) => sum + Math.max(0, i.physical_remaining - effectiveReturn(i)),
+    0
+  )
 
   const totalInitialAddons = sumField(addonItems, 'initial_quantity')
   const totalSoldAddons = sumField(addonItems, 'sold_quantity')
@@ -858,7 +917,8 @@ function InventoryContent() {
                         <th className="py-3 px-3 text-center">2. Terjual POS</th>
                         <th className="py-3 px-3 text-center">Estimasi Sisa</th>
                         <th className="py-3 px-3 text-center bg-blue-50/60 text-blue-900">3. Sisa Fisik Gerobak</th>
-                        <th className="py-3 px-3 text-center bg-amber-50/60 text-amber-900">4. Rusak / Waste</th>
+                        <th className="py-3 px-3 text-center bg-emerald-50/60 text-emerald-900">4. Kembali ke Stok</th>
+                        <th className="py-3 px-3 text-center bg-amber-50/60 text-amber-900">5. Rusak / Waste</th>
                         <th className="py-3 px-4 text-center">Selisih</th>
                       </tr>
                     </thead>
@@ -868,8 +928,10 @@ function InventoryContent() {
                           initial_quantity: 0,
                           sold_quantity: 0,
                           physical_remaining: 0,
+                          returned_quantity: null,
                           waste_quantity: 0
                         }
+                        const returned = effectiveReturn(item)
                         const expectedRemaining = Math.max(0, item.initial_quantity - item.sold_quantity)
                         // Variance = Initial - (Sold + Physical Remaining + Waste)
                         const variance = item.initial_quantity - (item.sold_quantity + item.physical_remaining + item.waste_quantity)
@@ -897,6 +959,41 @@ function InventoryContent() {
                                 onChange={(e) => setPhysicalRemaining(p.id, parseInt(e.target.value))}
                                 className="w-16 mx-auto bg-white border border-blue-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-blue-900 focus:outline-none focus:ring-2 focus:ring-blue-100"
                               />
+                            </td>
+                            {/* Dari sisa fisik itu, berapa yang diseal ulang dan
+                                benar-benar kembali ke stok pusat. Sisanya tetap
+                                tercatat sebagai sisa yang tidak kembali. */}
+                            <td className="py-2.5 px-3 text-center bg-emerald-50/30">
+                              <div className="flex items-center justify-center gap-1">
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={item.physical_remaining}
+                                  disabled={isReconciled || item.physical_remaining === 0}
+                                  value={returned}
+                                  onChange={(e) => setReturnedQty(p.id, parseInt(e.target.value))}
+                                  className="w-16 bg-white border border-emerald-200 rounded-lg py-1 px-2 text-center text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-100 disabled:bg-zinc-100 disabled:text-zinc-400"
+                                />
+                                {/* Mengembalikan baris ini ke perilaku otomatis:
+                                    ikut sisa fisik berapa pun angkanya nanti. */}
+                                {!isReconciled && item.returned_quantity !== null && item.physical_remaining > 0 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setReturnedQty(p.id, null)}
+                                    title="Ikuti sisa fisik secara otomatis"
+                                    className="text-[10px] font-bold text-emerald-700 bg-emerald-100 hover:bg-emerald-200 px-1.5 py-1 rounded transition-colors"
+                                  >
+                                    Auto
+                                  </button>
+                                )}
+                              </div>
+                              {item.physical_remaining > returned ? (
+                                <span className="text-[10px] text-amber-700 block mt-0.5 font-semibold">
+                                  {item.physical_remaining - returned} tidak kembali
+                                </span>
+                              ) : item.returned_quantity === null && item.physical_remaining > 0 ? (
+                                <span className="text-[10px] text-zinc-400 block mt-0.5">otomatis</span>
+                              ) : null}
                             </td>
                             <td className="py-2.5 px-3 text-center bg-amber-50/30">
                               <input
@@ -976,6 +1073,60 @@ function InventoryContent() {
                   </div>
                 </div>
 
+                {impossibleItems.length > 0 && (
+                  <div role="alert" className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-300 rounded-2xl">
+                    <TriangleAlert className="w-5 h-5 text-[#be1a1a] shrink-0 mt-px" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-[#be1a1a]">
+                        {impossibleItems.length} produk angkanya tidak mungkin — audit belum bisa dikunci
+                      </p>
+                      <p className="text-[11px] text-red-900/85 mt-0.5 leading-relaxed">
+                        Terjual + sisa fisik + rusak melebihi jumlah yang dibawa pagi. Biasanya ini
+                        terjadi karena sisa fisik dicatat lebih awal lalu driver masih menjual lagi.
+                        Tekan &quot;Muat ulang data&quot; di atas, lalu hitung ulang sisa fisiknya.
+                      </p>
+                      <ul className="mt-1.5 space-y-0.5">
+                        {impossibleItems.slice(0, 5).map(i => (
+                          <li key={i.product.id} className="text-[11px] text-red-900/80 font-mono">
+                            {i.product.name}: dibawa {i.initial_quantity}, terjual {i.sold_quantity},
+                            sisa {i.physical_remaining}, rusak {i.waste_quantity}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
+                {/* Penguncian menggerakkan stok pusat, jadi akibatnya
+                    disebutkan sebelum tombolnya ditekan — bukan setelahnya. */}
+                {!isReconciled && impossibleItems.length === 0 && (totalReturning > 0 || totalNotReturning > 0) && (
+                  <div className="flex items-start gap-3 p-3.5 bg-emerald-50 border border-emerald-200 rounded-2xl">
+                    <PackageCheck className="w-5 h-5 text-emerald-700 shrink-0 mt-px" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-emerald-900">
+                        {totalReturning > 0
+                          ? `${totalReturning} cup akan kembali ke stok pusat saat dikunci`
+                          : 'Tidak ada cup yang dikembalikan ke stok pusat'}
+                      </p>
+                      <p className="text-[11px] text-emerald-800/90 mt-0.5 leading-relaxed">
+                        {totalNotReturning > 0
+                          ? `${totalNotReturning} cup sisa lainnya Anda tandai tidak kembali dan tetap keluar dari stok. Tekan "Auto" pada barisnya bila seharusnya ikut kembali.`
+                          : 'Seluruh sisa fisik kembali otomatis. Turunkan angkanya pada baris tertentu bila ada cup yang tidak diseal ulang — cup rusak isikan di kolom Rusak / Waste.'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {isReconciled && currentAllocation?.stock_returned_at && (
+                  <div className="flex items-start gap-3 p-3.5 bg-zinc-50 border border-zinc-200 rounded-2xl">
+                    <PackageCheck className="w-5 h-5 text-zinc-500 shrink-0 mt-px" />
+                    <p className="text-[11px] text-zinc-600 leading-relaxed">
+                      Pengembalian sisa cup sudah diterapkan ke stok pusat saat audit ini dikunci.
+                      Membuka kuncinya akan membatalkan pengembalian itu.
+                    </p>
+                  </div>
+                )}
+
                 <div className="pt-3 border-t border-zinc-100 flex flex-col sm:flex-row items-center justify-between gap-3">
                   <p className="text-xs text-zinc-400">
                     {isReconciled
@@ -995,7 +1146,7 @@ function InventoryContent() {
                     <button
                       type="button"
                       onClick={() => handleSaveEveningAudit(true)}
-                      disabled={saving || isReconciled}
+                      disabled={saving || isReconciled || impossibleItems.length > 0}
                       className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-40"
                     >
                       {saving ? (

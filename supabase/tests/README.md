@@ -180,3 +180,44 @@ pemindaian tabel penuh.
 | 6 | `prune_location_logs_job` menghapus histori tua dan menyisakan yang masih berlaku |
 | 7 | Migrasi retensi tidak gagal walau pg_cron tidak tersedia |
 | 8 | Driver tidak dapat memangkas histori GPS armada |
+
+## 12 — Sisa cup kembali ke stok pusat
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Muat gerobak tetap mengurangi stok pusat seperti sebelumnya |
+| 2 | Mengunci audit **tanpa mengisi apa pun** mengembalikan seluruh sisa fisik ke stok, tercatat sebagai `allocation_return` |
+| 3 | Cup rusak (`waste_quantity`) tidak ikut kembali |
+| 4 | Membuka kunci membalik pengembalian dan mencatat pembatalannya |
+| 5 | Buka lalu kunci ulang menghitung **sekali**, bukan dua kali |
+| 6 | Penguncian kedua ditolak dan tidak menyentuh stok |
+| 7 | Menurunkan angka pengembalian melebihi sisa fisik ditolak (`RETURN_EXCEEDS_REMAINING`); stok tidak bergerak dan alokasi tidak terkunci |
+| 8 | Membuka kunci ditolak bila cup-nya sudah dimuat ke gerobak lain (`UNLOCK_STOCK_UNAVAILABLE`); kunci tetap utuh, stok tidak dipaksa negatif |
+| 9 | Tanpa sisa fisik, tidak ada pergerakan stok kosong yang tercatat |
+| 10 | Driver tidak dapat mengunci maupun mengubah angka pengembalian |
+| 11 | `admin_pending_returns` menampilkan cup yang belum masuk hitungan stok; tertutup untuk driver |
+
+## 13 — Angka audit tidak bisa berbohong
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Angka mustahil (terjual + sisa + rusak melebihi yang dibawa) **ditolak**, dan alokasinya tidak ikut terkunci |
+| 2 | Setelah angkanya dibetulkan, penguncian berjalan dan sisa cup kembali ke stok |
+| 3 | Penjualan setelah hari itu dikunci ditolak (`DAY_RECONCILED`); tidak ada pesanan siluman dan stok tidak bergerak |
+| 4 | Setelah kunci dibuka, penjualan diterima lagi dan memotong muatan seperti biasa |
+| 5 | Penguncian menyegarkan angka terjual dari transaksi — yang dibekukan kebenaran saat penguncian, bukan angka layar yang basi |
+| 6 | Selisih ke arah kehilangan tetap boleh dikunci; itu kejadian nyata yang perlu tercatat |
+| 7 | Penguncian yang ditolak tidak menyisakan perubahan apa pun |
+
+## 14 — Analitik menu
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Menu yang **tidak laku sama sekali** tetap muncul, lengkap dengan berapa yang dibawa |
+| 2 | "Tidak laku" dapat dibedakan dari "tidak pernah dibawa" — dua angka terpisah |
+| 3 | Kontribusi omzet per menu dalam persen, dan seluruhnya berjumlah 100 |
+| 4 | Pembanding periode sebelumnya sama panjang dan tidak tumpang tindih dengan rentang terpilih |
+| 5 | Menu yang baru laku terbaca nol di periode lalu, bukan disembunyikan |
+| 6 | `days_sold` menghitung hari kalender, bukan jumlah transaksi |
+| 7 | Seluruh produk ikut terdaftar, termasuk yang tidak pernah tersentuh |
+| 8 | Driver tidak dapat membaca analitik menu |

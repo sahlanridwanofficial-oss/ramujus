@@ -147,6 +147,9 @@ export function isPermanentFailure(message: string | undefined): boolean {
     // Sudah melewati batas umur server. Mencoba lagi hanya membuat antrean
     // menumpuk selamanya.
     'ORDER_TOO_OLD',
+    // Hari itu sudah dikunci admin. Antrean tidak akan pernah diterima
+    // sampai kuncinya dibuka, dan itu keputusan admin, bukan aplikasi.
+    'DAY_RECONCILED',
   ].some(code => message.includes(code))
 }
 
@@ -184,5 +187,6 @@ export function describeRejection(reason: string): string {
   if (reason.includes('PRODUCT_UNAVAILABLE')) return 'produk dinonaktifkan admin'
   if (reason.includes('ACCOUNT_INACTIVE')) return 'akun dinonaktifkan admin'
   if (reason.includes('ORDER_TOO_OLD')) return 'terlalu lama menunggu sinyal'
+  if (reason.includes('DAY_RECONCILED')) return 'audit hari itu sudah dikunci admin'
   return 'ditolak server'
 }
