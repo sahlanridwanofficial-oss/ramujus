@@ -80,7 +80,10 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
                    AND pg_get_functiondef(p.oid) LIKE '%AUDIT_NUMBERS_IMPOSSIBLE%')),
 
     (15, '0015_menu_performance', 'Analitik menu: yang laku & yang tidak',
-         to_regprocedure('public.admin_menu_performance(date,date)') IS NOT NULL)
+         to_regprocedure('public.admin_menu_performance(date,date)') IS NOT NULL),
+
+    (16, '0016_ops_analytics', 'Analitik jam & lokasi (cup per jam)',
+         to_regprocedure('public.admin_cart_productivity(date,date)') IS NOT NULL)
 )
 SELECT migrasi,
        penjelasan,
