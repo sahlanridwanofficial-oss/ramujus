@@ -21,9 +21,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
 import { describeRpcError } from '@/lib/rpc'
+import { BREAK_EVEN_CUPS_PER_DAY, MARGIN_PER_CUP } from '@/lib/constants'
 import {
   Loader2, Clock, MapPin, TriangleAlert, ExternalLink,
-  Gauge, CalendarRange, Info,
+  Gauge, CalendarRange, Info, Target, Navigation,
 } from 'lucide-react'
 
 interface HourRow {
@@ -183,6 +184,59 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
   const thinCoverage = (daysActive: number) =>
     totalDays >= 3 && daysActive < Math.max(2, Math.ceil(totalDays / 3))
 
+  /**
+   * Kesimpulan yang bisa langsung ditindaklanjuti.
+   *
+   * Semuanya diturunkan dari baris yang sudah ada di layar — tidak ada
+   * angka baru dari server. Tujuannya supaya kesimpulan yang sama tidak
+   * perlu disusun ulang dengan mata setiap kali membuka halaman ini.
+   */
+  const verdict = useMemo(() => {
+    // Titik terbaik diurutkan dari cup per hari aktif, bukan total cup:
+    // titik yang cuma sekali didatangi tapi laku keras lebih layak diuji
+    // daripada titik yang sering didatangi dengan hasil biasa saja.
+    const ranked = [...clusters].sort(
+      (a, b) => num(b.cups_per_active_day) - num(a.cups_per_active_day)
+    )
+    const best = ranked[0] ?? null
+
+    // Berapa persen omzet datang dari dua titik teratas. Angka tinggi
+    // berarti keliling ke titik lain sedang mengencerkan hasil.
+    const byRevenue = [...clusters].sort((a, b) => b.revenue - a.revenue)
+    const topTwoShare = byRevenue
+      .slice(0, 2)
+      .reduce((s, c) => s + num(c.revenue_share), 0)
+
+    // Blok jam terbaik: jam berurutan yang nilainya di atas rata-rata.
+    // Dibaca sebagai rentang kerja, bukan jam-jam terpisah, karena gerobak
+    // tidak bisa muncul dan hilang tiap satu jam.
+    const solid = hours.filter(h => !thinCoverage(h.days_active))
+    const avg =
+      solid.length > 0
+        ? solid.reduce((s, h) => s + num(h.cups_per_active_day), 0) / solid.length
+        : 0
+    const strong = solid
+      .filter(h => num(h.cups_per_active_day) >= avg && avg > 0)
+      .map(h => h.hour_wib)
+      .sort((a, b) => a - b)
+
+    let bestBlock: number[] = []
+    let run: number[] = []
+    for (let i = 0; i < strong.length; i++) {
+      if (i > 0 && strong[i] === strong[i - 1] + 1) run.push(strong[i])
+      else run = [strong[i]]
+      if (run.length > bestBlock.length) bestBlock = [...run]
+    }
+
+    const totalCups = days.reduce((s, d) => s + d.cups, 0)
+    const cupsPerDay = totalDays > 0 ? totalCups / totalDays : 0
+    const gap = BREAK_EVEN_CUPS_PER_DAY - cupsPerDay
+
+    return { best, topTwoShare, bestBlock, cupsPerDay, gap, avg }
+    // thinCoverage bergantung pada totalDays, yang sudah ikut sebagai dependensi.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clusters, hours, days, totalDays])
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card p-10 flex items-center justify-center">
@@ -216,6 +270,118 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
 
   return (
     <div className="space-y-5">
+
+      {/* Kesimpulan yang bisa langsung dikerjakan besok pagi */}
+      <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center gap-2">
+          <Target strokeWidth={2} className="w-4 h-4 text-brand" />
+          <h3 className="text-sm font-bold text-zinc-900">Keputusan Hari Ini</h3>
+        </div>
+
+        <div className="p-4 grid gap-3 sm:grid-cols-3">
+          {/* Titik terbaik */}
+          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+              Parkir di sini
+            </span>
+            {verdict.best ? (
+              <>
+                <div className="flex items-baseline gap-1.5">
+                  <span className="text-2xl font-bold text-zinc-900 tabular-nums">
+                    {num(verdict.best.cups_per_active_day).toFixed(1)}
+                  </span>
+                  <span className="text-xs text-zinc-500">cup / hari</span>
+                </div>
+                <p className="mt-1 text-[11px] text-zinc-400 tabular-nums">
+                  {verdict.best.cluster_lat.toFixed(4)}, {verdict.best.cluster_lng.toFixed(4)}
+                </p>
+                <p className="mt-1.5 text-[11px] text-zinc-500 leading-relaxed">
+                  Jam terbaiknya {jam(verdict.best.best_hour)} ·{' '}
+                  <span className={thinCoverage(verdict.best.days_active) ? 'text-amber-600 font-semibold' : ''}>
+                    baru {verdict.best.days_active} dari {totalDays} hari
+                  </span>
+                </p>
+                <a
+                  href={`https://www.google.com/maps?q=${verdict.best.cluster_lat},${verdict.best.cluster_lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-2.5 inline-flex items-center gap-1 text-[11px] font-semibold text-brand hover:underline"
+                >
+                  <Navigation strokeWidth={2.5} className="w-3 h-3" />
+                  Buka di peta
+                </a>
+              </>
+            ) : (
+              <p className="text-xs text-zinc-400">Belum ada koordinat.</p>
+            )}
+          </div>
+
+          {/* Blok jam */}
+          <div className="rounded-xl border border-zinc-200/80 bg-zinc-50/50 p-4">
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+              Jam paling menghasilkan
+            </span>
+            {verdict.bestBlock.length > 0 ? (
+              <>
+                <div className="text-2xl font-bold text-zinc-900 tabular-nums">
+                  {jam(verdict.bestBlock[0])}–{jam(verdict.bestBlock[verdict.bestBlock.length - 1] + 1)}
+                </div>
+                <p className="mt-1.5 text-[11px] text-zinc-500 leading-relaxed">
+                  {verdict.bestBlock.length} jam berurutan yang hasilnya di atas rata-rata{' '}
+                  ({verdict.avg.toFixed(1)} cup/jam). Jam dengan cakupan tipis tidak ikut dihitung.
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                Belum cukup hari untuk menyimpulkan blok jam. Perlu beberapa hari lagi dengan jam
+                kerja yang konsisten.
+              </p>
+            )}
+          </div>
+
+          {/* Jarak ke titik impas */}
+          <div
+            className={`rounded-xl border p-4 ${
+              verdict.gap > 0 ? 'border-brand-border bg-brand-soft' : 'border-emerald-200 bg-emerald-50'
+            }`}
+          >
+            <span className="block text-[10px] font-bold uppercase tracking-wider text-zinc-400 mb-2">
+              Titik impas
+            </span>
+            <div className="flex items-baseline gap-1.5">
+              <span
+                className={`text-2xl font-bold tabular-nums ${
+                  verdict.gap > 0 ? 'text-brand' : 'text-emerald-700'
+                }`}
+              >
+                {verdict.gap > 0 ? `−${verdict.gap.toFixed(1)}` : `+${Math.abs(verdict.gap).toFixed(1)}`}
+              </span>
+              <span className="text-xs text-zinc-500">cup / hari</span>
+            </div>
+            <p className="mt-1.5 text-[11px] text-zinc-500 leading-relaxed">
+              Sekarang <b className="text-zinc-700 tabular-nums">{verdict.cupsPerDay.toFixed(1)}</b>,
+              perlu <b className="text-zinc-700 tabular-nums">{BREAK_EVEN_CUPS_PER_DAY}</b> cup/hari
+              agar tidak rugi (margin {formatRupiah(MARGIN_PER_CUP)}/cup).
+            </p>
+          </div>
+        </div>
+
+        {verdict.topTwoShare > 0 && clusters.length > 2 && (
+          <div className="px-5 pb-4">
+            <div className="rounded-xl bg-zinc-50 border border-zinc-200/80 px-4 py-3 flex gap-2.5">
+              <Info strokeWidth={2} className="w-3.5 h-3.5 text-brand shrink-0 mt-0.5" />
+              <p className="text-[11px] text-zinc-600 leading-relaxed">
+                <b className="text-zinc-900 tabular-nums">
+                  2 titik menghasilkan {verdict.topTwoShare.toFixed(0)}% omzet
+                </b>{' '}
+                dari total {clusters.length} titik yang didatangi. Semakin tinggi angka ini, semakin
+                besar kemungkinan berkeliling ke titik lain justru mengencerkan hasil — waktu yang
+                sama akan menghasilkan lebih banyak bila dihabiskan di titik teratas.
+              </p>
+            </div>
+          </div>
+        )}
+      </section>
 
       {/* Penjelasan metrik — tanpa ini angkanya mudah disalahbaca */}
       <div className="bg-brand-soft border border-brand-border rounded-2xl px-5 py-4 flex gap-3">

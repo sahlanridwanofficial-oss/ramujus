@@ -83,7 +83,14 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          to_regprocedure('public.admin_menu_performance(date,date)') IS NOT NULL),
 
     (16, '0016_ops_analytics', 'Analitik jam & lokasi (cup per jam)',
-         to_regprocedure('public.admin_cart_productivity(date,date)') IS NOT NULL)
+         to_regprocedure('public.admin_cart_productivity(date,date)') IS NOT NULL),
+
+    (17, '0017_lock_admin_functions', 'Fungsi admin tertutup untuk anon',
+         NOT EXISTS (SELECT 1 FROM pg_proc p
+                       JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public'
+                        AND (p.proname LIKE 'admin\_%' OR p.proname = 'fleet_overview')
+                        AND has_function_privilege('anon', p.oid, 'EXECUTE')))
 )
 SELECT migrasi,
        penjelasan,

@@ -74,3 +74,39 @@ export const FLEET_STATUS_THRESHOLDS = {
 // Default map center (Jakarta)
 export const DEFAULT_MAP_CENTER: [number, number] = [-6.2088, 106.8456]
 export const DEFAULT_MAP_ZOOM = 13
+
+// ------------------------------------------------------------
+// Ekonomi satu gerobak.
+//
+// Angka ini bukan hasil hitungan sistem — datang dari biaya nyata pemilik
+// dan dipakai untuk menandai hari yang belum menutup biaya. Ditaruh di sini
+// supaya ada SATU tempat mengubahnya ketika gaji driver, sewa, atau harga
+// bahan berubah; kalau tidak, angkanya akan tersebar sebagai bilangan ajaib
+// di beberapa layar dan pelan-pelan saling bertentangan.
+// ------------------------------------------------------------
+
+/** Laba kotor per cup, sebelum biaya tetap bulanan. */
+export const MARGIN_PER_CUP = 5000
+
+/** Biaya tetap sebulan per gerobak: gaji driver, basecamp, penyusutan. */
+export const MONTHLY_FIXED_COST = 2_500_000
+
+/**
+ * Hari jualan per bulan.
+ *
+ * 26, bukan 30: driver manusia butuh satu hari libur per pekan. Memakai 30
+ * berarti mengasumsikan gerobak jalan setiap hari tanpa henti, dan itu
+ * menurunkan titik impas jadi 17 cup/hari — angka yang terlihat lebih
+ * mudah dicapai daripada kenyataannya. Lebih aman salah ke arah yang
+ * menuntut, karena satu hari libur yang tak terhitung langsung membuat
+ * bulan itu rugi.
+ */
+export const SELLING_DAYS_PER_MONTH = 26
+
+/**
+ * Cup per hari yang harus dicapai satu gerobak agar tidak rugi.
+ * Dibulatkan ke atas: setengah cup tidak bisa dijual.
+ */
+export const BREAK_EVEN_CUPS_PER_DAY = Math.ceil(
+  MONTHLY_FIXED_COST / MARGIN_PER_CUP / SELLING_DAYS_PER_MONTH
+)
