@@ -184,6 +184,68 @@ BEGIN
 END;
 $$;
 
+\echo ''
+\echo '=== 3b. Titik yang dilaporkan adalah lokasi ASLI, bukan pusat petak ==='
+DO $$
+DECLARE v_today DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date;
+        rec RECORD;
+        v_benar NUMERIC;
+        v_meleset NUMERIC;
+BEGIN
+  -- Kelompok tengah berisi 7 pesanan: 6 di -6.2900 dan 1 di -6.2905.
+  -- Rata-rata sebenarnya = (6*-6.2900 + 1*-6.2905) / 7.
+  v_benar := (6 * -6.2900 + 1 * -6.2905) / 7.0;
+
+  SELECT * INTO rec FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+   WHERE cluster_lat <= -6.285 AND cluster_lat > -6.31;
+
+  v_meleset := abs(rec.cluster_lat::NUMERIC - v_benar) * 111320;
+
+  -- Inilah bug yang diperbaiki 0018: dulu yang dikembalikan pusat petak,
+  -- dan pada data produksi itu meleset sampai 139 meter dari tempat
+  -- gerobak benar-benar berjualan.
+  IF v_meleset > 1 THEN
+    RAISE EXCEPTION 'GAGAL: titik meleset % meter dari rata-rata koordinat asli (dilaporkan %, seharusnya %)',
+      round(v_meleset), rec.cluster_lat, v_benar;
+  END IF;
+
+  -- Sebaran: -6.2900 ke -6.2905 = 0,0005 derajat lintang = ~56 meter.
+  IF rec.spread_meters < 50 OR rec.spread_meters > 62 THEN
+    RAISE EXCEPTION 'GAGAL: sebaran % m, harusnya sekitar 56 m', rec.spread_meters;
+  END IF;
+
+  RAISE NOTICE 'OK: titik tepat di rata-rata koordinat asli (meleset % m), sebaran % m',
+    round(v_meleset, 2), rec.spread_meters;
+END;
+$$;
+
+\echo ''
+\echo '=== 3c. Sebaran membedakan titik mangkal dari perjalanan ==='
+DO $$
+DECLARE v_today DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date;
+        v_selatan INT; v_gerobak_dua INT;
+BEGIN
+  -- Titik selatan cuma satu pesanan: sebarannya wajib 0, bukan NULL atau
+  -- angka acak dari pembulatan petak.
+  SELECT spread_meters INTO v_selatan
+    FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+   WHERE cluster_lat <= -6.31;
+  IF v_selatan <> 0 THEN
+    RAISE EXCEPTION 'GAGAL: kelompok satu titik punya sebaran % m, harusnya 0', v_selatan;
+  END IF;
+
+  -- Gerobak Dua: dua pesanan di koordinat yang sama persis -> sebaran 0.
+  SELECT spread_meters INTO v_gerobak_dua
+    FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+   WHERE cluster_lat > -6.285;
+  IF v_gerobak_dua <> 0 THEN
+    RAISE EXCEPTION 'GAGAL: dua pesanan di titik sama punya sebaran % m', v_gerobak_dua;
+  END IF;
+
+  RAISE NOTICE 'OK: sebaran 0 m untuk kelompok yang benar-benar satu titik';
+END;
+$$;
+
 -- ------------------------------------------------------------
 \echo ''
 \echo '=== 4. Petak terlalu kecil dijepit ke 50 m, tidak memecah satu titik mangkal ==='

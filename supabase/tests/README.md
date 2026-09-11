@@ -229,6 +229,8 @@ pemindaian tabel penuh.
 | 1 | Jam yang totalnya dua kali lebih besar **bukan** jam yang lebih ramai bila hari aktifnya juga dua kali lebih banyak — setelah dinormalkan keduanya identik |
 | 2 | Pembagi (`days_active`) ikut dikembalikan, sehingga angka bagus dari satu hari tidak bisa menyamar sebagai pola |
 | 3 | Koordinat berjarak ~55 m menyatu jadi satu titik mangkal; yang berjarak ~3 km terpisah |
+| 3b | Titik yang dilaporkan adalah **rata-rata koordinat asli**, bukan pusat petak — bug 0018, yang pada produksi meleset sampai 139 m dari tempat gerobak benar-benar berjualan |
+| 3c | `spread_meters` bernilai 0 untuk kelompok yang memang satu titik, sehingga titik mangkal bisa dibedakan dari ruas yang dilewati |
 | 4 | Petak di bawah 50 m dijepit — hasil petak 5 m dan 0 m identik dengan petak 50 m, baris demi baris |
 | 5 | Dua gerobak dengan cup per **hari** yang sama terbaca sangat berbeda pada cup per **jam** — inilah yang memisahkan lokasi bagus dari jam kerja panjang |
 | 6 | Jam kerja dijumlahkan per gerobak, bukan jam dinding: dua gerobak yang jalan bersamaan 5 dan 2 jam menghasilkan 7 jam-gerobak |
