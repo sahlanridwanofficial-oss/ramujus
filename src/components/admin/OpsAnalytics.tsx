@@ -49,6 +49,14 @@ interface ClusterRow {
   revenue_share: number
   /** Seberapa rapat pesanannya, dalam meter. Besar = itu perjalanan, bukan titik. */
   spread_meters: number
+  /** Kunjungan = satu gerobak, satu hari, di titik ini. */
+  stops: number
+  /** Kunjungan yang lama mangkalnya benar-benar terukur (≥ 2 pesanan). */
+  measured_stops: number
+  hours_measured: number
+  cups_measured: number
+  /** null = belum bisa diketahui. Bukan nol. */
+  cups_per_hour: number | null
 }
 
 /**
@@ -57,6 +65,40 @@ interface ClusterRow {
  * titik tengahnya dihitung.
  */
 const SPREAD_IS_A_ROUTE_M = 150
+
+/**
+ * Laju yang harus dicapai satu titik agar ruko kecil di situ tidak rugi.
+ *
+ * Biaya tetap ruko kecil (sewa + 1 pegawai) ±Rp6 juta/bulan. Di margin
+ * Rp6.500/cup itu ±923 cup/bulan; dibagi 26 hari dan 9 jam buka, keluar
+ * angka di bawah. Ini ambang untuk MEMUTUSKAN SEWA, bukan target harian
+ * gerobak — gerobak untung jauh di bawah ini karena nyaris tanpa biaya tetap.
+ */
+const RUKO_BREAK_EVEN_CUPS_PER_HOUR = 4.4
+
+/**
+ * Bukti minimum sebelum sebuah titik boleh disebut "tembus ambang ruko".
+ *
+ * Database sudah menolak rentang yang terlalu pendek, tetapi laju yang sah
+ * pun bisa menyesatkan bila datangnya dari satu kunjungan singkat. Pada
+ * data produksi ada titik dengan 4 cup total dalam satu mampir 25 menit —
+ * secara hitungan 9,6 cup/jam, dan tanpa syarat ini ia akan tampil hijau
+ * seolah-olah layak disewa. Empat cup bukan alasan menandatangani kontrak
+ * dua tahun.
+ */
+const ENOUGH_EVIDENCE = { stops: 2, hours: 1 }
+
+function hasEnoughEvidence(c: ClusterRow): boolean {
+  return c.measured_stops >= ENOUGH_EVIDENCE.stops && num(c.hours_measured) >= ENOUGH_EVIDENCE.hours
+}
+
+function clearsRukoBar(c: ClusterRow): boolean {
+  return (
+    c.cups_per_hour != null &&
+    num(c.cups_per_hour) >= RUKO_BREAK_EVEN_CUPS_PER_HOUR &&
+    hasEnoughEvidence(c)
+  )
+}
 
 interface CartRow {
   driver_id: string
@@ -322,6 +364,45 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                     </span>
                   )}
                 </p>
+
+                {/* Angka yang memutuskan sewa, diangkat ke atas agar tidak terlewat. */}
+                <div className="mt-2.5 pt-2.5 border-t border-zinc-200/70">
+                  {verdict.best.cups_per_hour == null ? (
+                    <p className="text-[11px] text-zinc-400 leading-relaxed">
+                      <b className="text-zinc-600">Cup/jam belum terukur</b> — titik ini belum pernah
+                      menghasilkan dua pesanan dalam satu kunjungan. Mangkal lebih lama di sini untuk
+                      mendapatkannya.
+                    </p>
+                  ) : (
+                    <>
+                      <div className="flex items-baseline gap-1.5">
+                        <span
+                          className={`text-lg font-bold tabular-nums ${
+                            clearsRukoBar(verdict.best) ? 'text-emerald-600' : 'text-zinc-900'
+                          }`}
+                        >
+                          {num(verdict.best.cups_per_hour).toFixed(2)}
+                        </span>
+                        <span className="text-[11px] text-zinc-500">cup/jam</span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-zinc-400 leading-relaxed">
+                        {!hasEnoughEvidence(verdict.best) ? (
+                          <span className="text-amber-600 font-semibold">
+                            Bukti masih tipis — baru {verdict.best.measured_stops} kunjungan,{' '}
+                            {num(verdict.best.hours_measured).toFixed(1)} jam. Belum cukup untuk
+                            memutuskan sewa.
+                          </span>
+                        ) : clearsRukoBar(verdict.best) ? (
+                          <>Tembus ambang ruko ({RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam), dari{' '}
+                          {verdict.best.measured_stops} kunjungan terukur.</>
+                        ) : (
+                          <>Ambang ruko {RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam — belum tembus. Dari{' '}
+                          {verdict.best.measured_stops} kunjungan terukur.</>
+                        )}
+                      </p>
+                    </>
+                  )}
+                </div>
                 <a
                   href={`https://www.google.com/maps?q=${verdict.best.cluster_lat},${verdict.best.cluster_lng}`}
                   target="_blank"
@@ -577,7 +658,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
               <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="bg-zinc-50/80">
-                    {['Titik', 'Sebaran', 'Cup', 'Cup/hari aktif', 'Hari', 'Jam terbaik', 'Omzet', ''].map(t => (
+                    {['Titik', 'Cup/jam', 'Cup', 'Cup/hari aktif', 'Sebaran', 'Jam terbaik', 'Omzet', ''].map(t => (
                       <th
                         key={t}
                         className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap"
@@ -601,6 +682,47 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                           {c.cluster_lat.toFixed(5)}, {c.cluster_lng.toFixed(5)}
                         </span>
                       </td>
+                      {/*
+                        Kolom penentu sewa. Titik yang belum punya kunjungan
+                        berpesanan ganda sengaja tampil "belum terukur", bukan
+                        angka — lama mangkalnya memang tidak diketahui, dan
+                        menebaknya di sinilah keputusan sewa jadi salah.
+                      */}
+                      <td className="px-4 py-2.5 whitespace-nowrap">
+                        {c.cups_per_hour == null ? (
+                          <span className="text-[11px] text-zinc-400 italic">belum terukur</span>
+                        ) : (
+                          <>
+                            <span
+                              className={`font-bold tabular-nums ${
+                                clearsRukoBar(c) ? 'text-emerald-600' : 'text-zinc-900'
+                              }`}
+                            >
+                              {num(c.cups_per_hour).toFixed(2)}
+                            </span>
+                            <span
+                              className={`block text-[10px] tabular-nums ${
+                                hasEnoughEvidence(c) ? 'text-zinc-400' : 'text-amber-600 font-semibold'
+                              }`}
+                            >
+                              {hasEnoughEvidence(c)
+                                ? `${c.measured_stops} dari ${c.stops} kunjungan`
+                                : `bukti tipis · ${num(c.hours_measured).toFixed(1)} jam`}
+                            </span>
+                          </>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 font-bold text-zinc-900 tabular-nums">{c.cups}</td>
+                      <td
+                        className={`px-4 py-2.5 tabular-nums ${
+                          thinCoverage(c.days_active) ? 'text-amber-600 font-semibold' : 'text-zinc-700'
+                        }`}
+                      >
+                        {num(c.cups_per_active_day).toFixed(1)}
+                        <span className="block text-[10px] text-zinc-400">
+                          {c.days_active}/{totalDays} hari
+                        </span>
+                      </td>
                       <td
                         className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${
                           c.spread_meters > SPREAD_IS_A_ROUTE_M
@@ -614,17 +736,6 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                         }
                       >
                         {c.spread_meters} m
-                      </td>
-                      <td className="px-4 py-2.5 font-bold text-zinc-900 tabular-nums">{c.cups}</td>
-                      <td className="px-4 py-2.5 text-zinc-700 tabular-nums">
-                        {num(c.cups_per_active_day).toFixed(1)}
-                      </td>
-                      <td
-                        className={`px-4 py-2.5 tabular-nums ${
-                          thinCoverage(c.days_active) ? 'text-amber-600 font-semibold' : 'text-zinc-500'
-                        }`}
-                      >
-                        {c.days_active}/{totalDays}
                       </td>
                       <td className="px-4 py-2.5 text-zinc-500 tabular-nums">{jam(c.best_hour)}</td>
                       <td className="px-4 py-2.5 text-zinc-700 tabular-nums whitespace-nowrap">
@@ -646,14 +757,27 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-3 text-[11px] text-zinc-400 leading-relaxed border-t border-zinc-100">
-              Pesanan dikelompokkan ke petak <b className="text-zinc-600">{grid} m</b>, tetapi
-              koordinat yang ditampilkan adalah <b className="text-zinc-600">rata-rata posisi
-              pesanan sebenarnya</b> — bukan pusat petak, supaya pin peta jatuh di tempat gerobak
-              benar-benar berjualan. Kolom <b className="text-zinc-600">Sebaran</b> menunjukkan
-              seberapa rapat pesanannya: di atas {SPREAD_IS_A_ROUTE_M} m, itu ruas jalan dan satu
-              pin tidak mewakilinya.
-            </p>
+            <div className="px-5 py-3.5 border-t border-zinc-100 space-y-2">
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                <b className="text-zinc-900">Cup/jam adalah angka yang memutuskan sewa.</b> Ruko
+                kecil (sewa + 1 pegawai, ±Rp6jt/bulan) butuh sekitar{' '}
+                <b className="text-zinc-900 tabular-nums">{RUKO_BREAK_EVEN_CUPS_PER_HOUR} cup/jam</b>{' '}
+                supaya tidak rugi. Titik yang tembus angka itu ditandai hijau. Ini ambang untuk
+                memutuskan ruko — gerobak sendiri untung jauh di bawahnya karena nyaris tanpa biaya tetap.
+              </p>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                <b className="text-zinc-600">&ldquo;Belum terukur&rdquo;</b> berarti titik itu belum
+                pernah menghasilkan dua pesanan dalam satu kunjungan, jadi lama mangkalnya memang
+                tidak diketahui — sengaja tidak ditebak, karena di sinilah keputusan sewa jadi salah.
+                Mangkal lebih lama di titik itu akan mengisinya sendiri.
+              </p>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
+                Koordinat yang ditampilkan adalah rata-rata posisi pesanan sebenarnya, bukan pusat
+                petak <b className="text-zinc-600">{grid} m</b>. Kolom{' '}
+                <b className="text-zinc-600">Sebaran</b> di atas {SPREAD_IS_A_ROUTE_M} m berarti itu
+                ruas jalan, bukan satu titik.
+              </p>
+            </div>
           </>
         )}
       </section>
