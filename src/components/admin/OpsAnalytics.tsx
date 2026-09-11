@@ -57,6 +57,12 @@ interface ClusterRow {
   cups_measured: number
   /** null = belum bisa diketahui. Bukan nol. */
   cups_per_hour: number | null
+  /**
+   * 'tercatat'  — dari tombol mangkal driver. Akurat.
+   * 'perkiraan' — dari rentang stempel pesanan. Bisa kelebihan bila driver
+   *               mencatat beberapa pesanan sekaligus setelah melayani.
+   */
+  dwell_source: 'tercatat' | 'perkiraan' | null
 }
 
 /**
@@ -92,11 +98,23 @@ function hasEnoughEvidence(c: ClusterRow): boolean {
   return c.measured_stops >= ENOUGH_EVIDENCE.stops && num(c.hours_measured) >= ENOUGH_EVIDENCE.hours
 }
 
+/**
+ * Angka perkiraan tidak pernah boleh dipakai memutuskan sewa.
+ *
+ * Perkiraan datang dari rentang stempel pesanan, dan driver sering mencatat
+ * beberapa pesanan sekaligus setelah selesai melayani — rentangnya menyusut
+ * dan lajunya tampil lebih tinggi dari kenyataan. Kelebihannya selalu ke
+ * arah yang menggoda untuk menyewa.
+ */
+function isTrustedForLease(c: ClusterRow): boolean {
+  return c.dwell_source === 'tercatat' && hasEnoughEvidence(c)
+}
+
 function clearsRukoBar(c: ClusterRow): boolean {
   return (
     c.cups_per_hour != null &&
     num(c.cups_per_hour) >= RUKO_BREAK_EVEN_CUPS_PER_HOUR &&
-    hasEnoughEvidence(c)
+    isTrustedForLease(c)
   )
 }
 
@@ -702,12 +720,19 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                             </span>
                             <span
                               className={`block text-[10px] tabular-nums ${
-                                hasEnoughEvidence(c) ? 'text-zinc-400' : 'text-amber-600 font-semibold'
+                                isTrustedForLease(c) ? 'text-zinc-400' : 'text-amber-600 font-semibold'
                               }`}
+                              title={
+                                c.dwell_source === 'perkiraan'
+                                  ? 'Dihitung dari rentang stempel pesanan. Bisa kelebihan bila driver mencatat beberapa pesanan sekaligus.'
+                                  : undefined
+                              }
                             >
-                              {hasEnoughEvidence(c)
-                                ? `${c.measured_stops} dari ${c.stops} kunjungan`
-                                : `bukti tipis · ${num(c.hours_measured).toFixed(1)} jam`}
+                              {c.dwell_source === 'perkiraan'
+                                ? 'perkiraan'
+                                : !hasEnoughEvidence(c)
+                                  ? `bukti tipis · ${num(c.hours_measured).toFixed(1)} jam`
+                                  : `${c.measured_stops} mangkal · ${num(c.hours_measured).toFixed(1)} jam`}
                             </span>
                           </>
                         )}
@@ -766,10 +791,19 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                 memutuskan ruko — gerobak sendiri untung jauh di bawahnya karena nyaris tanpa biaya tetap.
               </p>
               <p className="text-[11px] text-zinc-400 leading-relaxed">
+                <b className="text-amber-700">&ldquo;perkiraan&rdquo;</b> berarti lamanya dihitung
+                dari rentang stempel pesanan, bukan dari tombol mangkal. Angka itu{' '}
+                <b className="text-zinc-600">bisa kelebihan</b> — driver sering mencatat beberapa
+                pesanan sekaligus setelah selesai melayani, sehingga rentangnya menyusut dan lajunya
+                tampil lebih tinggi dari kenyataan. Karena kelebihannya selalu ke arah yang menggoda
+                untuk menyewa, baris perkiraan tidak pernah ditandai hijau. Minta driver menekan{' '}
+                <b className="text-zinc-600">&ldquo;Mangkal di sini&rdquo;</b> untuk menggantinya
+                dengan angka yang tercatat.
+              </p>
+              <p className="text-[11px] text-zinc-400 leading-relaxed">
                 <b className="text-zinc-600">&ldquo;Belum terukur&rdquo;</b> berarti titik itu belum
-                pernah menghasilkan dua pesanan dalam satu kunjungan, jadi lama mangkalnya memang
-                tidak diketahui — sengaja tidak ditebak, karena di sinilah keputusan sewa jadi salah.
-                Mangkal lebih lama di titik itu akan mengisinya sendiri.
+                pernah menghasilkan dua pesanan dalam satu kunjungan dan belum pernah dimangkali,
+                jadi lamanya memang tidak diketahui — sengaja tidak ditebak.
               </p>
               <p className="text-[11px] text-zinc-400 leading-relaxed">
                 Koordinat yang ditampilkan adalah rata-rata posisi pesanan sebenarnya, bukan pusat
