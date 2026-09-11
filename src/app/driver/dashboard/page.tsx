@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import StopTracker from '@/components/driver/StopTracker'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
@@ -385,6 +386,11 @@ export default function DriverDashboard() {
             <span className="leading-relaxed">{shiftError}</span>
           </div>
         )}
+
+        {/* Lama mangkal: direkam, bukan ditebak dari stempel pesanan */}
+        <div className="mb-3">
+          <StopTracker shiftActive={!!activeShift} />
+        </div>
 
         {/* GPS Tracking Indicator */}
         <div className="flex items-center justify-between text-xs bg-zinc-50 border border-zinc-100 rounded-xl px-3 py-2 text-zinc-500">
