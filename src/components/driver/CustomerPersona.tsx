@@ -107,7 +107,7 @@ export default function CustomerPersona({
             <button
               type="button"
               onClick={() => { onGender(null); onAge(null); onType(null) }}
-              className="text-[11px] font-semibold text-zinc-400 hover:text-[#be1a1a] transition-colors"
+              className="text-[11px] font-semibold text-zinc-400 hover:text-brand transition-colors"
             >
               Kosongkan semua
             </button>

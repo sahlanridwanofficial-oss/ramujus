@@ -315,7 +315,7 @@ export default function DriverDashboard() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-72 gap-2 text-zinc-400">
-        <Loader2 className="w-7 h-7 animate-spin text-[#be1a1a]" />
+        <Loader2 className="w-7 h-7 animate-spin text-brand" />
         <span className="text-xs">Memuat data dashboard...</span>
       </div>
     )
@@ -328,7 +328,7 @@ export default function DriverDashboard() {
         <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
           {new Date().toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })}
         </p>
-        <h1 className="text-xl font-black text-zinc-900 tracking-tight mt-0.5">
+        <h1 className="text-xl font-extrabold text-zinc-900 tracking-tight mt-0.5">
           {getGreeting()}, {user?.full_name?.split(' ')[0]} 👋
         </h1>
       </div>
@@ -342,8 +342,8 @@ export default function DriverDashboard() {
             </span>
             <div className="flex items-center gap-2">
               {activeShift ? (
-                <div className="flex items-center gap-1.5 bg-red-50 text-[#be1a1a] border border-red-100 px-3 py-1 rounded-full">
-                  <span className="w-2 h-2 rounded-full bg-[#be1a1a] animate-pulse" />
+                <div className="flex items-center gap-1.5 bg-red-50 text-brand border border-red-100 px-3 py-1 rounded-full">
+                  <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
                   <span className="text-xs font-bold">Shift Sedang Aktif</span>
                 </div>
               ) : (
@@ -361,7 +361,7 @@ export default function DriverDashboard() {
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-xs transition-all active:scale-[0.98] ${
               activeShift
                 ? 'bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200'
-                : 'bg-[#be1a1a] hover:bg-[#a61515] text-white shadow-sm shadow-red-900/20'
+                : 'bg-brand hover:bg-[#a61515] text-white shadow-sm shadow-red-900/20'
             }`}
           >
             {shiftLoading ? (
@@ -379,7 +379,7 @@ export default function DriverDashboard() {
         {shiftError && (
           <div
             role="alert"
-            className="mb-3 p-2.5 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-[11px] text-[#be1a1a] font-semibold"
+            className="mb-3 p-2.5 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-[11px] text-brand font-semibold"
           >
             <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
             <span className="leading-relaxed">{shiftError}</span>
@@ -423,11 +423,11 @@ export default function DriverDashboard() {
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-semibold text-zinc-500">Penjualan Hari Ini</span>
-            <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-[#be1a1a]">
+            <div className="w-7 h-7 rounded-lg bg-red-50 flex items-center justify-center text-brand">
               <TrendingUp strokeWidth={2} className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl font-black text-zinc-900 tracking-tight">
+          <p className="text-xl font-extrabold text-zinc-900 tracking-tight">
             {formatRupiah(todayStats.revenue)}
           </p>
           <span className="text-[11px] text-zinc-400 mt-1 block">Total penerimaan</span>
@@ -440,7 +440,7 @@ export default function DriverDashboard() {
               <ShoppingBag strokeWidth={2} className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-xl font-black text-zinc-900 tracking-tight">
+          <p className="text-xl font-extrabold text-zinc-900 tracking-tight">
             {todayStats.cups} <span className="text-xs font-medium text-zinc-500">cup</span>
           </p>
           <span className="text-[11px] text-zinc-400 mt-1 block">
@@ -456,7 +456,7 @@ export default function DriverDashboard() {
       <div className="bg-white rounded-2xl border border-zinc-200/80 p-4 shadow-card space-y-3.5">
         <div className="flex items-center justify-between pb-2.5 border-b border-zinc-100">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#be1a1a] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-brand flex items-center justify-center">
               <PackageCheck className="w-4 h-4" />
             </div>
             <div>
@@ -482,7 +482,7 @@ export default function DriverDashboard() {
             <div className="grid grid-cols-3 gap-2 bg-zinc-50/80 rounded-xl p-2.5 border border-zinc-100 text-center">
               <div>
                 <span className="text-[10px] text-zinc-400 block font-medium">Bawa Pagi</span>
-                <span className="text-base font-black text-zinc-800">{cartAllocation.total_initial}</span>
+                <span className="text-base font-extrabold text-zinc-800">{cartAllocation.total_initial}</span>
                 <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
               <div className="border-x border-zinc-200/80">
@@ -491,12 +491,12 @@ export default function DriverDashboard() {
                     label apa adanya supaya tidak lagi bertabrakan dengan
                     kartu "Cup Terjual" di atas. */}
                 <span className="text-[10px] text-zinc-400 block font-medium">Terjual dari muatan</span>
-                <span className="text-base font-black text-[#be1a1a]">{cartAllocation.total_sold}</span>
+                <span className="text-base font-extrabold text-brand">{cartAllocation.total_sold}</span>
                 <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
               <div>
                 <span className="text-[10px] text-zinc-400 block font-medium">Sisa di Cart</span>
-                <span className="text-base font-black text-emerald-700">{cartAllocation.total_remaining}</span>
+                <span className="text-base font-extrabold text-emerald-700">{cartAllocation.total_remaining}</span>
                 <span className="text-[9px] text-zinc-400 block leading-none">cup</span>
               </div>
             </div>
@@ -536,7 +536,7 @@ export default function DriverDashboard() {
               </div>
               <div className="w-full h-2 bg-zinc-100 rounded-full overflow-hidden">
                 <div
-                  className="h-full bg-[#be1a1a] rounded-full transition-all duration-300"
+                  className="h-full bg-brand rounded-full transition-all duration-300"
                   style={{
                     width: `${cartAllocation.total_initial > 0
                       ? Math.min(100, Math.round((cartAllocation.total_sold / cartAllocation.total_initial) * 100))
@@ -563,7 +563,7 @@ export default function DriverDashboard() {
                           ? 'bg-emerald-50 text-emerald-700'
                           : item.remaining > 0
                           ? 'bg-amber-50 text-amber-800'
-                          : 'bg-red-50 text-[#be1a1a]'
+                          : 'bg-red-50 text-brand'
                       }`}
                     >
                       Sisa {item.remaining}
@@ -588,7 +588,7 @@ export default function DriverDashboard() {
       {activeShift ? (
         <Link
           href="/driver/order"
-          className="flex items-center justify-between bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white rounded-2xl p-4 px-5 transition-all shadow-md shadow-red-900/15 group"
+          className="flex items-center justify-between bg-brand hover:bg-[#a61515] active:scale-[0.99] text-white rounded-2xl p-4 px-5 transition-all shadow-md shadow-red-900/15 group"
         >
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center text-white">

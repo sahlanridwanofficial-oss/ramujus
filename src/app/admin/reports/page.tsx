@@ -150,7 +150,7 @@ export default function ReportsPage() {
       {summaryError && (
         <div
           role="alert"
-          className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-xs text-[#be1a1a] font-semibold"
+          className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-xs text-brand font-semibold"
         >
           <TriangleAlert className="w-4 h-4 shrink-0 mt-px" />
           <span className="leading-relaxed">{summaryError}</span>
@@ -173,13 +173,13 @@ export default function ReportsPage() {
       {/* Title & Export Button */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Laporan Keuangan</h1>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Laporan Keuangan</h1>
           <p className="text-xs text-zinc-500 mt-0.5">Rekapitulasi transaksi penjualan & ekspor data Excel/CSV</p>
         </div>
         <button
           onClick={exportCSV}
           disabled={orders.length === 0}
-          className="inline-flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-card disabled:opacity-50"
+          className="inline-flex items-center justify-center gap-2 bg-brand hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-card disabled:opacity-50"
         >
           <Download className="w-4 h-4" />
           <span>Ekspor Format CSV</span>
@@ -197,14 +197,14 @@ export default function ReportsPage() {
             type="date"
             value={dateFrom}
             onChange={e => setDateFrom(e.target.value)}
-            className="bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20"
+            className="bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand/20"
           />
           <span className="text-xs text-zinc-400 font-bold">s/d</span>
           <input
             type="date"
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
-            className="bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20"
+            className="bg-zinc-50 border border-zinc-200 rounded-xl px-3 py-2 text-xs font-semibold text-zinc-800 focus:outline-none focus:ring-2 focus:ring-brand/20"
           />
         </div>
       </div>
@@ -218,7 +218,7 @@ export default function ReportsPage() {
               <ShoppingBag strokeWidth={2} className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-zinc-900 tracking-tight">{totalCups.toLocaleString('id-ID')} Cup</p>
+          <p className="text-2xl font-extrabold text-zinc-900 tracking-tight">{totalCups.toLocaleString('id-ID')} Cup</p>
           <span className="text-[11px] text-zinc-400 mt-1 block">
             {totalOrders.toLocaleString('id-ID')} transaksi
             {totalItems > 0 && ` · ${totalItems.toLocaleString('id-ID')} unit terjual`}
@@ -228,17 +228,17 @@ export default function ReportsPage() {
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Total Pendapatan</span>
-            <div className="w-8 h-8 rounded-xl bg-red-50 text-[#be1a1a] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-xl bg-red-50 text-brand flex items-center justify-center">
               <TrendingUp strokeWidth={2} className="w-4 h-4" />
             </div>
           </div>
-          <p className="text-2xl font-black text-zinc-900 tracking-tight">{formatRupiah(totalRevenue)}</p>
+          <p className="text-2xl font-extrabold text-zinc-900 tracking-tight">{formatRupiah(totalRevenue)}</p>
           <span className="text-[11px] text-zinc-400 mt-1 block">Semua kanal pembayaran</span>
         </div>
 
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Penerimaan QRIS</span>
-          <p className="text-xl font-black text-zinc-900 tracking-tight">
+          <p className="text-xl font-extrabold text-zinc-900 tracking-tight">
             {formatRupiah(summary?.qris_revenue ?? 0)}
           </p>
           <span className="text-[11px] text-zinc-400 mt-1 block">{(summary?.qris_orders ?? 0).toLocaleString('id-ID')} transaksi non-tunai</span>
@@ -246,7 +246,7 @@ export default function ReportsPage() {
 
         <div className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card">
           <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider block mb-3">Penerimaan Tunai</span>
-          <p className="text-xl font-black text-zinc-900 tracking-tight">
+          <p className="text-xl font-extrabold text-zinc-900 tracking-tight">
             {formatRupiah(summary?.cash_revenue ?? 0)}
           </p>
           <span className="text-[11px] text-zinc-400 mt-1 block">{(summary?.cash_orders ?? 0).toLocaleString('id-ID')} transaksi fisik</span>
@@ -262,7 +262,7 @@ export default function ReportsPage() {
 
         {loading ? (
           <div className="flex flex-col items-center justify-center py-16 gap-2 text-zinc-400">
-            <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+            <Loader2 className="w-6 h-6 animate-spin text-brand" />
             <span className="text-xs">Menyiapkan laporan tabel...</span>
           </div>
         ) : orders.length === 0 ? (
@@ -300,7 +300,7 @@ export default function ReportsPage() {
                           {order.payment_method}
                         </span>
                       </td>
-                      <td className="px-6 py-3.5 text-right font-black text-zinc-900">{formatRupiah(order.total_amount)}</td>
+                      <td className="px-6 py-3.5 text-right font-extrabold text-zinc-900">{formatRupiah(order.total_amount)}</td>
                     </tr>
                   )
                 })}

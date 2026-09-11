@@ -238,7 +238,7 @@ export default function AdminDashboard() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-72 gap-2 text-zinc-400">
-        <Loader2 className="w-7 h-7 animate-spin text-[#be1a1a]" />
+        <Loader2 className="w-7 h-7 animate-spin text-brand" />
         <span className="text-xs">Memuat ringkasan eksekutif...</span>
       </div>
     )
@@ -254,28 +254,24 @@ export default function AdminDashboard() {
       value: formatRupiah(stats.todayRevenue),
       sub: 'Total penjualan masuk',
       icon: TrendingUp,
-      accent: 'text-[#be1a1a] bg-red-50',
     },
     {
       label: 'Cup Terjual Hari Ini',
       value: stats.todayCups.toString() + ' Cup',
       sub: `${stats.todayOrders} transaksi · ${stats.todayItems} unit terjual`,
       icon: ShoppingBag,
-      accent: 'text-zinc-900 bg-zinc-100',
     },
     {
       label: 'Mitra Driver Aktif',
       value: stats.activeDrivers.toString() + ' Gerobak',
       sub: 'Sedang beroperasi di lapangan',
       icon: Users,
-      accent: 'text-emerald-700 bg-emerald-50',
     },
     {
       label: 'Rata-rata/Transaksi',
       value: formatRupiah(stats.avgOrderValue),
       sub: 'Basket size per nota',
       icon: DollarSign,
-      accent: 'text-zinc-700 bg-zinc-100',
     },
   ]
 
@@ -284,7 +280,7 @@ export default function AdminDashboard() {
       {/* Top Welcome Title */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
         <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
             Dashboard Operasional
           </h1>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -323,9 +319,9 @@ export default function AdminDashboard() {
               : 'bg-red-50 border-red-300'
           }`}
         >
-          <WifiOff className={`w-5 h-5 shrink-0 mt-px ${degraded ? 'text-amber-600' : 'text-[#be1a1a]'}`} />
+          <WifiOff className={`w-5 h-5 shrink-0 mt-px ${degraded ? 'text-amber-600' : 'text-brand'}`} />
           <div className="flex-1 min-w-0">
-            <p className={`text-xs font-bold ${degraded ? 'text-amber-900' : 'text-[#be1a1a]'}`}>
+            <p className={`text-xs font-bold ${degraded ? 'text-amber-900' : 'text-brand'}`}>
               {degraded
                 ? 'Angka ditampilkan lewat perhitungan cadangan di browser'
                 : 'Ringkasan hari ini tidak dapat dibaca dari server'}
@@ -363,7 +359,7 @@ export default function AdminDashboard() {
           className="flex items-center gap-3 p-3.5 bg-amber-50 border border-amber-300 rounded-2xl hover:bg-amber-100/70 transition-colors"
         >
           {lowStock.out > 0
-            ? <PackageX className="w-5 h-5 text-[#be1a1a] shrink-0" />
+            ? <PackageX className="w-5 h-5 text-brand shrink-0" />
             : <TriangleAlert className="w-5 h-5 text-amber-600 shrink-0" />}
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold text-amber-900">
@@ -379,25 +375,36 @@ export default function AdminDashboard() {
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {statCards.map(card => (
+        {statCards.map((card, i) => (
           <div
             key={card.label}
-            className="bg-white rounded-2xl border border-zinc-200/80 p-5 shadow-card flex flex-col justify-between hover:border-zinc-300 transition-colors"
+            className="bg-white rounded-xl border border-zinc-200/70 p-5 shadow-card flex flex-col gap-3 hover:border-zinc-300 transition-colors"
           >
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-xs font-bold text-zinc-500 uppercase tracking-wider">
-                  {card.label}
-                </span>
-                <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${card.accent}`}>
-                  <card.icon strokeWidth={2} className="w-4 h-4" />
-                </div>
-              </div>
-              <p className="text-2xl font-black text-zinc-900 tracking-tight">
-                {card.value}
-              </p>
+            <div className="flex items-center gap-2">
+              {/*
+                Ikon memakai satu warna untuk semuanya, kecuali kartu
+                pertama. Sebelumnya tiap kartu punya warnanya sendiri —
+                merah, hijau, abu — dan empat warna berjejer membuat mata
+                tidak tahu mana yang penting. Warna merek disimpan untuk
+                satu angka yang memang paling dilihat.
+              */}
+              <card.icon
+                strokeWidth={2}
+                className={`w-3.5 h-3.5 shrink-0 ${i === 0 ? 'text-brand' : 'text-zinc-400'}`}
+              />
+              <span className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider">
+                {card.label}
+              </span>
             </div>
-            <p className="text-[11px] text-zinc-400 mt-2 font-medium">
+            <p
+              data-numeric
+              className={`font-display font-bold tracking-tight leading-none ${
+                i === 0 ? 'text-[1.75rem] text-brand' : 'text-[1.75rem] text-zinc-900'
+              }`}
+            >
+              {card.value}
+            </p>
+            <p className="text-[11px] text-zinc-400 leading-relaxed mt-auto">
               {card.sub}
             </p>
           </div>
@@ -413,7 +420,7 @@ export default function AdminDashboard() {
           </div>
           <Link
             href="/admin/reports"
-            className="text-xs text-[#be1a1a] font-bold flex items-center gap-1 hover:underline"
+            className="text-xs text-brand font-bold flex items-center gap-1 hover:underline"
           >
             <span>Semua Laporan</span>
             <ArrowUpRight className="w-3.5 h-3.5" />
@@ -451,7 +458,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="text-right">
-                    <p className="text-sm font-black text-zinc-900 tracking-tight">
+                    <p className="text-sm font-extrabold text-zinc-900 tracking-tight">
                       {formatRupiah(order.total_amount)}
                     </p>
                     <span className="text-[10px] font-medium text-emerald-600 flex items-center justify-end gap-1 mt-0.5">

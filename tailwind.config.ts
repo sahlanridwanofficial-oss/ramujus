@@ -8,6 +8,12 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Teks yang dibaca. Dimuat di layout.tsx lewat next/font.
+        sans: ["var(--font-jakarta)", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Judul dan angka besar saja — lihat Bab 05 Brand Handbook.
+        display: ["var(--font-baloo)", "var(--font-jakarta)", "sans-serif"],
+      },
       colors: {
         // Warna merek jadi token agar berhenti ditulis sebagai #be1a1a
         // literal di puluhan tempat — satu sumber kebenaran.
@@ -17,6 +23,10 @@ const config: Config = {
           soft: "#fef2f2",
           border: "#fecaca",
         },
+        // Latar aplikasi. Krem hangat, bukan abu-abu netral: netral yang
+        // dicondongkan ke merah membuat brand-nya terasa menyatu, bukan
+        // ditempel di atas kertas dingin.
+        canvas: "#FAF8F6",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
@@ -52,9 +62,22 @@ const config: Config = {
         },
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        // Tangga sudut yang naik beraturan.
+        //
+        // Sebelumnya `rounded-lg` (dari --radius) dan `rounded-xl` (bawaan
+        // Tailwind) sama-sama 0.75rem — dua nama untuk satu nilai. Itu yang
+        // membuat kode memakai lima ukuran sudut secara acak: penulisnya
+        // tidak bisa melihat bedanya, jadi memilihnya asal.
+        //
+        // Sekarang setiap langkah benar-benar berbeda, dan perannya jelas:
+        // sm/md untuk lencana, lg untuk tombol & kolom isian, xl untuk
+        // kartu, 2xl untuk panel besar.
+        sm: "0.375rem",   //  6px — lencana kecil
+        md: "0.5rem",     //  8px
+        lg: "0.625rem",   // 10px — tombol, input
+        xl: "0.875rem",   // 14px — kartu
+        "2xl": "1.125rem",// 18px — panel, bagian besar
+        "3xl": "1.5rem",  // 24px — jarang; hanya blok penuh lebar
       },
       boxShadow: {
         // Bayangan lembut berlapis dua: memberi kedalaman tanpa garis

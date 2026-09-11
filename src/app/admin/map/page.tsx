@@ -11,7 +11,7 @@ const MapView = dynamic(() => import('@/components/map/MapView'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[560px] bg-zinc-100 rounded-3xl animate-pulse flex flex-col items-center justify-center text-zinc-400 gap-2">
-      <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+      <Loader2 className="w-6 h-6 animate-spin text-brand" />
       <span className="text-xs font-semibold">Menginisialisasi peta armada ramu...</span>
     </div>
   ),
@@ -161,7 +161,7 @@ export default function MapPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Peta Armada Gerobak</h1>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Peta Armada Gerobak</h1>
           <p className="text-xs text-zinc-500 mt-0.5">
             Posisi gerobak dikirim langsung dari aplikasi driver selama shift berjalan.
           </p>
@@ -193,7 +193,7 @@ export default function MapPage() {
       </div>
 
       {error && (
-        <div role="alert" className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-center gap-2 text-xs text-[#be1a1a] font-semibold">
+        <div role="alert" className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-center gap-2 text-xs text-brand font-semibold">
           <TriangleAlert className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
@@ -201,7 +201,7 @@ export default function MapPage() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center h-80 gap-2 text-zinc-400">
-          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand" />
           <span className="text-xs">Memuat posisi armada...</span>
         </div>
       ) : (
@@ -219,9 +219,9 @@ export default function MapPage() {
                   type="checkbox"
                   checked={showOrders}
                   onChange={(e) => setShowOrders(e.target.checked)}
-                  className="accent-[#be1a1a]"
+                  className="accent-brand"
                 />
-                <MapPin className="w-3.5 h-3.5 text-[#be1a1a]" />
+                <MapPin className="w-3.5 h-3.5 text-brand" />
                 Tampilkan sebaran transaksi {ORDER_LAYER_DAYS} hari terakhir
                 {showOrders && <span className="text-zinc-400 font-medium">({orders.length} titik)</span>}
               </label>
@@ -240,7 +240,7 @@ export default function MapPage() {
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Cari nama mitra..."
-                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-[#be1a1a]"
+                  className="w-full bg-zinc-50 border border-zinc-200 rounded-xl pl-8 pr-3 py-2 text-xs focus:outline-none focus:border-brand"
                 />
               </div>
             </div>

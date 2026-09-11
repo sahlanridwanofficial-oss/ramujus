@@ -20,7 +20,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
   const { user, signOut } = useAuth()
 
   return (
-    <div className="min-h-screen bg-[#FAF9F6] flex flex-col antialiased text-zinc-900">
+    <div className="min-h-screen bg-canvas flex flex-col antialiased text-zinc-900">
       {/* Top Header */}
       <header className="bg-white/95 backdrop-blur border-b border-zinc-200/80 sticky top-0 z-40">
         <div className="flex items-center justify-between px-4 h-14 max-w-lg mx-auto w-full">
@@ -63,7 +63,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
                 href={href}
                 className={`relative flex flex-col items-center justify-center flex-1 py-1 transition-all ${
                   isActive
-                    ? 'text-[#be1a1a]'
+                    ? 'text-brand'
                     : 'text-zinc-400 hover:text-zinc-600'
                 }`}
               >
@@ -73,7 +73,7 @@ export default function DriverLayout({ children }: { children: React.ReactNode }
                     className={`w-5 h-5 transition-transform duration-200 ${isActive ? 'scale-110' : ''}`}
                   />
                   {isActive && (
-                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-[#be1a1a]" />
+                    <span className="absolute -top-1 -right-1 w-1.5 h-1.5 rounded-full bg-brand" />
                   )}
                 </div>
                 <span className={`text-[10px] mt-1 tracking-tight ${isActive ? 'font-bold' : 'font-medium'}`}>

@@ -137,7 +137,7 @@ export default function MapView({ fleet, orders, showOrders, focusDriverId }: Ma
           <Popup>
             <div className="p-1 text-xs">
               <span className="font-mono font-bold text-zinc-900 block">{order.order_number}</span>
-              <span className="font-black text-[#be1a1a] text-sm block mt-0.5">
+              <span className="font-extrabold text-brand text-sm block mt-0.5">
                 {formatRupiah(order.total_amount)}
               </span>
               <span className="text-[10px] text-zinc-400 block mt-1">
@@ -175,7 +175,7 @@ export default function MapView({ fleet, orders, showOrders, focusDriverId }: Ma
                   Hari ini: <span className="font-bold text-zinc-800">{unit.cups_today} cup</span>
                   <span className="text-zinc-400"> · {unit.orders_today} transaksi</span>
                 </div>
-                <div className="font-bold text-[#be1a1a]">{formatRupiah(unit.revenue_today)}</div>
+                <div className="font-bold text-brand">{formatRupiah(unit.revenue_today)}</div>
                 {unit.accuracy != null && (
                   <div className="text-[10px] text-zinc-400">Akurasi ±{Math.round(unit.accuracy)} m</div>
                 )}

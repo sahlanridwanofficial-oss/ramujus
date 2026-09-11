@@ -118,7 +118,7 @@ export default function ProductsPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-2 text-zinc-400">
-        <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+        <Loader2 className="w-6 h-6 animate-spin text-brand" />
         <span className="text-xs">Memuat katalog produk ramu...</span>
       </div>
     )
@@ -133,7 +133,7 @@ export default function ProductsPage() {
       {/* Header & New Action */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Katalog Menu & Produk</h1>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Katalog Menu & Produk</h1>
           <p className="text-xs text-zinc-500 mt-0.5">Kelola ketersediaan stok rasa, topping, dan harga per cup</p>
         </div>
         <button
@@ -142,7 +142,7 @@ export default function ProductsPage() {
             setEditingId(null)
             setShowForm(!showForm)
           }}
-          className="inline-flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-card"
+          className="inline-flex items-center justify-center gap-2 bg-brand hover:bg-[#a61515] text-white px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-card"
         >
           {showForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
           <span>{showForm ? 'Batal' : 'Tambah Menu Baru'}</span>
@@ -152,7 +152,7 @@ export default function ProductsPage() {
       {saveError && (
         <div
           role="alert"
-          className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-xs text-[#be1a1a] font-semibold"
+          className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-xs text-brand font-semibold"
         >
           <AlertCircle className="w-4 h-4 shrink-0 mt-px" />
           <span className="leading-relaxed">{saveError}</span>
@@ -181,7 +181,7 @@ export default function ProductsPage() {
                 placeholder="Contoh: Mango Berry Blitz"
                 value={form.name}
                 onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a]"
+                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
               />
             </div>
 
@@ -192,7 +192,7 @@ export default function ProductsPage() {
               <select
                 value={form.category}
                 onChange={e => setForm(f => ({ ...f, category: e.target.value as ProductCategory }))}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a]"
+                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
               >
                 {PRODUCT_CATEGORIES.map(c => (
                   <option key={c.value} value={c.value}>{c.label}</option>
@@ -209,7 +209,7 @@ export default function ProductsPage() {
                 placeholder="20000"
                 value={form.price}
                 onChange={e => setForm(f => ({ ...f, price: e.target.value }))}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a]"
+                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
               />
             </div>
 
@@ -222,7 +222,7 @@ export default function ProductsPage() {
                 placeholder="Komposisi buah segar, madu..."
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a]"
+                className="w-full px-3.5 py-2.5 bg-zinc-50 border border-zinc-200 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand"
               />
             </div>
           </div>
@@ -237,7 +237,7 @@ export default function ProductsPage() {
             <button
               onClick={saveProduct}
               disabled={saving || !form.name || !form.price}
-              className="inline-flex items-center gap-1.5 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 bg-brand hover:bg-[#a61515] text-white px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-50"
             >
               {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Check className="w-3.5 h-3.5" />}
               <span>Simpan Menu</span>
@@ -290,7 +290,7 @@ export default function ProductsPage() {
           <div key={product.id} className="px-6 py-4 flex items-center justify-between hover:bg-zinc-50/50 transition-colors">
             <div className="flex items-center gap-3">
               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                product.is_available ? 'bg-red-50 text-[#be1a1a]' : 'bg-zinc-100 text-zinc-400'
+                product.is_available ? 'bg-red-50 text-brand' : 'bg-zinc-100 text-zinc-400'
               }`}>
                 <Package strokeWidth={1.75} className="w-5 h-5" />
               </div>
@@ -308,7 +308,7 @@ export default function ProductsPage() {
                 {product.description && (
                   <p className="text-[11px] text-zinc-400 mt-0.5 line-clamp-1">{product.description}</p>
                 )}
-                <p className="text-xs font-black text-[#be1a1a] mt-1">
+                <p className="text-xs font-extrabold text-brand mt-1">
                   {formatRupiah(product.price)}
                 </p>
               </div>
@@ -328,7 +328,7 @@ export default function ProductsPage() {
                 className="transition-transform active:scale-95"
               >
                 {product.is_available ? (
-                  <div className="flex items-center gap-1.5 text-[#be1a1a]">
+                  <div className="flex items-center gap-1.5 text-brand">
                     <span className="text-[11px] font-bold hidden sm:inline">Tersedia</span>
                     <ToggleRight className="w-7 h-7" />
                   </div>

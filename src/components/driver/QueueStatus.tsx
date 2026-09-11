@@ -38,10 +38,10 @@ export default function QueueStatus() {
         }`}>
           <div className="flex items-start gap-2.5">
             {syncing
-              ? <Loader2 className={`w-4 h-4 shrink-0 mt-px animate-spin ${stale ? 'text-[#be1a1a]' : 'text-amber-600'}`} />
-              : <CloudOff className={`w-4 h-4 shrink-0 mt-px ${stale ? 'text-[#be1a1a]' : 'text-amber-600'}`} />}
+              ? <Loader2 className={`w-4 h-4 shrink-0 mt-px animate-spin ${stale ? 'text-brand' : 'text-amber-600'}`} />
+              : <CloudOff className={`w-4 h-4 shrink-0 mt-px ${stale ? 'text-brand' : 'text-amber-600'}`} />}
             <div className="flex-1 min-w-0">
-              <p className={`text-xs font-bold ${stale ? 'text-[#be1a1a]' : 'text-amber-900'}`}>
+              <p className={`text-xs font-bold ${stale ? 'text-brand' : 'text-amber-900'}`}>
                 {pending.length} pesanan menunggu terkirim
                 <span className="font-mono font-semibold"> · {formatRupiah(pendingTotal)}</span>
               </p>
@@ -53,7 +53,7 @@ export default function QueueStatus() {
                     : 'Perangkat sedang offline. Pesanan aman tersimpan di ponsel.'}
               </p>
               {stale && (
-                <p className="text-[11px] font-semibold text-[#be1a1a] mt-1 leading-relaxed">
+                <p className="text-[11px] font-semibold text-brand mt-1 leading-relaxed">
                   {hoursLeft > 0
                     ? `Pesanan tertua sudah menunggu ${Math.floor(oldestHours)} jam. Cari sinyal dalam ${hoursLeft} jam ke depan — setelah itu server menolaknya dan penjualan ini tidak akan tercatat.`
                     : 'Pesanan tertua sudah melewati batas dua hari. Server akan menolaknya; catat penjualan ini ke admin secara manual.'}
@@ -75,9 +75,9 @@ export default function QueueStatus() {
       {rejected.length > 0 && (
         <div className="bg-red-50 border border-red-300 rounded-xl p-3">
           <div className="flex items-start gap-2.5">
-            <TriangleAlert className="w-4 h-4 text-[#be1a1a] shrink-0 mt-px" />
+            <TriangleAlert className="w-4 h-4 text-brand shrink-0 mt-px" />
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-bold text-[#be1a1a]">
+              <p className="text-xs font-bold text-brand">
                 {rejected.length} pesanan ditolak server
               </p>
               <p className="text-[11px] text-red-800/80 mt-0.5 leading-relaxed">
@@ -95,7 +95,7 @@ export default function QueueStatus() {
             <button
               onClick={() => { clearRejected(); refresh() }}
               title="Sudah dilaporkan ke admin"
-              className="text-red-400 hover:text-[#be1a1a] shrink-0 transition-colors"
+              className="text-red-400 hover:text-brand shrink-0 transition-colors"
             >
               <X className="w-3.5 h-3.5" />
             </button>
