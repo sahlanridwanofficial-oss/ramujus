@@ -247,3 +247,11 @@ pemindaian tabel penuh.
 | 3 | `driver_daily_summary` tidak ikut tercabut; pola nama di 0017 sengaja tidak menyentuh fungsi driver |
 | 4 | Kelima fungsi baru dari 0016 ikut tertutup, bukan terlewat |
 | 5 | Lapis kedua tetap ada: driver yang **sudah login** pun ditolak gerbang peran di dalam fungsi, bukan hanya oleh izin |
+
+### Tambahan 0019 — cup per jam per lokasi
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 4b | Laju dihitung dari cup **terukur** dibagi jam **terukur** — bukan cup total dibagi jam terukur, yang akan membuat titik dengan banyak kunjungan satu-pesanan terlihat jauh lebih ramai dari kenyataannya |
+| 4c | Titik yang hanya pernah menghasilkan satu pesanan mengembalikan **NULL**, bukan nol dan bukan tebakan. Cup-nya tetap dilaporkan penuh; yang tidak diketahui hanya lajunya |
+| 4d | Dua pesanan berjarak detik tidak meledakkan laju. Pada data produksi kasus ini menghasilkan 959 cup/jam dan akan menarik keputusan sewa ke tempat yang salah — sekarang kunjungan wajib terentang minimal 15 menit untuk ikut dihitung, dan tidak ada laju yang boleh melampaui batas fisik penyajian |

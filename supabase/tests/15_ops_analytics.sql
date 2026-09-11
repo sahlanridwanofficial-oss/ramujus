@@ -285,6 +285,102 @@ $$;
 
 -- ------------------------------------------------------------
 \echo ''
+\echo '=== 4b. Cup per JAM per lokasi dihitung dari kunjungan yang terukur ==='
+DO $$
+DECLARE v_today DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date;
+        rec RECORD;
+BEGIN
+  -- Kelompok tengah: 4 hari di jam 17 (masing-masing 1 pesanan), 2 hari di
+  -- jam 15 (1 pesanan), 1 pesanan di jam 12. Yang punya >= 2 pesanan dalam
+  -- satu hari: hari ini (jam 12, 15, 17) dan H-1 (jam 15, 17).
+  SELECT * INTO rec FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+   WHERE cluster_lat <= -6.285 AND cluster_lat > -6.31;
+
+  IF rec.cups_per_hour IS NULL THEN
+    RAISE EXCEPTION 'GAGAL: laju tidak terhitung padahal ada kunjungan berpesanan ganda';
+  END IF;
+  IF rec.measured_stops < 1 OR rec.measured_stops > rec.stops THEN
+    RAISE EXCEPTION 'GAGAL: measured_stops=% dari stops=%', rec.measured_stops, rec.stops;
+  END IF;
+  IF rec.hours_measured <= 0 THEN
+    RAISE EXCEPTION 'GAGAL: jam terukur = %', rec.hours_measured;
+  END IF;
+
+  -- Laju harus benar-benar cup terukur dibagi jam terukur, bukan cup total
+  -- dibagi jam terukur — kalau tertukar, titik dengan banyak kunjungan
+  -- satu-pesanan akan terlihat jauh lebih ramai dari kenyataannya.
+  IF abs(rec.cups_per_hour - round(rec.cups_measured::numeric / rec.hours_measured, 2)) > 0.01 THEN
+    RAISE EXCEPTION 'GAGAL: laju % tidak sama dengan %/% ',
+      rec.cups_per_hour, rec.cups_measured, rec.hours_measured;
+  END IF;
+
+  RAISE NOTICE 'OK: % cup/jam dari % kunjungan terukur (dari % kunjungan), % jam',
+    rec.cups_per_hour, rec.measured_stops, rec.stops, rec.hours_measured;
+END;
+$$;
+
+\echo ''
+\echo '=== 4c. Titik yang cuma sekali beli mengembalikan NULL, bukan angka karangan ==='
+DO $$
+DECLARE v_today DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date;
+        rec RECORD;
+BEGIN
+  -- Titik selatan: satu kunjungan, satu pesanan. Lama mangkalnya memang
+  -- tidak diketahui — dan itu harus terbaca sebagai tidak diketahui.
+  SELECT * INTO rec FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+   WHERE cluster_lat <= -6.31;
+
+  IF rec.cups_per_hour IS NOT NULL THEN
+    RAISE EXCEPTION 'GAGAL: laju dikarang jadi % padahal rentangnya nol', rec.cups_per_hour;
+  END IF;
+  IF rec.measured_stops <> 0 OR rec.hours_measured <> 0 THEN
+    RAISE EXCEPTION 'GAGAL: kunjungan terukur=%, jam=%', rec.measured_stops, rec.hours_measured;
+  END IF;
+  -- Cup-nya tetap dilaporkan penuh — yang tidak diketahui cuma lajunya.
+  IF rec.cups <> 5 OR rec.stops <> 1 THEN
+    RAISE EXCEPTION 'GAGAL: cup=%, kunjungan=%', rec.cups, rec.stops;
+  END IF;
+
+  RAISE NOTICE 'OK: laju NULL (bukan nol), cup tetap 5, kunjungan 1 — jujur bahwa lamanya tak diketahui';
+END;
+$$;
+
+\echo ''
+\echo '=== 4d. Dua pesanan berdekatan tidak boleh meledakkan laju ==='
+DO $$
+DECLARE v_today DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date;
+        rec RECORD;
+BEGIN
+  -- Kasus dari data produksi: dua pesanan berjarak 11 detik di satu titik.
+  -- Tanpa ambang bukti, 3 cup dibagi 0,003 jam = 959 cup/jam — dan titik
+  -- itu akan tampil sebagai yang terbaik, menarik keputusan sewa ke tempat
+  -- yang salah.
+  SELECT * INTO rec FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+   WHERE cluster_lat > -6.285;   -- Gerobak Dua: 2 pesanan, jam 11 dan 13
+
+  -- Kunjungan Gerobak Dua terentang 2 jam, jadi ia SAH dan harus terhitung.
+  IF rec.cups_per_hour IS NULL THEN
+    RAISE EXCEPTION 'GAGAL: kunjungan 2 jam seharusnya terukur';
+  END IF;
+  IF rec.cups_per_hour <> 6.0 THEN
+    RAISE EXCEPTION 'GAGAL: laju %, harusnya 12 cup / 2 jam = 6.0', rec.cups_per_hour;
+  END IF;
+
+  -- Tidak ada laju yang boleh melampaui batas fisik penyajian. Satu gerobak
+  -- dengan satu blender tidak mungkin menembus puluhan cup per jam; angka
+  -- seperti itu selalu berarti rentangnya yang salah, bukan penjualannya.
+  IF EXISTS (
+    SELECT 1 FROM public.admin_location_clusters(v_today - 3, v_today, 300)
+     WHERE cups_per_hour > 60
+  ) THEN
+    RAISE EXCEPTION 'GAGAL: ada titik dengan laju di atas 60 cup/jam — ambang buktinya bocor';
+  END IF;
+
+  RAISE NOTICE 'OK: kunjungan 2 jam terhitung 6.0 cup/jam, dan tidak ada laju mustahil';
+END;
+$$;
+
+\echo ''
 \echo '=== 5. Cup per JAM memisahkan lokasi bagus dari driver yang kerja lama ==='
 SELECT driver_name, days_worked, hours_worked, cups, cups_per_day, cups_per_hour
   FROM public.admin_cart_productivity(
