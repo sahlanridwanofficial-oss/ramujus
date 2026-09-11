@@ -209,7 +209,7 @@ export default function HandbookPage() {
       {/* Navigasi bab */}
       <nav
         aria-label="Daftar bab"
-        className="sticky top-14 lg:top-0 z-20 -mx-4 lg:-mx-7 px-4 lg:px-7 py-2.5 mb-8 bg-[#FAF9F6]/90 backdrop-blur-sm border-y border-zinc-200/80"
+        className="sticky top-14 lg:top-0 z-20 -mx-4 lg:-mx-7 px-4 lg:px-7 py-2.5 mb-8 bg-canvas/90 backdrop-blur-sm border-y border-zinc-200/80"
       >
         <div className="flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {CHAPTERS.map(({ id, num, title }) => (

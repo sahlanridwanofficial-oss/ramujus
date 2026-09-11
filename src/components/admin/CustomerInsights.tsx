@@ -191,7 +191,7 @@ export default function CustomerInsights({ days }: { days: number }) {
                 className="flex items-baseline gap-2 bg-zinc-50 border border-zinc-200/70 rounded-xl px-3 py-2"
               >
                 <span className="text-[11px] font-semibold text-zinc-600">{AGE_LABEL[age] ?? age}</span>
-                <span className="text-sm font-black text-brand tabular-nums">
+                <span className="text-sm font-extrabold text-brand tabular-nums">
                   {String(peak.hour).padStart(2, '0')}.00
                 </span>
                 <span className="text-[10px] text-zinc-400">{peak.orders} pesanan</span>

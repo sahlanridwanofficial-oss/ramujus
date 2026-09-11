@@ -9,7 +9,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-64 gap-2 text-zinc-400">
-        <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+        <Loader2 className="w-6 h-6 animate-spin text-brand" />
         <span className="text-xs">Memuat profil...</span>
       </div>
     )
@@ -18,18 +18,18 @@ export default function ProfilePage() {
   return (
     <div className="p-4 space-y-4">
       <div>
-        <h1 className="font-black text-xl text-zinc-900 tracking-tight">Profil Pengguna</h1>
+        <h1 className="font-extrabold text-xl text-zinc-900 tracking-tight">Profil Pengguna</h1>
         <p className="text-xs text-zinc-500 mt-0.5">Informasi akun operasional mitra</p>
       </div>
 
       {/* Driver Card Header */}
       <div className="bg-white rounded-3xl border border-zinc-200/80 p-6 text-center shadow-card">
-        <div className="w-16 h-16 bg-zinc-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 text-lg font-black shadow-card">
+        <div className="w-16 h-16 bg-zinc-900 text-white rounded-2xl flex items-center justify-center mx-auto mb-3 text-lg font-extrabold shadow-card">
           {user?.full_name?.charAt(0) || 'M'}
         </div>
         <h2 className="text-base font-bold text-zinc-900">{user?.full_name}</h2>
         <div className="flex items-center justify-center gap-2 mt-1">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-50 text-[#be1a1a] border border-red-100 rounded-full text-[11px] font-bold uppercase tracking-wider">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-red-50 text-brand border border-red-100 rounded-full text-[11px] font-bold uppercase tracking-wider">
             <Bike className="w-3 h-3" />
             Mitra {user?.role || 'Driver'}
           </span>
@@ -76,7 +76,7 @@ export default function ProfilePage() {
       {/* Logout Button */}
       <button
         onClick={signOut}
-        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-red-50 text-[#be1a1a] border border-red-200 font-semibold py-3 rounded-xl transition-all shadow-card text-xs"
+        className="w-full flex items-center justify-center gap-2 bg-white hover:bg-red-50 text-brand border border-red-200 font-semibold py-3 rounded-xl transition-all shadow-card text-xs"
       >
         <LogOut className="w-4 h-4" />
         <span>Keluar dari Akun</span>

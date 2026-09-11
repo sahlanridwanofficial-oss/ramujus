@@ -532,7 +532,7 @@ function InventoryContent() {
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-200/70">
         <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Manajemen Stok Gerobak</h1>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Manajemen Stok Gerobak</h1>
           <p className="text-xs text-zinc-500 mt-0.5">
             Alokasi muatan cup pagi hari dan audit rekonsiliasi sisa fisik & kas di malam hari.
           </p>
@@ -546,8 +546,8 @@ function InventoryContent() {
               Selesai Diaudit & Ditutup
             </span>
           ) : currentAllocation?.status === 'active' ? (
-            <span className="inline-flex items-center gap-1.5 text-xs bg-red-50 text-[#be1a1a] border border-red-100 px-3 py-1 rounded-full font-bold">
-              <span className="w-2 h-2 rounded-full bg-[#be1a1a] animate-pulse" />
+            <span className="inline-flex items-center gap-1.5 text-xs bg-red-50 text-brand border border-red-100 px-3 py-1 rounded-full font-bold">
+              <span className="w-2 h-2 rounded-full bg-brand animate-pulse" />
               Operasional Aktif di Jalan
             </span>
           ) : currentAllocation ? (
@@ -572,7 +572,7 @@ function InventoryContent() {
             <select
               value={selectedDriverId}
               onChange={(e) => setSelectedDriverId(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#be1a1a] transition-all"
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-brand transition-all"
             >
               {drivers.length === 0 ? (
                 <option value="">Tidak ada driver aktif</option>
@@ -596,7 +596,7 @@ function InventoryContent() {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-[#be1a1a] transition-all font-mono"
+              className="w-full bg-zinc-50 border border-zinc-200 rounded-xl px-3.5 py-2.5 text-xs font-bold text-zinc-800 focus:outline-none focus:border-brand transition-all font-mono"
             />
           </div>
         </div>
@@ -619,7 +619,7 @@ function InventoryContent() {
               onClick={() => setActiveTab('night')}
               className={`flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'night'
-                  ? 'bg-white text-[#be1a1a] shadow-card'
+                  ? 'bg-white text-brand shadow-card'
                   : 'text-zinc-500 hover:text-zinc-800'
               }`}
             >
@@ -636,13 +636,13 @@ function InventoryContent() {
           className={`p-4 rounded-xl border flex items-center gap-3 text-xs font-medium animate-in fade-in ${
             alertMessage.type === 'success'
               ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
-              : 'bg-red-50 border-red-200 text-[#be1a1a]'
+              : 'bg-red-50 border-red-200 text-brand'
           }`}
         >
           {alertMessage.type === 'success' ? (
             <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
           ) : (
-            <AlertCircle className="w-4 h-4 shrink-0 text-[#be1a1a]" />
+            <AlertCircle className="w-4 h-4 shrink-0 text-brand" />
           )}
           <span>{alertMessage.text}</span>
         </div>
@@ -651,7 +651,7 @@ function InventoryContent() {
       {/* Main Content Area */}
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 gap-2 text-zinc-400">
-          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand" />
           <span className="text-xs">Memuat alokasi gerobak...</span>
         </div>
       ) : (
@@ -664,7 +664,7 @@ function InventoryContent() {
               {/* Morning Summary Banner */}
               <div className="bg-gradient-to-r from-red-50/80 via-white to-zinc-50 rounded-2xl border border-red-100 p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-card">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#be1a1a] text-white flex items-center justify-center shrink-0">
+                  <div className="w-10 h-10 rounded-xl bg-brand text-white flex items-center justify-center shrink-0">
                     <Sun className="w-5 h-5" />
                   </div>
                   <div>
@@ -680,7 +680,7 @@ function InventoryContent() {
                 <div className="flex items-center gap-4 bg-white px-4 py-2 rounded-xl border border-zinc-200/80">
                   <div>
                     <span className="text-[10px] uppercase font-bold text-zinc-400 block">Total Muatan</span>
-                    <span className="text-lg font-black text-[#be1a1a]">{totalInitialCups} Cup</span>
+                    <span className="text-lg font-extrabold text-brand">{totalInitialCups} Cup</span>
                     {hasAddonActivity && (
                       <span className="text-[10px] text-zinc-500 font-semibold block leading-tight">
                         + {totalInitialAddons} topping/add-on
@@ -690,7 +690,7 @@ function InventoryContent() {
                   <button
                     onClick={handleSaveMorningAllocation}
                     disabled={saving || isReconciled || !hasUnsavedChanges}
-                    className="flex items-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 bg-brand hover:bg-[#a61515] text-white px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                     <span>{hasUnsavedChanges ? 'Simpan Perubahan' : 'Tersimpan'}</span>
@@ -742,17 +742,17 @@ function InventoryContent() {
                           <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 bg-zinc-100 px-2 py-0.5 rounded-full">
                             {p.category}
                           </span>
-                          <h4 className="font-black text-zinc-900 text-sm mt-1">{p.name}</h4>
-                          <p className="text-xs font-mono text-[#be1a1a] font-semibold">{formatRupiah(p.price)}</p>
-                          <p className={`text-[10px] font-semibold mt-0.5 ${p.stock_quantity <= 0 ? 'text-[#be1a1a]' : 'text-zinc-400'}`}>
+                          <h4 className="font-extrabold text-zinc-900 text-sm mt-1">{p.name}</h4>
+                          <p className="text-xs font-mono text-brand font-semibold">{formatRupiah(p.price)}</p>
+                          <p className={`text-[10px] font-semibold mt-0.5 ${p.stock_quantity <= 0 ? 'text-brand' : 'text-zinc-400'}`}>
                             Stok pusat: {p.stock_quantity} cup
                           </p>
                         </div>
                         <div className="text-right">
                           <span className="text-[11px] text-zinc-400 block">Muat</span>
-                          <span className="text-xl font-black text-zinc-900">{item.initial_quantity}</span>
+                          <span className="text-xl font-extrabold text-zinc-900">{item.initial_quantity}</span>
                           {delta !== 0 && (
-                            <span className={`block text-[10px] font-bold ${delta > 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
+                            <span className={`block text-[10px] font-bold ${delta > 0 ? 'text-emerald-600' : 'text-brand'}`}>
                               {delta > 0 ? '+' : ''}{delta} belum disimpan
                             </span>
                           )}
@@ -764,15 +764,15 @@ function InventoryContent() {
                         <div className="grid grid-cols-3 gap-1 text-center bg-zinc-50/70 rounded-lg py-1.5 border border-zinc-100">
                           <div>
                             <span className="block text-[9px] text-zinc-400 uppercase font-bold">Tersimpan</span>
-                            <span className="text-xs font-black text-zinc-800">{saved}</span>
+                            <span className="text-xs font-extrabold text-zinc-800">{saved}</span>
                           </div>
                           <div className="border-x border-zinc-200/70">
                             <span className="block text-[9px] text-zinc-400 uppercase font-bold">Terjual</span>
-                            <span className="text-xs font-black text-[#be1a1a]">{sold}</span>
+                            <span className="text-xs font-extrabold text-brand">{sold}</span>
                           </div>
                           <div>
                             <span className="block text-[9px] text-zinc-400 uppercase font-bold">Sisa</span>
-                            <span className="text-xs font-black text-emerald-700">{remaining}</span>
+                            <span className="text-xs font-extrabold text-emerald-700">{remaining}</span>
                           </div>
                         </div>
                       )}
@@ -786,7 +786,7 @@ function InventoryContent() {
                             disabled={isReconciled}
                             value={item.initial_quantity}
                             onChange={(e) => setInitialQtyDirect(p.id, parseInt(e.target.value))}
-                            className="w-20 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#be1a1a] disabled:opacity-50"
+                            className="w-20 bg-zinc-50 border border-zinc-200 rounded-lg px-2.5 py-1.5 text-center text-xs font-bold text-zinc-900 focus:outline-none focus:border-brand disabled:opacity-50"
                           />
                           <button
                             type="button"
@@ -841,7 +841,7 @@ function InventoryContent() {
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Total Penjualan POS
                   </span>
-                  <p className="text-xl font-black text-zinc-900 tracking-tight">
+                  <p className="text-xl font-extrabold text-zinc-900 tracking-tight">
                     {formatRupiah(ordersSummary.total_sales)}
                   </p>
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">{ordersSummary.order_count} transaksi</span>
@@ -851,7 +851,7 @@ function InventoryContent() {
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Penerimaan Tunai (Cash)
                   </span>
-                  <p className="text-xl font-black text-emerald-700 tracking-tight">
+                  <p className="text-xl font-extrabold text-emerald-700 tracking-tight">
                     {formatRupiah(ordersSummary.cash_sales)}
                   </p>
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">Harus disetor driver</span>
@@ -861,7 +861,7 @@ function InventoryContent() {
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Penerimaan QRIS
                   </span>
-                  <p className="text-xl font-black text-[#be1a1a] tracking-tight">
+                  <p className="text-xl font-extrabold text-brand tracking-tight">
                     {formatRupiah(ordersSummary.qris_sales)}
                   </p>
                   <span className="text-[10px] text-zinc-400 mt-0.5 block">Langsung masuk rekening</span>
@@ -871,11 +871,11 @@ function InventoryContent() {
                   <span className="text-[11px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Status Selisih Fisik
                   </span>
-                  <p className={`text-xl font-black tracking-tight ${cupVariance === 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
+                  <p className={`text-xl font-extrabold tracking-tight ${cupVariance === 0 ? 'text-emerald-600' : 'text-brand'}`}>
                     {cupVariance === 0 ? '0 Cup (Cocok)' : `${cupVariance > 0 ? '+' : ''}${cupVariance} Cup`}
                   </p>
                   {hasAddonActivity && (
-                    <p className={`text-xs font-bold ${addonVariance === 0 ? 'text-emerald-600' : 'text-[#be1a1a]'}`}>
+                    <p className={`text-xs font-bold ${addonVariance === 0 ? 'text-emerald-600' : 'text-brand'}`}>
                       {addonVariance === 0
                         ? '0 topping/add-on (Cocok)'
                         : `${addonVariance > 0 ? '+' : ''}${addonVariance} topping/add-on`}
@@ -945,7 +945,7 @@ function InventoryContent() {
                             <td className="py-3 px-3 text-center font-mono font-bold text-zinc-700">
                               {item.initial_quantity}
                             </td>
-                            <td className="py-3 px-3 text-center font-mono font-bold text-[#be1a1a]">
+                            <td className="py-3 px-3 text-center font-mono font-bold text-brand">
                               {item.sold_quantity}
                             </td>
                             <td className="py-3 px-3 text-center font-mono text-zinc-500">
@@ -1043,14 +1043,14 @@ function InventoryContent() {
                         min={0}
                         value={cashSettledInput}
                         onChange={(e) => setCashSettledInput(parseInt(e.target.value) || 0)}
-                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-900 focus:outline-none focus:border-[#be1a1a] font-mono"
+                        className="w-full pl-10 pr-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs font-bold text-zinc-900 focus:outline-none focus:border-brand font-mono"
                       />
                     </div>
                     <div className="mt-1 text-[11px]">
                       {cashVariance === 0 ? (
                         <span className="text-emerald-600 font-bold">✓ Setoran tunai pas sesuai sistem</span>
                       ) : cashVariance < 0 ? (
-                        <span className="text-[#be1a1a] font-bold">
+                        <span className="text-brand font-bold">
                           Kurang setor: {formatRupiah(Math.abs(cashVariance))}
                         </span>
                       ) : (
@@ -1068,16 +1068,16 @@ function InventoryContent() {
                       placeholder="Contoh: 1 cup mangga bocor di jalan, sisa kondisi dingin dan aman"
                       value={auditNotes}
                       onChange={(e) => setAuditNotes(e.target.value)}
-                      className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs text-zinc-800 focus:outline-none focus:border-[#be1a1a]"
+                      className="w-full px-3.5 py-2.5 rounded-xl border border-zinc-200 text-xs text-zinc-800 focus:outline-none focus:border-brand"
                     />
                   </div>
                 </div>
 
                 {impossibleItems.length > 0 && (
                   <div role="alert" className="flex items-start gap-3 p-3.5 bg-red-50 border border-red-300 rounded-2xl">
-                    <TriangleAlert className="w-5 h-5 text-[#be1a1a] shrink-0 mt-px" />
+                    <TriangleAlert className="w-5 h-5 text-brand shrink-0 mt-px" />
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-bold text-[#be1a1a]">
+                      <p className="text-xs font-bold text-brand">
                         {impossibleItems.length} produk angkanya tidak mungkin — audit belum bisa dikunci
                       </p>
                       <p className="text-[11px] text-red-900/85 mt-0.5 leading-relaxed">
@@ -1147,7 +1147,7 @@ function InventoryContent() {
                       type="button"
                       onClick={() => handleSaveEveningAudit(true)}
                       disabled={saving || isReconciled || impossibleItems.length > 0}
-                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-40"
+                      className="flex-1 sm:flex-none flex items-center justify-center gap-2 bg-brand hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 disabled:opacity-40"
                     >
                       {saving ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1172,7 +1172,7 @@ export default function InventoryPage() {
     <Suspense
       fallback={
         <div className="flex flex-col items-center justify-center h-64 gap-2 text-zinc-400">
-          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand" />
           <span className="text-xs">Memuat modul stok gerobak...</span>
         </div>
       }

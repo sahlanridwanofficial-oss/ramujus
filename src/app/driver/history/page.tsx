@@ -72,7 +72,7 @@ export default function HistoryPage() {
     <div className="p-4 space-y-4">
       {/* Header */}
       <div>
-        <h1 className="font-black text-xl text-zinc-900 tracking-tight">Riwayat Penjualan</h1>
+        <h1 className="font-extrabold text-xl text-zinc-900 tracking-tight">Riwayat Penjualan</h1>
         <p className="text-xs text-zinc-500 mt-0.5">Daftar transaksi penjualan unit gerobak</p>
       </div>
 
@@ -93,7 +93,7 @@ export default function HistoryPage() {
           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">
             Total Omzet
           </span>
-          <p className="text-xl font-black text-zinc-900 tracking-tight">
+          <p className="text-xl font-extrabold text-zinc-900 tracking-tight">
             {formatRupiah(totalRevenue)}
           </p>
         </div>
@@ -101,7 +101,7 @@ export default function HistoryPage() {
           <span className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider block mb-0.5">
             Cup Terjual
           </span>
-          <p className="text-xl font-black text-[#be1a1a] tracking-tight">
+          <p className="text-xl font-extrabold text-brand tracking-tight">
             {totalCups} <span className="text-xs font-medium text-zinc-500">cup</span>
           </p>
           <span className="text-[11px] text-zinc-400">{orders.length} transaksi</span>
@@ -111,7 +111,7 @@ export default function HistoryPage() {
       {/* Orders List */}
       {loading ? (
         <div className="flex flex-col items-center justify-center h-48 text-zinc-400 gap-2">
-          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand" />
           <span className="text-xs">Memuat riwayat transaksi...</span>
         </div>
       ) : orders.length === 0 ? (
@@ -154,7 +154,7 @@ export default function HistoryPage() {
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-sm text-zinc-900">
+                  <span className="font-extrabold text-sm text-zinc-900">
                     {formatRupiah(order.total_amount)}
                   </span>
                   <ChevronRight className={`w-4 h-4 text-zinc-400 transition-transform duration-200 ${

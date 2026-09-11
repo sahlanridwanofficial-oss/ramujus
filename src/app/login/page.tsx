@@ -134,7 +134,7 @@ function LoginForm() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="nama@ramu.id"
                 required
-                className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a] focus:bg-white transition-all text-zinc-900 placeholder:text-zinc-400"
+                className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand focus:bg-white transition-all text-zinc-900 placeholder:text-zinc-400"
               />
             </div>
 
@@ -151,7 +151,7 @@ function LoginForm() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#be1a1a]/20 focus:border-[#be1a1a] focus:bg-white transition-all text-zinc-900 placeholder:text-zinc-400 pr-10"
+                  className="w-full px-3.5 py-2.5 bg-zinc-50/50 border border-zinc-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand/20 focus:border-brand focus:bg-white transition-all text-zinc-900 placeholder:text-zinc-400 pr-10"
                 />
                 <button
                   type="button"
@@ -168,7 +168,7 @@ function LoginForm() {
             </div>
 
             {error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-[#be1a1a] font-medium leading-relaxed">
+              <div className="p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-brand font-medium leading-relaxed">
                 {error}
               </div>
             )}
@@ -176,7 +176,7 @@ function LoginForm() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.99] text-white font-semibold py-3 px-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm shadow-red-900/20 mt-2"
+              className="w-full bg-brand hover:bg-[#a61515] active:scale-[0.99] text-white font-semibold py-3 px-4 rounded-xl transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm shadow-red-900/20 mt-2"
             >
               {loading ? (
                 <>
@@ -211,7 +211,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="min-h-screen bg-[#FBFBFB] flex items-center justify-center">
-          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand" />
         </div>
       }
     >

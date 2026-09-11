@@ -34,7 +34,49 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground antialiased selection:bg-red-500 selection:text-white;
+    @apply bg-canvas text-foreground antialiased;
+    /* Blok teks lebih tenang dibaca saat huruf tidak saling menempel. */
+    letter-spacing: -0.006em;
+  }
+  ::selection {
+    background: #be1a1a;
+    color: #fff;
+  }
+
+  /*
+   * Judul memakai Baloo 2, teks memakai Plus Jakarta Sans — Bab 05 Brand
+   * Handbook. Sengaja hanya h1 dan h2: Baloo 2 bertubuh bulat dan tebal,
+   * dan pada judul kecil yang bertumpuk ia membuat halaman terasa berat.
+   * Judul yang lebih kecil tetap di huruf teks, dibedakan lewat bobot.
+   */
+  h1, h2 {
+    font-family: var(--font-baloo), var(--font-jakarta), sans-serif;
+    letter-spacing: -0.022em;
+    text-wrap: balance;
+  }
+
+  /*
+   * Angka pada tabel dan kartu harus selebar sama, kalau tidak kolomnya
+   * bergoyang setiap kali nilainya berubah — terasa sekali di dashboard
+   * yang menyegarkan diri sendiri.
+   */
+  th, td, time, [data-numeric] {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Fokus papan ketik harus terlihat, termasuk saat diketuk dari tab. */
+  :focus-visible {
+    outline: 2px solid #be1a1a;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
 

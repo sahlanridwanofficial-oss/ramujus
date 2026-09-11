@@ -274,7 +274,7 @@ export default function AnalyticsPage() {
       <div className="flex flex-col gap-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Analitik Performa</h1>
+            <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Analitik Performa</h1>
             <p className="text-xs text-zinc-500 mt-0.5">
               Penjualan per tanggal, per hari, dan per jam — kalender WIB.
             </p>
@@ -340,7 +340,7 @@ export default function AnalyticsPage() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 gap-2 text-zinc-400">
-          <Loader2 className="w-6 h-6 animate-spin text-[#be1a1a]" />
+          <Loader2 className="w-6 h-6 animate-spin text-brand" />
           <span className="text-xs">Menganalisis data penjualan...</span>
         </div>
       ) : (
@@ -352,7 +352,7 @@ export default function AnalyticsPage() {
               value={formatRupiah(totals.revenue)}
               sub={`${totals.activeDays} dari ${rows.length} hari ada transaksi`}
               icon={TrendingUp}
-              accent="bg-red-50 text-[#be1a1a]"
+              accent="bg-red-50 text-brand"
             />
             <SummaryCard
               label="Total Cup Terjual"
@@ -415,7 +415,7 @@ export default function AnalyticsPage() {
                           <div className="flex-1 min-w-0 bg-zinc-100 rounded-lg h-7 relative overflow-hidden flex items-center px-3">
                             <div
                               className={`absolute left-0 top-0 bottom-0 rounded-lg transition-all duration-500 ${
-                                r.revenue > 0 ? 'bg-[#be1a1a] opacity-90' : 'bg-zinc-200'
+                                r.revenue > 0 ? 'bg-brand opacity-90' : 'bg-zinc-200'
                               }`}
                               style={{ width: `${r.revenue > 0 ? Math.max(percentage, 6) : 100}%` }}
                             />
@@ -427,7 +427,7 @@ export default function AnalyticsPage() {
                           </div>
 
                           <div className="w-28 shrink-0 text-right">
-                            <p className="text-xs font-black text-zinc-900">{r.cups} cup</p>
+                            <p className="text-xs font-extrabold text-zinc-900">{r.cups} cup</p>
                             <p className="text-[10px] text-zinc-400 font-medium">{r.orders} transaksi</p>
                           </div>
 
@@ -460,7 +460,7 @@ export default function AnalyticsPage() {
                               <Loader2 className="w-3.5 h-3.5 animate-spin" /> Memuat rincian jam...
                             </div>
                           ) : hourlyError ? (
-                            <p className="text-[11px] text-[#be1a1a] font-semibold py-2">{hourlyError}</p>
+                            <p className="text-[11px] text-brand font-semibold py-2">{hourlyError}</p>
                           ) : hourly.every(h => h.orders === 0) ? (
                             <p className="text-[11px] text-zinc-400 py-2">Tidak ada transaksi sepanjang hari ini.</p>
                           ) : (
@@ -469,7 +469,7 @@ export default function AnalyticsPage() {
                                 <div key={h.hour} className="flex-1 flex flex-col items-center justify-end gap-1 group">
                                   <div
                                     className={`w-full rounded-t transition-all ${
-                                      h.orders > 0 ? 'bg-[#be1a1a]/85 group-hover:bg-[#be1a1a]' : 'bg-zinc-200'
+                                      h.orders > 0 ? 'bg-brand/85 group-hover:bg-brand' : 'bg-zinc-200'
                                     }`}
                                     style={{ height: `${Math.max(Math.round((h.revenue / maxHourRevenue) * 100), h.orders > 0 ? 8 : 2)}%` }}
                                     title={`${String(h.hour).padStart(2, '0')}.00 WIB — ${h.cups} cup · ${h.orders} transaksi · ${formatRupiah(h.revenue)}`}
@@ -556,7 +556,7 @@ export default function AnalyticsPage() {
               <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
                 <div className="px-6 py-4 border-b border-zinc-100 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-[#be1a1a]" />
+                    <Award className="w-4 h-4 text-brand" />
                     <h2 className="font-bold text-sm text-zinc-900">Analitik Menu · {rangeLabel}</h2>
                   </div>
                   <span className="text-[11px] font-semibold text-zinc-400">
@@ -571,7 +571,7 @@ export default function AnalyticsPage() {
                     const mati = m.qty_sold === 0
                     const trendCls =
                       trend.tone === 'naik' ? 'text-emerald-700 bg-emerald-50 border-emerald-200'
-                      : trend.tone === 'turun' ? 'text-[#be1a1a] bg-red-50 border-red-200'
+                      : trend.tone === 'turun' ? 'text-brand bg-red-50 border-red-200'
                       : trend.tone === 'baru' ? 'text-blue-700 bg-blue-50 border-blue-200'
                       : trend.tone === 'henti' ? 'text-amber-800 bg-amber-50 border-amber-200'
                       : 'text-zinc-400 bg-zinc-50 border-zinc-200'
@@ -579,9 +579,9 @@ export default function AnalyticsPage() {
                     return (
                       <div key={m.product_id} className={`px-4 sm:px-6 py-3.5 ${mati ? 'bg-zinc-50/60' : ''}`}>
                         <div className="flex items-center gap-3">
-                          <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
+                          <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold shrink-0 ${
                             mati ? 'bg-zinc-100 text-zinc-400' :
-                            i === 0 ? 'bg-[#be1a1a] text-white shadow-card' :
+                            i === 0 ? 'bg-brand text-white shadow-card' :
                             i === 1 ? 'bg-zinc-800 text-white' :
                             i === 2 ? 'bg-zinc-200 text-zinc-800' :
                             'bg-zinc-100 text-zinc-400'
@@ -610,7 +610,7 @@ export default function AnalyticsPage() {
                             <div className="flex items-center gap-2 mt-1.5">
                               <div className="flex-1 h-1.5 bg-zinc-100 rounded-full overflow-hidden max-w-[16rem]">
                                 <div
-                                  className={`h-full rounded-full ${mati ? 'bg-zinc-200' : 'bg-[#be1a1a]'}`}
+                                  className={`h-full rounded-full ${mati ? 'bg-zinc-200' : 'bg-brand'}`}
                                   style={{ width: `${Math.max(m.revenue_share, m.revenue > 0 ? 2 : 0)}%` }}
                                 />
                               </div>
@@ -627,7 +627,7 @@ export default function AnalyticsPage() {
                           </div>
 
                           <div className="text-right shrink-0">
-                            <p className={`text-sm font-black tracking-tight ${mati ? 'text-zinc-400' : 'text-zinc-900'}`}>
+                            <p className={`text-sm font-extrabold tracking-tight ${mati ? 'text-zinc-400' : 'text-zinc-900'}`}>
                               {formatRupiah(m.revenue)}
                             </p>
                             <span className={`inline-block mt-1 text-[10px] font-bold px-1.5 py-0.5 rounded border ${trendCls}`}>
@@ -646,7 +646,7 @@ export default function AnalyticsPage() {
                biasa tetap ditampilkan supaya halaman ini tidak kosong. */
             <div className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
               <div className="px-6 py-4 border-b border-zinc-100 flex items-center gap-2">
-                <Award className="w-4 h-4 text-[#be1a1a]" />
+                <Award className="w-4 h-4 text-brand" />
                 <h2 className="font-bold text-sm text-zinc-900">Peringkat Menu · {rangeLabel}</h2>
               </div>
               <div className="divide-y divide-zinc-100">
@@ -657,7 +657,7 @@ export default function AnalyticsPage() {
                 ) : topProducts.map((p, i) => (
                   <div key={`${p.name}-${i}`} className="px-6 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black bg-zinc-100 text-zinc-500">
+                      <span className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-extrabold bg-zinc-100 text-zinc-500">
                         {i + 1}
                       </span>
                       <div>
@@ -667,7 +667,7 @@ export default function AnalyticsPage() {
                         </p>
                       </div>
                     </div>
-                    <p className="text-sm font-black text-zinc-900 tracking-tight">{formatRupiah(p.revenue)}</p>
+                    <p className="text-sm font-extrabold text-zinc-900 tracking-tight">{formatRupiah(p.revenue)}</p>
                   </div>
                 ))}
               </div>
@@ -702,7 +702,7 @@ function SummaryCard({
           <Icon strokeWidth={2} className="w-4 h-4" />
         </div>
       </div>
-      <p className="text-2xl font-black text-zinc-900 tracking-tight">{value}</p>
+      <p className="text-2xl font-extrabold text-zinc-900 tracking-tight">{value}</p>
       <span className="text-[11px] text-zinc-400 mt-1 block">{sub}</span>
     </div>
   )

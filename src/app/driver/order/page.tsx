@@ -395,11 +395,11 @@ export default function OrderPage() {
           {queuedOffline ? 'Tersimpan di Perangkat' : 'Pesanan Berhasil Disimpan'}
         </span>
 
-        <h2 className="text-2xl font-black text-zinc-900 tracking-tight">
+        <h2 className="text-2xl font-extrabold text-zinc-900 tracking-tight">
           {orderNumber}
         </h2>
 
-        <p className="text-xl font-bold text-[#be1a1a] mt-1 font-mono">
+        <p className="text-xl font-bold text-brand mt-1 font-mono">
           {formatRupiah(lastOrderAmount)}
         </p>
 
@@ -416,7 +416,7 @@ export default function OrderPage() {
               setOrderNumber('')
               setQueuedOffline(false)
             }}
-            className="flex items-center justify-center gap-2 bg-[#be1a1a] hover:bg-[#a61515] active:scale-[0.98] text-white py-3 px-4 rounded-xl text-xs font-bold transition-all shadow-md shadow-red-900/15"
+            className="flex items-center justify-center gap-2 bg-brand hover:bg-[#a61515] active:scale-[0.98] text-white py-3 px-4 rounded-xl text-xs font-bold transition-all shadow-md shadow-red-900/15"
           >
             <Plus strokeWidth={2.5} className="w-4 h-4" />
             <span>Buat Pesanan Baru Lagi</span>
@@ -446,7 +446,7 @@ export default function OrderPage() {
         </p>
         <Link
           href="/driver/dashboard"
-          className="mt-6 bg-[#be1a1a] hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 inline-flex items-center gap-2"
+          className="mt-6 bg-brand hover:bg-[#a61515] text-white px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm shadow-red-900/15 inline-flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Buka Beranda & Mulai Shift</span>
@@ -458,7 +458,7 @@ export default function OrderPage() {
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center h-72 gap-2 text-zinc-400">
-        <Loader2 className="w-7 h-7 animate-spin text-[#be1a1a]" />
+        <Loader2 className="w-7 h-7 animate-spin text-brand" />
         <span className="text-xs">Memuat katalog menu & stok gerobak...</span>
       </div>
     )
@@ -499,14 +499,14 @@ export default function OrderPage() {
           {cart.length > 0 && (
             <div className="text-right">
               <span className="text-[10px] text-zinc-400 font-medium block uppercase">Total Sementara</span>
-              <span className="text-sm font-bold text-[#be1a1a]">{formatRupiah(totalAmount)}</span>
+              <span className="text-sm font-bold text-brand">{formatRupiah(totalAmount)}</span>
             </div>
           )}
         </div>
 
         {/* Warning alert if stock limit reached */}
         {stockWarning && (
-          <div className="mt-2.5 p-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-[11px] text-[#be1a1a] font-medium animate-in fade-in">
+          <div className="mt-2.5 p-2 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-[11px] text-brand font-medium animate-in fade-in">
             <AlertCircle className="w-3.5 h-3.5 shrink-0" />
             <span>{stockWarning}</span>
           </div>
@@ -516,7 +516,7 @@ export default function OrderPage() {
         {submitError && (
           <div
             role="alert"
-            className="mt-2.5 p-2.5 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-[11px] text-[#be1a1a] font-semibold animate-in fade-in"
+            className="mt-2.5 p-2.5 bg-red-50 border border-red-300 rounded-xl flex items-start gap-2 text-[11px] text-brand font-semibold animate-in fade-in"
           >
             <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-px" />
             <span className="leading-relaxed">{submitError}</span>
@@ -563,7 +563,7 @@ export default function OrderPage() {
                 key={product.id}
                 className={`bg-white rounded-2xl border p-4 transition-all ${
                   qty > 0
-                    ? 'border-[#be1a1a] ring-1 ring-[#be1a1a]/20 shadow-card'
+                    ? 'border-brand ring-1 ring-brand/20 shadow-card'
                     : 'border-zinc-200/80 shadow-card'
                 }`}
               >
@@ -585,7 +585,7 @@ export default function OrderPage() {
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                               : remainingQuota > 0
                               ? 'bg-amber-50 text-amber-800 border border-amber-200'
-                              : 'bg-red-50 text-[#be1a1a] border border-red-200'
+                              : 'bg-red-50 text-brand border border-red-200'
                           }`}
                         >
                           {remainingQuota > 0 ? `Sisa di Cart: ${remainingQuota}` : 'Habis di Gerobak'}
@@ -598,7 +598,7 @@ export default function OrderPage() {
                         {product.description}
                       </p>
                     )}
-                    <p className="text-sm font-black text-[#be1a1a] mt-2">
+                    <p className="text-sm font-extrabold text-brand mt-2">
                       {formatRupiah(product.price)}
                     </p>
                   </div>
@@ -633,7 +633,7 @@ export default function OrderPage() {
                           className={`w-8 h-8 rounded-lg text-white flex items-center justify-center shadow-card transition-all ${
                             isTracked && qty >= remainingQuota
                               ? 'bg-zinc-300 cursor-not-allowed'
-                              : 'bg-[#be1a1a] hover:bg-[#a61515] active:scale-90'
+                              : 'bg-brand hover:bg-[#a61515] active:scale-90'
                           }`}
                         >
                           <Plus className="w-3.5 h-3.5" />
@@ -658,7 +658,7 @@ export default function OrderPage() {
               <span className="text-xs font-semibold text-zinc-500">
                 {totalItems} item dipilih
               </span>
-              <span className="text-sm font-black text-zinc-900 font-mono tracking-tight">
+              <span className="text-sm font-extrabold text-zinc-900 font-mono tracking-tight">
                 {formatRupiah(totalAmount)}
               </span>
             </div>
@@ -716,7 +716,7 @@ export default function OrderPage() {
                 )}
                 <span>{submitting ? 'Memproses Pesanan...' : 'Simpan Transaksi'}</span>
               </div>
-              <span className="text-sm font-black font-mono">{formatRupiah(totalAmount)}</span>
+              <span className="text-sm font-extrabold font-mono">{formatRupiah(totalAmount)}</span>
             </button>
           </div>
         </div>

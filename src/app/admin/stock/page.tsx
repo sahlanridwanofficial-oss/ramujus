@@ -24,7 +24,7 @@ type StatusFilter = 'all' | 'low' | 'out'
 const STATUS_BADGE: Record<StockOverviewRow['status'], { label: string; cls: string }> = {
   ok: { label: 'Aman', cls: 'text-emerald-700 bg-emerald-50 border-emerald-200' },
   low: { label: 'Menipis', cls: 'text-amber-700 bg-amber-50 border-amber-200' },
-  out: { label: 'Habis', cls: 'text-[#be1a1a] bg-red-50 border-red-200' },
+  out: { label: 'Habis', cls: 'text-brand bg-red-50 border-red-200' },
 }
 
 const REASON_LABEL: Record<StockMovement['reason'], string> = {
@@ -161,7 +161,7 @@ export default function StockPage() {
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-black text-zinc-900 tracking-tight">Inventori Stok Produk</h1>
+          <h1 className="text-2xl font-extrabold text-zinc-900 tracking-tight">Inventori Stok Produk</h1>
           <p className="text-xs text-zinc-500 mt-0.5">
             Stok cup tersegel per produk di base. Muat gerobak mengurangi stok ini, dan sisa
             yang diseal ulang mengembalikannya saat audit malam dikunci.
@@ -169,7 +169,7 @@ export default function StockPage() {
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {counts.out > 0 && (
-            <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full text-xs font-bold text-[#be1a1a]">
+            <span className="inline-flex items-center gap-1.5 bg-red-50 border border-red-200 px-3 py-1.5 rounded-full text-xs font-bold text-brand">
               <PackageX className="w-3.5 h-3.5" />{counts.out} habis
             </span>
           )}
@@ -213,7 +213,7 @@ export default function StockPage() {
       )}
 
       {error && (
-        <div role="alert" className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-center gap-2 text-xs text-[#be1a1a] font-semibold">
+        <div role="alert" className="p-3 bg-red-50 border border-red-300 rounded-xl flex items-center gap-2 text-xs text-brand font-semibold">
           <TriangleAlert className="w-4 h-4 shrink-0" />{error}
         </div>
       )}
@@ -269,7 +269,7 @@ export default function StockPage() {
               <div className="flex items-end justify-between mt-3">
                 <div>
                   <span className="text-[10px] text-zinc-400 uppercase font-bold tracking-wider block">Stok saat ini</span>
-                  <span className="text-2xl font-black text-zinc-900 tracking-tight">{row.stock_quantity}</span>
+                  <span className="text-2xl font-extrabold text-zinc-900 tracking-tight">{row.stock_quantity}</span>
                   <span className="text-xs text-zinc-500 font-medium"> cup</span>
                 </div>
                 <div className="text-right text-[11px] text-zinc-400">
@@ -344,13 +344,13 @@ export default function StockPage() {
 
             {mode === 'opname' && amount !== '' && !isNaN(parseInt(amount, 10)) && (
               <p className="text-[11px] text-zinc-500 mt-2">
-                Selisih: <span className={`font-bold ${parseInt(amount, 10) - active.stock_quantity < 0 ? 'text-[#be1a1a]' : 'text-emerald-700'}`}>
+                Selisih: <span className={`font-bold ${parseInt(amount, 10) - active.stock_quantity < 0 ? 'text-brand' : 'text-emerald-700'}`}>
                   {parseInt(amount, 10) - active.stock_quantity > 0 ? '+' : ''}{parseInt(amount, 10) - active.stock_quantity} cup
                 </span>
               </p>
             )}
 
-            {actionError && <p className="text-[11px] text-[#be1a1a] font-semibold mt-2">{actionError}</p>}
+            {actionError && <p className="text-[11px] text-brand font-semibold mt-2">{actionError}</p>}
 
             <button
               onClick={submitAction}
@@ -384,7 +384,7 @@ export default function StockPage() {
                       <div className="flex items-center gap-1.5">
                         {m.delta >= 0
                           ? <ArrowUp className="w-3 h-3 text-emerald-600 shrink-0" />
-                          : <ArrowDown className="w-3 h-3 text-[#be1a1a] shrink-0" />}
+                          : <ArrowDown className="w-3 h-3 text-brand shrink-0" />}
                         <span className="text-xs font-semibold text-zinc-800">{REASON_LABEL[m.reason]}</span>
                       </div>
                       {m.note && <p className="text-[10px] text-zinc-400 truncate mt-0.5 pl-4">{m.note}</p>}
@@ -393,7 +393,7 @@ export default function StockPage() {
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <span className={`text-sm font-black ${m.delta >= 0 ? 'text-emerald-700' : 'text-[#be1a1a]'}`}>
+                      <span className={`text-sm font-extrabold ${m.delta >= 0 ? 'text-emerald-700' : 'text-brand'}`}>
                         {m.delta > 0 ? '+' : ''}{m.delta}
                       </span>
                       <p className="text-[10px] text-zinc-400">sisa {m.balance_after}</p>
