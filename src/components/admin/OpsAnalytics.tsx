@@ -47,7 +47,16 @@ interface ClusterRow {
   cups_per_active_day: number
   best_hour: number | null
   revenue_share: number
+  /** Seberapa rapat pesanannya, dalam meter. Besar = itu perjalanan, bukan titik. */
+  spread_meters: number
 }
+
+/**
+ * Di atas jarak ini, sebuah kelompok bukan titik mangkal melainkan ruas
+ * yang dilewati — dan satu pin peta tidak mewakilinya, betapa pun benar
+ * titik tengahnya dihitung.
+ */
+const SPREAD_IS_A_ROUTE_M = 150
 
 interface CartRow {
   driver_id: string
@@ -293,13 +302,25 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                   <span className="text-xs text-zinc-500">cup / hari</span>
                 </div>
                 <p className="mt-1 text-[11px] text-zinc-400 tabular-nums">
-                  {verdict.best.cluster_lat.toFixed(4)}, {verdict.best.cluster_lng.toFixed(4)}
+                  {verdict.best.cluster_lat.toFixed(5)}, {verdict.best.cluster_lng.toFixed(5)}
                 </p>
                 <p className="mt-1.5 text-[11px] text-zinc-500 leading-relaxed">
                   Jam terbaiknya {jam(verdict.best.best_hour)} ·{' '}
                   <span className={thinCoverage(verdict.best.days_active) ? 'text-amber-600 font-semibold' : ''}>
                     baru {verdict.best.days_active} dari {totalDays} hari
                   </span>
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed">
+                  {verdict.best.spread_meters > SPREAD_IS_A_ROUTE_M ? (
+                    <span className="text-amber-600 font-semibold">
+                      Sebaran {verdict.best.spread_meters} m — ini ruas jalan, bukan satu titik.
+                      Perkecil petak untuk memilih tempat mangkal.
+                    </span>
+                  ) : (
+                    <span className="text-zinc-400">
+                      Penjualannya mengumpul dalam {verdict.best.spread_meters} m
+                    </span>
+                  )}
                 </p>
                 <a
                   href={`https://www.google.com/maps?q=${verdict.best.cluster_lat},${verdict.best.cluster_lng}`}
@@ -556,7 +577,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
               <table className="w-full text-sm min-w-[560px]">
                 <thead>
                   <tr className="bg-zinc-50/80">
-                    {['Titik', 'Cup', 'Cup/hari aktif', 'Hari', 'Jam terbaik', 'Omzet', ''].map(t => (
+                    {['Titik', 'Sebaran', 'Cup', 'Cup/hari aktif', 'Hari', 'Jam terbaik', 'Omzet', ''].map(t => (
                       <th
                         key={t}
                         className="text-left px-4 py-2.5 text-[10px] font-bold uppercase tracking-wider text-zinc-400 whitespace-nowrap"
@@ -577,8 +598,22 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                           />
                         </div>
                         <span className="text-[10px] text-zinc-400 tabular-nums">
-                          {c.cluster_lat.toFixed(4)}, {c.cluster_lng.toFixed(4)}
+                          {c.cluster_lat.toFixed(5)}, {c.cluster_lng.toFixed(5)}
                         </span>
+                      </td>
+                      <td
+                        className={`px-4 py-2.5 tabular-nums whitespace-nowrap ${
+                          c.spread_meters > SPREAD_IS_A_ROUTE_M
+                            ? 'text-amber-600 font-semibold'
+                            : 'text-zinc-500'
+                        }`}
+                        title={
+                          c.spread_meters > SPREAD_IS_A_ROUTE_M
+                            ? 'Terlalu menyebar untuk disebut satu titik — perkecil petak'
+                            : 'Pesanannya mengumpul rapat, layak jadi titik mangkal'
+                        }
+                      >
+                        {c.spread_meters} m
                       </td>
                       <td className="px-4 py-2.5 font-bold text-zinc-900 tabular-nums">{c.cups}</td>
                       <td className="px-4 py-2.5 text-zinc-700 tabular-nums">
@@ -612,8 +647,12 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
               </table>
             </div>
             <p className="px-5 py-3 text-[11px] text-zinc-400 leading-relaxed border-t border-zinc-100">
-              Koordinat dikelompokkan ke petak <b className="text-zinc-600">{grid} m</b>. Perkecil
-              petak untuk memilih titik mangkal, perbesar untuk memilih wilayah gerobak berikutnya.
+              Pesanan dikelompokkan ke petak <b className="text-zinc-600">{grid} m</b>, tetapi
+              koordinat yang ditampilkan adalah <b className="text-zinc-600">rata-rata posisi
+              pesanan sebenarnya</b> — bukan pusat petak, supaya pin peta jatuh di tempat gerobak
+              benar-benar berjualan. Kolom <b className="text-zinc-600">Sebaran</b> menunjukkan
+              seberapa rapat pesanannya: di atas {SPREAD_IS_A_ROUTE_M} m, itu ruas jalan dan satu
+              pin tidak mewakilinya.
             </p>
           </>
         )}
