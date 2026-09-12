@@ -119,7 +119,13 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          AND to_regprocedure('public.jam_pulang_rutin(date)') IS NOT NULL
          AND EXISTS (SELECT 1 FROM information_schema.columns
                       WHERE table_schema = 'public' AND table_name = 'driver_stops'
-                        AND column_name = 'auto_closed'))
+                        AND column_name = 'auto_closed')),
+
+    (23, '0023_booth_event', 'Booth event keluar dari analitik lokasi (tetap masuk omset)',
+         to_regprocedure('public.admin_tandai_mangkal_event(uuid,boolean)') IS NOT NULL
+         AND EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'driver_stops'
+                        AND column_name = 'is_event'))
 )
 SELECT migrasi,
        penjelasan,

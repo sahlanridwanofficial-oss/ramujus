@@ -272,3 +272,22 @@ pemindaian tabel penuh.
 | 9 | Sapuan 0022 hanya menyentuh yang **lupa** ditutup, dan menutupnya di jam pulang rutin 21:30 — bukan tengah malam, bukan penjualan terakhir. Baris yang sudah ditutup driver tidak tersentuh sama sekali |
 | 10 | Mangkal yang ditutup sapuan memakai jam kerja penuh (10:00–21:30 = 11,5 jam → 0,35 cup/jam). Menjaga dua cara gagal: batas 6 jam lama (0,67, melambung 91%) dan penutupan di penjualan terakhir (4,0, melambung 11 kali) |
 | 11 | Mangkal yang masih berjalan hari ini tidak ikut tersapu — driver yang masih kerja tidak terpotong |
+
+## 18 — Booth event keluar dari analitik lokasi (0023)
+
+Booth event — kampus, bazar, pasar malam — adalah audiens tertawan yang tidak
+berulang. Angkanya nyata, tapi tempatnya tidak bisa disewa. Kalau ikut masuk
+analitik lokasi, ia tampil sebagai titik terbaik yang pernah terukur dan
+menarik keputusan sewa ke tempat yang tidak ada.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Mangkal bertanda `is_event` hilang sepenuhnya dari `admin_location_clusters` — 60 cup / 4 jam di kampus tidak muncul, yang tersisa hanya titik jalanan 4 cup / 4 jam = 1,0 cup/jam |
+| 2 | **Uangnya tidak hilang:** 64 cup dan Rp832.000 tetap utuh di omset. Yang dibuang hanya anggapan bahwa tempat itu bisa disewa |
+| 3 | **Tes yang membuktikan tes 1 punya gigi:** penandanya dilepas sebentar, dan kampus langsung merebut peta dengan 15,0 cup/jam — 3,4 kali ambang sewa ruko 4,4 |
+| 4 | Penanda hanya bisa dipasang admin; driver ditolak |
+
+Dua lubang ditutup sekaligus, karena menandai mangkalnya saja tidak cukup:
+pesanan di booth tetap membentuk petaknya sendiri lewat jalur perkiraan.
+Penyaringnya ada di dua tempat — mangkal event tidak jadi jam terukur, dan
+pesanan di dalam jendela mangkal event tidak masuk petak sama sekali.
