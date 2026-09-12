@@ -256,7 +256,7 @@ pemindaian tabel penuh.
 | 4c | Titik yang hanya pernah menghasilkan satu pesanan mengembalikan **NULL**, bukan nol dan bukan tebakan. Cup-nya tetap dilaporkan penuh; yang tidak diketahui hanya lajunya |
 | 4d | Dua pesanan berjarak detik tidak meledakkan laju. Pada data produksi kasus ini menghasilkan 959 cup/jam dan akan menarik keputusan sewa ke tempat yang salah — sekarang kunjungan wajib terentang minimal 15 menit untuk ikut dihitung, dan tidak ada laju yang boleh melampaui batas fisik penyajian |
 
-## 17 — Lama mangkal direkam (0020, 0021)
+## 17 — Lama mangkal direkam (0020, 0021, 0022)
 
 | Tes | Perilaku yang dijamin |
 |-----|----------------------|
@@ -269,3 +269,6 @@ pemindaian tabel penuh.
 | 6b | Kelonggaran itu **30 menit**, bukan 15 (0021). Mangkal 16:00–21:00: pesanan yang tercatat 21:17 ikut terhitung, yang 21:45 tidak. Dengan jendela 15 menit lama, kasus ini kehilangan 3 dari 5 cup — persis kejadian produksi 12 Sep 2026 |
 | 7 | Tanpa catatan mangkal, perkiraan dari rentang pesanan tetap jalan dan ditandai `perkiraan` — tidak pernah menyamar sebagai `tercatat` |
 | 8 | Driver tidak bisa membaca mangkal driver lain |
+| 9 | Sapuan 0022 hanya menyentuh yang **lupa** ditutup, dan menutupnya di jam pulang rutin 21:30 — bukan tengah malam, bukan penjualan terakhir. Baris yang sudah ditutup driver tidak tersentuh sama sekali |
+| 10 | Mangkal yang ditutup sapuan memakai jam kerja penuh (10:00–21:30 = 11,5 jam → 0,35 cup/jam). Menjaga dua cara gagal: batas 6 jam lama (0,67, melambung 91%) dan penutupan di penjualan terakhir (4,0, melambung 11 kali) |
+| 11 | Mangkal yang masih berjalan hari ini tidak ikut tersapu — driver yang masih kerja tidak terpotong |

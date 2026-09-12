@@ -112,7 +112,14 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          EXISTS (SELECT 1 FROM pg_proc p
                    JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = 'admin_location_clusters'
-                    AND pg_get_functiondef(p.oid) LIKE '%30 minutes%'))
+                    AND pg_get_functiondef(p.oid) LIKE '%30 minutes%')),
+
+    (22, '0022_tutup_otomatis', 'Shift & mangkal yang lupa ditutup, ditutup di 21:30',
+         to_regprocedure('public.tutup_yang_lupa_ditutup()') IS NOT NULL
+         AND to_regprocedure('public.jam_pulang_rutin(date)') IS NOT NULL
+         AND EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'driver_stops'
+                        AND column_name = 'auto_closed'))
 )
 SELECT migrasi,
        penjelasan,

@@ -322,5 +322,154 @@ BEGIN
 END;
 $$;
 
+RESET ROLE;
+
 \echo ''
-\echo '=== SELURUH UJI 0020 LULUS ==='
+\echo '=== 9. Sapuan hanya menyentuh yang LUPA ditutup (0022) ==='
+-- Tiga baris disiapkan pada hari yang sama:
+--   * mangkal terbuka milik kemarin        -> harus ditutup
+--   * mangkal yang sudah ditutup driver    -> tidak boleh disentuh
+--   * shift terbuka milik kemarin          -> harus ditutup
+DO $$
+DECLARE v_hari  DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date - 4;
+        v_buka  TIMESTAMPTZ; v_order UUID;
+BEGIN
+  v_buka := (v_hari::timestamp + INTERVAL '10 hours') AT TIME ZONE 'Asia/Jakarta';
+
+  -- Yang sudah ditutup driver, sebagai pembanding.
+  INSERT INTO public.driver_stops (id, driver_id, started_at, ended_at, latitude, longitude)
+  VALUES ('dddddddd-0000-0000-0000-000000000001',
+          '11111111-1111-1111-1111-111111111111',
+          v_buka - INTERVAL '3 hours', v_buka - INTERVAL '2 hours', -6.3500, 106.8800);
+
+  -- Yang lupa ditutup.
+  INSERT INTO public.driver_stops (id, driver_id, started_at, ended_at, latitude, longitude)
+  VALUES ('dddddddd-0000-0000-0000-000000000002',
+          '11111111-1111-1111-1111-111111111111',
+          v_buka, NULL, -6.3400, 106.8900);
+
+  -- Shift yang lupa ditutup. Indeks "satu shift aktif per driver"
+  -- melarang shift aktif kedua, jadi shift uji yang sudah ada dimundurkan
+  -- tanggalnya — itu justru bentuk asli masalahnya: satu shift yang tidak
+  -- pernah ditutup dan terus menggantung.
+  UPDATE public.shifts SET start_time = v_buka
+   WHERE id = 'cccccccc-0000-0000-0000-000000000001';
+
+  -- Dua pesanan di dalam mangkal yang lupa ditutup: 10:00 dan 11:00.
+  FOR i IN 0..1 LOOP
+    v_order := gen_random_uuid();
+    INSERT INTO public.orders (id, shift_id, driver_id, order_number, total_amount,
+                               payment_method, latitude, longitude, created_at)
+    VALUES (v_order, 'cccccccc-0000-0000-0000-000000000001',
+            '11111111-1111-1111-1111-111111111111',
+            'RMJ-LUPA-' || i, 26000, 'cash', -6.3400, 106.8900,
+            v_buka + (i * INTERVAL '1 hour'));
+    INSERT INTO public.order_items (order_id, product_id, quantity, unit_price, subtotal)
+    VALUES (v_order, 'aaaaaaaa-0000-0000-0000-000000000001', 2, 13000, 26000);
+  END LOOP;
+END;
+$$;
+
+DO $$
+DECLARE rec RECORD; v_stop public.driver_stops; v_shift public.shifts;
+        v_hari DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date - 4;
+        v_buka TIMESTAMPTZ;
+BEGIN
+  v_buka := (v_hari::timestamp + INTERVAL '10 hours') AT TIME ZONE 'Asia/Jakarta';
+
+  SELECT * INTO rec FROM public.tutup_yang_lupa_ditutup();
+
+  -- Yang lupa ditutup: ditutup di JAM PULANG RUTIN 21:30, bukan di
+  -- penjualan terakhir (11:00) dan bukan di tengah malam. Menutup di
+  -- 11:00 akan mencatat 1 jam untuk hari yang sebenarnya 11,5 jam, dan
+  -- melambungkan laju titik ini 11 kali lipat.
+  SELECT * INTO v_stop FROM public.driver_stops
+   WHERE id = 'dddddddd-0000-0000-0000-000000000002';
+  IF v_stop.ended_at IS NULL THEN
+    RAISE EXCEPTION 'GAGAL: mangkal yang lupa ditutup masih terbuka';
+  END IF;
+  IF v_stop.ended_at <> public.jam_pulang_rutin(v_hari) THEN
+    RAISE EXCEPTION 'GAGAL: ditutup %, harusnya jam pulang rutin %',
+                    v_stop.ended_at, public.jam_pulang_rutin(v_hari);
+  END IF;
+  IF NOT v_stop.auto_closed THEN
+    RAISE EXCEPTION 'GAGAL: ditutup mesin tapi tidak ditandai auto_closed';
+  END IF;
+
+  -- Yang ditutup driver: tidak boleh berubah sedikit pun.
+  SELECT * INTO v_stop FROM public.driver_stops
+   WHERE id = 'dddddddd-0000-0000-0000-000000000001';
+  IF v_stop.ended_at <> v_buka - INTERVAL '2 hours' OR v_stop.auto_closed THEN
+    RAISE EXCEPTION 'GAGAL: sapuan menyentuh mangkal yang sudah ditutup driver';
+  END IF;
+
+  SELECT * INTO v_shift FROM public.shifts
+   WHERE id = 'cccccccc-0000-0000-0000-000000000001';
+  IF v_shift.status <> 'completed' OR NOT v_shift.auto_closed THEN
+    RAISE EXCEPTION 'GAGAL: shift kemarin tidak tertutup (status %)', v_shift.status;
+  END IF;
+  IF v_shift.end_time <> public.jam_pulang_rutin(v_hari) THEN
+    RAISE EXCEPTION 'GAGAL: shift ditutup %, harusnya jam pulang rutin %',
+                    v_shift.end_time, public.jam_pulang_rutin(v_hari);
+  END IF;
+
+  RAISE NOTICE 'OK: yang lupa ditutup di penjualan terakhir dan ditandai; yang ditutup driver tidak disentuh';
+END;
+$$;
+
+\echo ''
+\echo '=== 10. Yang ditutup mesin memakai jam kerja penuh, tidak dipotong 6 jam ==='
+-- Mangkal 10:00 yang ditutup sapuan di 21:30 panjangnya 11,5 jam dengan
+-- 4 cup = 0,35 cup/jam. Dua cara gagal yang dijaga di sini:
+--   * batas 6 jam lama masih berlaku  -> 0,67 cup/jam (melambung 91%)
+--   * ditutup di penjualan terakhir   -> 4,0 cup/jam (melambung 11 kali)
+SET ROLE authenticated;
+SET test.uid = '22222222-2222-2222-2222-222222222222';
+
+DO $$
+DECLARE v_hari DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date - 4; rec RECORD;
+BEGIN
+  SELECT * INTO rec FROM public.admin_location_clusters(v_hari, v_hari, 300)
+   ORDER BY cups DESC LIMIT 1;
+
+  IF rec.dwell_source <> 'tercatat' THEN
+    RAISE EXCEPTION 'GAGAL: sumber %, harusnya tercatat', rec.dwell_source;
+  END IF;
+  IF abs(rec.hours_measured - 11.5) > 0.01 THEN
+    RAISE EXCEPTION 'GAGAL: % jam, harusnya 11.5 (10:00 sampai 21:30)', rec.hours_measured;
+  END IF;
+  IF abs(rec.cups_per_hour - 0.35) > 0.01 THEN
+    RAISE EXCEPTION 'GAGAL: laju %, harusnya 4 cup / 11,5 jam = 0.35', rec.cups_per_hour;
+  END IF;
+
+  RAISE NOTICE 'OK: 4 cup dalam 11,5 jam = 0,35 cup/jam — tidak dipotong 6 jam, tidak dipangkas ke penjualan terakhir';
+END;
+$$;
+
+RESET ROLE;
+
+\echo ''
+\echo '=== 11. Yang masih berjalan hari ini tidak ikut tersapu ==='
+DO $$
+DECLARE v_stop public.driver_stops; rec RECORD;
+BEGIN
+  INSERT INTO public.driver_stops (id, driver_id, started_at, ended_at, latitude, longitude)
+  VALUES ('dddddddd-0000-0000-0000-000000000003',
+          '11111111-1111-1111-1111-111111111111',
+          public.wib_day_start((NOW() AT TIME ZONE 'Asia/Jakarta')::date) + INTERVAL '30 minutes',
+          NULL, -6.3600, 106.8700);
+
+  SELECT * INTO rec FROM public.tutup_yang_lupa_ditutup();
+
+  SELECT * INTO v_stop FROM public.driver_stops
+   WHERE id = 'dddddddd-0000-0000-0000-000000000003';
+  IF v_stop.ended_at IS NOT NULL THEN
+    RAISE EXCEPTION 'GAGAL: mangkal hari ini ikut ditutup — driver yang masih kerja terpotong';
+  END IF;
+
+  RAISE NOTICE 'OK: mangkal hari ini dibiarkan berjalan';
+END;
+$$;
+
+\echo ''
+\echo '=== SELURUH UJI 0020-0022 LULUS ==='
