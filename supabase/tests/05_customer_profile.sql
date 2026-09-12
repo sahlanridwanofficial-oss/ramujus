@@ -24,16 +24,39 @@ SET test.uid = '11111111-1111-1111-1111-111111111111';
 
 \echo ''
 \echo '=== TES 1: pesanan dengan profil pembeli ==='
-SELECT customer_gender, customer_age_range, customer_type
+SELECT customer_gender, customer_age_range, cara_pesan
   FROM public.create_order(
-    'cccccccc-0000-0000-0000-000000000001'::uuid,
-    '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
-    'cash', NULL, NULL, NULL, NULL, NULL, NULL,
-    'female', 'teen', 'new');
+    p_shift_id           => 'cccccccc-0000-0000-0000-000000000001'::uuid,
+    p_items              => '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
+    p_customer_gender    => 'female',
+    p_customer_age_range => 'teen',
+    p_cara_pesan         => 'sebut');
+
+-- Argumen bernama dipakai di sini dengan sengaja. Sebelumnya posisional,
+-- dan ketika create_order bertambah satu parameter, nilai 'sebut' diam-diam
+-- mendarat di parameter yang salah — tesnya tetap "lulus" karena hanya
+-- mencetak, tidak memeriksa. Maka sekarang diperiksa.
+DO $$
+DECLARE v public.orders;
+BEGIN
+  v := public.create_order(
+    p_shift_id           => 'cccccccc-0000-0000-0000-000000000001'::uuid,
+    p_items              => '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
+    p_customer_gender    => 'female',
+    p_customer_age_range => 'teen',
+    p_cara_pesan         => 'sebut');
+  IF v.customer_gender <> 'female' OR v.customer_age_range <> 'teen'
+     OR v.cara_pesan <> 'sebut' THEN
+    RAISE EXCEPTION 'GAGAL: profil tersimpan %/%/%',
+                    v.customer_gender, v.customer_age_range, v.cara_pesan;
+  END IF;
+  RAISE NOTICE 'OK: gender, usia, dan cara pesan mendarat di kolom yang benar';
+END;
+$$;
 
 \echo ''
 \echo '=== TES 2: profil boleh dikosongkan seluruhnya ==='
-SELECT (customer_gender IS NULL AND customer_age_range IS NULL AND customer_type IS NULL)
+SELECT (customer_gender IS NULL AND customer_age_range IS NULL AND cara_pesan IS NULL)
          AS profil_kosong_diterima
   FROM public.create_order(
     'cccccccc-0000-0000-0000-000000000001'::uuid,
@@ -47,10 +70,11 @@ DECLARE v_gender TEXT; v_total INTEGER;
 BEGIN
   SELECT customer_gender, total_amount INTO v_gender, v_total
     FROM public.create_order(
-      'cccccccc-0000-0000-0000-000000000001'::uuid,
-      '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
-      'cash', NULL, NULL, NULL, NULL, NULL, NULL,
-      'alien', 'balita', 'vip');
+      p_shift_id           => 'cccccccc-0000-0000-0000-000000000001'::uuid,
+      p_items              => '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1}]'::jsonb,
+      p_customer_gender    => 'alien',
+      p_customer_age_range => 'balita',
+      p_cara_pesan         => 'kadang-kadang');
 
   IF v_gender IS NOT NULL THEN
     RAISE EXCEPTION 'GAGAL: nilai ngawur tersimpan sebagai %', v_gender;

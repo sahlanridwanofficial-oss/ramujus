@@ -95,6 +95,7 @@ pemindaian tabel penuh.
 | 1 | Profil pembeli tersimpan bersama pesanan |
 | 2 | Profil boleh dikosongkan seluruhnya |
 | 3 | Nilai profil ngawur diabaikan, **penjualan tetap tersimpan** |
+| — | Seluruh berkas ini memakai argumen bernama sejak 0024. Sebelumnya posisional, dan ketika `create_order` bertambah satu parameter, nilai `'sebut'` diam-diam mendarat di parameter yang salah — tesnya tetap "lulus" karena hanya mencetak hasil, tidak memeriksanya |
 | 4 | Constraint database menolak nilai di luar daftar |
 | 5 | Laporan sebaran, jam ramai per usia, dan produk favorit per segmen |
 | 6 | Transaksi tanpa profil terlihat jelas sebagai `unknown`, bukan disembunyikan |
@@ -256,7 +257,7 @@ pemindaian tabel penuh.
 | 4c | Titik yang hanya pernah menghasilkan satu pesanan mengembalikan **NULL**, bukan nol dan bukan tebakan. Cup-nya tetap dilaporkan penuh; yang tidak diketahui hanya lajunya |
 | 4d | Dua pesanan berjarak detik tidak meledakkan laju. Pada data produksi kasus ini menghasilkan 959 cup/jam dan akan menarik keputusan sewa ke tempat yang salah — sekarang kunjungan wajib terentang minimal 15 menit untuk ikut dihitung, dan tidak ada laju yang boleh melampaui batas fisik penyajian |
 
-## 17 — Lama mangkal direkam (0020)
+## 17 — Lama mangkal direkam (0020, 0021, 0022)
 
 | Tes | Perilaku yang dijamin |
 |-----|----------------------|
@@ -265,6 +266,57 @@ pemindaian tabel penuh.
 | 3 | Ketukan yang dikirim ulang (sinyal putus) tidak menggandakan catatan; kunci idempotensi menahannya |
 | 4 | Menekan "pindah" dua kali aman, tidak melempar galat |
 | 5 | Klien tidak bisa menulis langsung ke tabel — aturan "satu mangkal terbuka" tidak bisa dilewati dari aplikasi |
-| 6 | **Inti:** mangkal 10:00–11:00 dengan tiga pesanan dicatat beruntun pukul 11:00:00/11/22 menghasilkan **3,0 cup/jam**, bukan ~491 dari rentang 22 detik. Pesanan yang mendarat sesudah mangkal ditutup tetap terhitung lewat kelonggaran 15 menit |
+| 6 | **Inti:** mangkal 10:00–11:00 dengan tiga pesanan dicatat beruntun pukul 11:00:00/11/22 menghasilkan **3,0 cup/jam**, bukan ~491 dari rentang 22 detik. Pesanan yang mendarat sesudah mangkal ditutup tetap terhitung lewat kelonggaran catat-belakangan |
+| 6b | Kelonggaran itu **30 menit**, bukan 15 (0021). Mangkal 16:00–21:00: pesanan yang tercatat 21:17 ikut terhitung, yang 21:45 tidak. Dengan jendela 15 menit lama, kasus ini kehilangan 3 dari 5 cup — persis kejadian produksi 12 Sep 2026 |
 | 7 | Tanpa catatan mangkal, perkiraan dari rentang pesanan tetap jalan dan ditandai `perkiraan` — tidak pernah menyamar sebagai `tercatat` |
 | 8 | Driver tidak bisa membaca mangkal driver lain |
+| 9 | Sapuan 0022 hanya menyentuh yang **lupa** ditutup, dan menutupnya di jam pulang rutin 21:30 — bukan tengah malam, bukan penjualan terakhir. Baris yang sudah ditutup driver tidak tersentuh sama sekali |
+| 10 | Mangkal yang ditutup sapuan memakai jam kerja penuh (10:00–21:30 = 11,5 jam → 0,35 cup/jam). Menjaga dua cara gagal: batas 6 jam lama (0,67, melambung 91%) dan penutupan di penjualan terakhir (4,0, melambung 11 kali) |
+| 11 | Mangkal yang masih berjalan hari ini tidak ikut tersapu — driver yang masih kerja tidak terpotong |
+
+## 18 — Booth event keluar dari analitik lokasi (0023)
+
+Booth event — kampus, bazar, pasar malam — adalah audiens tertawan yang tidak
+berulang. Angkanya nyata, tapi tempatnya tidak bisa disewa. Kalau ikut masuk
+analitik lokasi, ia tampil sebagai titik terbaik yang pernah terukur dan
+menarik keputusan sewa ke tempat yang tidak ada.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Mangkal bertanda `is_event` hilang sepenuhnya dari `admin_location_clusters` — 60 cup / 4 jam di kampus tidak muncul, yang tersisa hanya titik jalanan 4 cup / 4 jam = 1,0 cup/jam |
+| 2 | **Uangnya tidak hilang:** 64 cup dan Rp832.000 tetap utuh di omset. Yang dibuang hanya anggapan bahwa tempat itu bisa disewa |
+| 3 | **Tes yang membuktikan tes 1 punya gigi:** penandanya dilepas sebentar, dan kampus langsung merebut peta dengan 15,0 cup/jam — 3,4 kali ambang sewa ruko 4,4 |
+| 4 | Penanda hanya bisa dipasang admin; driver ditolak |
+
+Dua lubang ditutup sekaligus, karena menandai mangkalnya saja tidak cukup:
+pesanan di booth tetap membentuk petaknya sendiri lewat jalur perkiraan.
+Penyaringnya ada di dua tempat — mangkal event tidak jadi jam terukur, dan
+pesanan di dalam jendela mangkal event tidak masuk petak sama sekali.
+
+## 19 — "Sebut menu tanpa lihat" (0024)
+
+`customer_type` menanyakan hal yang salah: "orang ini pernah beli?" adalah soal
+**ingatan**, dan driver tidak hafal wajah. Hasilnya 55 dari 64 transaksi tercatat
+`new` dan hanya 2 `returning` — angka itu mengukur daya ingat driver, bukan
+tingkat beli-ulang RAMU. Angka "17% jadi langganan" sempat dikutip berkali-kali
+dalam analisis sebelum ketahuan tidak pernah ada di basis data.
+
+Penggantinya menanyakan apa yang terjadi di depan mata sekarang, dan itu selalu
+bisa dijawab jujur: pembeli menyebut nama menu, atau membaca daftar dulu.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | `sebut` dan `lihat` tersimpan apa adanya |
+| 2 | Nilai di luar daftar dibuang, **penjualannya tetap tersimpan** — satu ketukan salah tidak boleh menghilangkan uang yang nyata |
+| 3 | Constraint database ikut menolak, bukan hanya fungsinya |
+| 4 | Pesanan tanpa `cara_pesan` tetap diterima — kolom pengamatan tidak pernah jadi syarat jualan |
+| 4b | **Aplikasi versi lama yang masih mengirim `p_customer_type` tetap bisa mencatat penjualan.** PWA tersimpan di ponsel driver; kalau tanda tangan fungsinya tidak cocok, PostgREST menolak SETIAP penjualan sampai ponselnya memuat ulang |
+| 4c | Kolom `customer_type` benar-benar hilang, bukan sekadar disembunyikan dari layar |
+| 5 | Hanya ada **satu** `create_order` — menambah parameter lewat `CREATE OR REPLACE` diam-diam membuat fungsi kedua, dan PostgREST tidak bisa memilih di antara dua yang bernama sama |
+| 6 | Laporan membuka penyebutnya: 1 sebut dari 2 yang tercatat = **50%**, bukan 20% dari 5 total. Yang belum dicatat tidak ikut jadi penyebut, supaya angkanya tidak turun hanya karena driver sedang ramai |
+| 7 | Driver tidak mendapat satu pun baris laporan admin |
+
+Tes 05 ikut diubah ke argumen bernama. Sebelumnya posisional, dan ketika
+`create_order` bertambah satu parameter, nilai `'sebut'` diam-diam mendarat di
+parameter yang salah — tesnya tetap "lulus" karena hanya mencetak hasilnya,
+tidak memeriksanya. Sekarang diperiksa.

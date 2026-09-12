@@ -3,18 +3,18 @@
 import { useState } from 'react'
 import { UserRound, ChevronDown, Check, type LucideIcon } from 'lucide-react'
 import {
-  GENDER_OPTIONS, AGE_OPTIONS, CUSTOMER_TYPE_OPTIONS,
-  GENDER_LABEL, AGE_LABEL, TYPE_LABEL,
-  type CustomerGender, type CustomerAgeRange, type CustomerType,
+  GENDER_OPTIONS, AGE_OPTIONS, CARA_PESAN_OPTIONS,
+  GENDER_LABEL, AGE_LABEL, CARA_PESAN_LABEL,
+  type CustomerGender, type CustomerAgeRange, type CaraPesan,
 } from '@/types/customer'
 
 interface CustomerPersonaProps {
   gender: CustomerGender | null
   age: CustomerAgeRange | null
-  type: CustomerType | null
+  caraPesan: CaraPesan | null
   onGender: (v: CustomerGender | null) => void
   onAge: (v: CustomerAgeRange | null) => void
-  onType: (v: CustomerType | null) => void
+  onCaraPesan: (v: CaraPesan | null) => void
 }
 
 /**
@@ -26,16 +26,16 @@ interface CustomerPersonaProps {
  * Semua opsional; menekan pilihan yang sama membatalkannya.
  */
 export default function CustomerPersona({
-  gender, age, type, onGender, onAge, onType,
+  gender, age, caraPesan, onGender, onAge, onCaraPesan,
 }: CustomerPersonaProps) {
   const [open, setOpen] = useState(false)
-  const filled = [gender, age, type].filter(Boolean).length
+  const filled = [caraPesan, gender, age].filter(Boolean).length
 
   // Ringkasan singkat untuk ditampilkan saat tertutup tapi sudah terisi.
   const summary = [
+    caraPesan ? CARA_PESAN_LABEL[caraPesan] : null,
     gender ? GENDER_LABEL[gender] : null,
     age ? AGE_LABEL[age] : null,
-    type ? TYPE_LABEL[type] : null,
   ].filter(Boolean).join(' · ')
 
   return (
@@ -67,6 +67,20 @@ export default function CustomerPersona({
             Cukup perkiraan dari penampilan. Isi seperlunya, atau lewati semua.
           </p>
 
+          {/* Paling atas karena paling menentukan: dari sinilah terbaca
+              apakah nama menu sudah keluar dari gerobak. */}
+          <PersonaGroup title="Pesannya gimana?" columns={2}>
+            {CARA_PESAN_OPTIONS.map(o => (
+              <PersonaButton
+                key={o.value}
+                icon={o.icon}
+                label={o.label}
+                active={caraPesan === o.value}
+                onClick={() => onCaraPesan(caraPesan === o.value ? null : o.value)}
+              />
+            ))}
+          </PersonaGroup>
+
           <PersonaGroup title="Jenis kelamin" columns={2}>
             {GENDER_OPTIONS.map(o => (
               <PersonaButton
@@ -91,22 +105,10 @@ export default function CustomerPersona({
             ))}
           </PersonaGroup>
 
-          <PersonaGroup title="Tipe pembeli" columns={2}>
-            {CUSTOMER_TYPE_OPTIONS.map(o => (
-              <PersonaButton
-                key={o.value}
-                icon={o.icon}
-                label={o.label}
-                active={type === o.value}
-                onClick={() => onType(type === o.value ? null : o.value)}
-              />
-            ))}
-          </PersonaGroup>
-
           {filled > 0 && (
             <button
               type="button"
-              onClick={() => { onGender(null); onAge(null); onType(null) }}
+              onClick={() => { onCaraPesan(null); onGender(null); onAge(null) }}
               className="text-[11px] font-semibold text-zinc-400 hover:text-brand transition-colors"
             >
               Kosongkan semua

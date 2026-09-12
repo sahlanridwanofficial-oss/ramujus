@@ -83,6 +83,23 @@ const SPREAD_IS_A_ROUTE_M = 150
 const RUKO_BREAK_EVEN_CUPS_PER_HOUR = 4.4
 
 /**
+ * Laju yang harus dicapai satu titik agar GEROBAK di situ tidak rugi.
+ *
+ * Gerobak dan ruko berjalan berdampingan, dan biayanya jauh berbeda:
+ * gerobak tidak bayar sewa. Biaya tetapnya Rp2,5 juta/bulan, di margin
+ * Rp5.000/cup itu 20 cup/hari (26 hari jual), dibagi ±9,8 jam mangkal
+ * yang benar-benar terekam pada 12 Sep 2026.
+ *
+ * Satu ambang saja menyesatkan, dan arah kesalahannya berbahaya: titik
+ * sore pada 12 Sep mencatat 2,06 cup/jam. Diukur dengan ambang ruko ia
+ * "jauh dari layak" — padahal untuk gerobak ia sudah lewat. Data yang
+ * sama, kesimpulan berlawanan, semata karena struktur biayanya beda.
+ * Menyembunyikan itu berarti membuang titik yang sebenarnya sudah
+ * menghasilkan.
+ */
+const GEROBAK_BREAK_EVEN_CUPS_PER_HOUR = 2.0
+
+/**
  * Bukti minimum sebelum sebuah titik boleh disebut "tembus ambang ruko".
  *
  * Database sudah menolak rentang yang terlalu pendek, tetapi laju yang sah
@@ -116,6 +133,31 @@ function clearsRukoBar(c: ClusterRow): boolean {
     num(c.cups_per_hour) >= RUKO_BREAK_EVEN_CUPS_PER_HOUR &&
     isTrustedForLease(c)
   )
+}
+
+/**
+ * Syarat buktinya sama ketatnya dengan ruko.
+ *
+ * Taruhannya memang lebih kecil — menaruh gerobak di tempat yang salah
+ * bisa dibatalkan besok, kontrak sewa tidak. Tapi angka yang dipakai
+ * tetap angka yang sama, dan perkiraan dari rentang pesanan tetap
+ * melambung ke arah yang menggoda. Melonggarkan bukti di sini hanya akan
+ * membuat gerobak berdiri berminggu-minggu di titik yang sebenarnya sepi.
+ */
+function clearsGerobakBar(c: ClusterRow): boolean {
+  return (
+    c.cups_per_hour != null &&
+    num(c.cups_per_hour) >= GEROBAK_BREAK_EVEN_CUPS_PER_HOUR &&
+    isTrustedForLease(c)
+  )
+}
+
+/** Vonis satu titik terhadap dua struktur biaya yang berjalan bersamaan. */
+function verdictLabel(c: ClusterRow): { text: string; tone: string } {
+  if (!isTrustedForLease(c)) return { text: 'Belum cukup bukti', tone: 'text-amber-600' }
+  if (clearsRukoBar(c))     return { text: 'Gerobak ✓ · Ruko ✓',  tone: 'text-emerald-600' }
+  if (clearsGerobakBar(c))  return { text: 'Gerobak ✓ · Ruko ✗',  tone: 'text-emerald-600' }
+  return { text: 'Gerobak ✗ · Ruko ✗', tone: 'text-zinc-400' }
 }
 
 interface CartRow {
@@ -411,10 +453,18 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                             memutuskan sewa.
                           </span>
                         ) : clearsRukoBar(verdict.best) ? (
-                          <>Tembus ambang ruko ({RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam), dari{' '}
+                          <>Tembus dua-duanya — gerobak {GEROBAK_BREAK_EVEN_CUPS_PER_HOUR}/jam
+                          dan ruko {RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam. Dari{' '}
+                          {verdict.best.measured_stops} kunjungan terukur.</>
+                        ) : clearsGerobakBar(verdict.best) ? (
+                          <>Tembus ambang <b className="text-emerald-600">gerobak</b>{' '}
+                          ({GEROBAK_BREAK_EVEN_CUPS_PER_HOUR}/jam) — taruh gerobak di sini.
+                          Untuk ruko masih kurang ({RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam). Dari{' '}
                           {verdict.best.measured_stops} kunjungan terukur.</>
                         ) : (
-                          <>Ambang ruko {RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam — belum tembus. Dari{' '}
+                          <>Belum tembus ambang mana pun — gerobak{' '}
+                          {GEROBAK_BREAK_EVEN_CUPS_PER_HOUR}/jam, ruko{' '}
+                          {RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam. Dari{' '}
                           {verdict.best.measured_stops} kunjungan terukur.</>
                         )}
                       </p>
@@ -713,10 +763,17 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                           <>
                             <span
                               className={`font-bold tabular-nums ${
-                                clearsRukoBar(c) ? 'text-emerald-600' : 'text-zinc-900'
+                                clearsGerobakBar(c) ? 'text-emerald-600' : 'text-zinc-900'
                               }`}
                             >
                               {num(c.cups_per_hour).toFixed(2)}
+                            </span>
+                            {/* Vonis dua ambang sekaligus. Satu ambang saja
+                                membuang titik yang untuk gerobak sudah
+                                menghasilkan, hanya karena ia belum cukup
+                                untuk menanggung sewa. */}
+                            <span className={`block text-[10px] font-semibold ${verdictLabel(c).tone}`}>
+                              {verdictLabel(c).text}
                             </span>
                             <span
                               className={`block text-[10px] tabular-nums ${
@@ -784,11 +841,19 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
             </div>
             <div className="px-5 py-3.5 border-t border-zinc-100 space-y-2">
               <p className="text-[11px] text-zinc-500 leading-relaxed">
-                <b className="text-zinc-900">Cup/jam adalah angka yang memutuskan sewa.</b> Ruko
-                kecil (sewa + 1 pegawai, ±Rp6jt/bulan) butuh sekitar{' '}
-                <b className="text-zinc-900 tabular-nums">{RUKO_BREAK_EVEN_CUPS_PER_HOUR} cup/jam</b>{' '}
-                supaya tidak rugi. Titik yang tembus angka itu ditandai hijau. Ini ambang untuk
-                memutuskan ruko — gerobak sendiri untung jauh di bawahnya karena nyaris tanpa biaya tetap.
+                <b className="text-zinc-900">Satu titik dinilai dua kali, karena biayanya dua macam.</b>{' '}
+                Gerobak tidak bayar sewa, jadi ambangnya{' '}
+                <b className="text-zinc-900 tabular-nums">{GEROBAK_BREAK_EVEN_CUPS_PER_HOUR} cup/jam</b>{' '}
+                (Rp2,5jt/bulan ÷ 26 hari ÷ ±9,8 jam mangkal). Ruko kecil menanggung sewa dan
+                satu pegawai, jadi ambangnya{' '}
+                <b className="text-zinc-900 tabular-nums">{RUKO_BREAK_EVEN_CUPS_PER_HOUR} cup/jam</b>.
+              </p>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                Angka hijau berarti titik itu <b className="text-emerald-600">sudah cukup untuk
+                gerobak</b> — taruh gerobak di sana sekarang, tanpa menunggu apa pun. Vonis di
+                bawah angkanya menyebut keduanya sekaligus. Menilai dengan satu ambang saja akan
+                membuang titik yang sebenarnya sudah menghasilkan, hanya karena ia belum sanggup
+                menanggung sewa.
               </p>
               <p className="text-[11px] text-zinc-400 leading-relaxed">
                 <b className="text-amber-700">&ldquo;perkiraan&rdquo;</b> berarti lamanya dihitung
