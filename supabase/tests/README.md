@@ -95,6 +95,7 @@ pemindaian tabel penuh.
 | 1 | Profil pembeli tersimpan bersama pesanan |
 | 2 | Profil boleh dikosongkan seluruhnya |
 | 3 | Nilai profil ngawur diabaikan, **penjualan tetap tersimpan** |
+| — | Seluruh berkas ini memakai argumen bernama sejak 0024. Sebelumnya posisional, dan ketika `create_order` bertambah satu parameter, nilai `'sebut'` diam-diam mendarat di parameter yang salah — tesnya tetap "lulus" karena hanya mencetak hasil, tidak memeriksanya |
 | 4 | Constraint database menolak nilai di luar daftar |
 | 5 | Laporan sebaran, jam ramai per usia, dan produk favorit per segmen |
 | 6 | Transaksi tanpa profil terlihat jelas sebagai `unknown`, bukan disembunyikan |
@@ -291,3 +292,31 @@ Dua lubang ditutup sekaligus, karena menandai mangkalnya saja tidak cukup:
 pesanan di booth tetap membentuk petaknya sendiri lewat jalur perkiraan.
 Penyaringnya ada di dua tempat — mangkal event tidak jadi jam terukur, dan
 pesanan di dalam jendela mangkal event tidak masuk petak sama sekali.
+
+## 19 — "Sebut menu tanpa lihat" (0024)
+
+`customer_type` menanyakan hal yang salah: "orang ini pernah beli?" adalah soal
+**ingatan**, dan driver tidak hafal wajah. Hasilnya 55 dari 64 transaksi tercatat
+`new` dan hanya 2 `returning` — angka itu mengukur daya ingat driver, bukan
+tingkat beli-ulang RAMU. Angka "17% jadi langganan" sempat dikutip berkali-kali
+dalam analisis sebelum ketahuan tidak pernah ada di basis data.
+
+Penggantinya menanyakan apa yang terjadi di depan mata sekarang, dan itu selalu
+bisa dijawab jujur: pembeli menyebut nama menu, atau membaca daftar dulu.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | `sebut` dan `lihat` tersimpan apa adanya |
+| 2 | Nilai di luar daftar dibuang, **penjualannya tetap tersimpan** — satu ketukan salah tidak boleh menghilangkan uang yang nyata |
+| 3 | Constraint database ikut menolak, bukan hanya fungsinya |
+| 4 | Pesanan tanpa `cara_pesan` tetap diterima — kolom pengamatan tidak pernah jadi syarat jualan |
+| 4b | **Aplikasi versi lama yang masih mengirim `p_customer_type` tetap bisa mencatat penjualan.** PWA tersimpan di ponsel driver; kalau tanda tangan fungsinya tidak cocok, PostgREST menolak SETIAP penjualan sampai ponselnya memuat ulang |
+| 4c | Kolom `customer_type` benar-benar hilang, bukan sekadar disembunyikan dari layar |
+| 5 | Hanya ada **satu** `create_order` — menambah parameter lewat `CREATE OR REPLACE` diam-diam membuat fungsi kedua, dan PostgREST tidak bisa memilih di antara dua yang bernama sama |
+| 6 | Laporan membuka penyebutnya: 1 sebut dari 2 yang tercatat = **50%**, bukan 20% dari 5 total. Yang belum dicatat tidak ikut jadi penyebut, supaya angkanya tidak turun hanya karena driver sedang ramai |
+| 7 | Driver tidak mendapat satu pun baris laporan admin |
+
+Tes 05 ikut diubah ke argumen bernama. Sebelumnya posisional, dan ketika
+`create_order` bertambah satu parameter, nilai `'sebut'` diam-diam mendarat di
+parameter yang salah — tesnya tetap "lulus" karena hanya mencetak hasilnya,
+tidak memeriksanya. Sekarang diperiksa.

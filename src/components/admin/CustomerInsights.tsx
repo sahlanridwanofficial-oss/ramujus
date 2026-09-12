@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
 import { Loader2, Info } from 'lucide-react'
-import { GENDER_LABEL, AGE_LABEL, TYPE_LABEL, SEGMENT_ORDER } from '@/types/customer'
+import { GENDER_LABEL, AGE_LABEL, CARA_PESAN_LABEL, SEGMENT_ORDER } from '@/types/customer'
 
 interface InsightRow {
   dimension: string
@@ -22,13 +22,19 @@ interface HourlyRow {
 const DIMENSION_TITLE: Record<string, string> = {
   gender: 'Jenis Kelamin',
   age: 'Kelompok Usia',
-  type: 'Pelanggan Baru vs Langganan',
+  cara_pesan: 'Sudah Hafal Menu?',
 }
+
+// Urutan sengaja menaruh cara pesan lebih dulu: dari situlah terbaca
+// apakah nama menu sudah keluar dari gerobak, dan itu yang menentukan
+// keputusan ruko. Jenis kelamin dan usia menjawab "siapa", bukan "balik
+// lagi atau tidak".
+const DIMENSIONS = ['cara_pesan', 'gender', 'age']
 
 const LABELS: Record<string, Record<string, string>> = {
   gender: GENDER_LABEL,
   age: AGE_LABEL,
-  type: TYPE_LABEL,
+  cara_pesan: CARA_PESAN_LABEL,
 }
 
 /** Warna netral berjenjang; segmen "tidak dicatat" sengaja paling pudar. */
@@ -64,7 +70,7 @@ export default function CustomerInsights({ days }: { days: number }) {
 
   const grouped = useMemo(() => {
     const out: Record<string, InsightRow[]> = {}
-    for (const dim of ['gender', 'age', 'type']) {
+    for (const dim of DIMENSIONS) {
       const order = SEGMENT_ORDER[dim] ?? []
       out[dim] = rows
         .filter(r => r.dimension === dim)
@@ -141,7 +147,7 @@ export default function CustomerInsights({ days }: { days: number }) {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3.5">
-        {['gender', 'age', 'type'].map(dim => {
+        {DIMENSIONS.map(dim => {
           const list = grouped[dim] ?? []
           const max = Math.max(...list.map(r => r.orders), 1)
           return (

@@ -125,7 +125,16 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          to_regprocedure('public.admin_tandai_mangkal_event(uuid,boolean)') IS NOT NULL
          AND EXISTS (SELECT 1 FROM information_schema.columns
                       WHERE table_schema = 'public' AND table_name = 'driver_stops'
-                        AND column_name = 'is_event'))
+                        AND column_name = 'is_event')),
+
+    (24, '0024_hafal_menu', '"Sebut menu tanpa lihat" gantikan tebakan langganan',
+         to_regprocedure('public.admin_hafal_menu(date,date)') IS NOT NULL
+         AND EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'orders'
+                        AND column_name = 'cara_pesan')
+         AND NOT EXISTS (SELECT 1 FROM information_schema.columns
+                          WHERE table_schema = 'public' AND table_name = 'orders'
+                            AND column_name = 'customer_type'))
 )
 SELECT migrasi,
        penjelasan,

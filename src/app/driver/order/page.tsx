@@ -14,7 +14,7 @@ import {
 import type { Product, CartItem, Shift } from '@/types/database'
 import { enqueueOrder, newClientOrderId, isPermanentFailure } from '@/lib/offlineQueue'
 import { useOrderQueue } from '@/hooks/useOrderQueue'
-import type { CustomerGender, CustomerAgeRange, CustomerType } from '@/types/customer'
+import type { CustomerGender, CustomerAgeRange, CaraPesan } from '@/types/customer'
 import CustomerPersona from '@/components/driver/CustomerPersona'
 import { jakartaToday } from '@/lib/date'
 import Link from 'next/link'
@@ -90,7 +90,7 @@ export default function OrderPage() {
   // Profil pembeli — perkiraan driver, semuanya opsional.
   const [customerGender, setCustomerGender] = useState<CustomerGender | null>(null)
   const [customerAge, setCustomerAge] = useState<CustomerAgeRange | null>(null)
-  const [customerType, setCustomerType] = useState<CustomerType | null>(null)
+  const [caraPesan, setCaraPesan] = useState<CaraPesan | null>(null)
   const queue = useOrderQueue()
 
   const supabase = createClient()
@@ -264,7 +264,7 @@ export default function OrderPage() {
         p_created_at: placedAt,
         p_customer_gender: customerGender,
         p_customer_age_range: customerAge,
-        p_customer_type: customerType,
+        p_cara_pesan: caraPesan,
       })
 
       // PostgREST mengembalikan fungsi bertipe komposit sebagai objek
@@ -312,7 +312,7 @@ export default function OrderPage() {
   function resetCustomerProfile() {
     setCustomerGender(null)
     setCustomerAge(null)
-    setCustomerType(null)
+    setCaraPesan(null)
   }
 
   function queueOrder(
@@ -335,7 +335,7 @@ export default function OrderPage() {
       total_estimate: totalAmount,
       customer_gender: customerGender,
       customer_age_range: customerAge,
-      customer_type: customerType,
+      cara_pesan: caraPesan,
       attempts: 0,
     })
 
@@ -696,10 +696,10 @@ export default function OrderPage() {
             <CustomerPersona
               gender={customerGender}
               age={customerAge}
-              type={customerType}
+              caraPesan={caraPesan}
               onGender={setCustomerGender}
               onAge={setCustomerAge}
-              onType={setCustomerType}
+              onCaraPesan={setCaraPesan}
             />
 
             {/* Simpan */}

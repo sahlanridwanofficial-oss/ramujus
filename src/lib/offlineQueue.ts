@@ -41,7 +41,7 @@ export interface QueuedOrder {
   /** Perkiraan profil pembeli; ikut tersimpan agar tidak hilang saat offline. */
   customer_gender: string | null
   customer_age_range: string | null
-  customer_type: string | null
+  cara_pesan: string | null
   attempts: number
 }
 

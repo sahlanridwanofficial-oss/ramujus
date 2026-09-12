@@ -57,7 +57,7 @@ export function useOrderQueue(): OrderQueueState {
             p_created_at: order.created_at,
             p_customer_gender: order.customer_gender,
             p_customer_age_range: order.customer_age_range,
-            p_customer_type: order.customer_type,
+            p_cara_pesan: order.cara_pesan,
           })
 
           if (!error) {
