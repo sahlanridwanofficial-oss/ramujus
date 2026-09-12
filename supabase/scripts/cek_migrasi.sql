@@ -90,7 +90,29 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
                        JOIN pg_namespace n ON n.oid = p.pronamespace
                       WHERE n.nspname = 'public'
                         AND (p.proname LIKE 'admin\_%' OR p.proname = 'fleet_overview')
-                        AND has_function_privilege('anon', p.oid, 'EXECUTE')))
+                        AND has_function_privilege('anon', p.oid, 'EXECUTE'))),
+
+    (18, '0018_cluster_real_centroid', 'Titik peta = pusat pesanan asli, bukan tengah petak',
+         EXISTS (SELECT 1 FROM pg_proc p
+                   JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'admin_location_clusters'
+                    AND pg_get_functiondef(p.oid) LIKE '%spread_meters%')),
+
+    (19, '0019_location_rate', 'Laju cup per jam per titik, dengan ambang bukti',
+         EXISTS (SELECT 1 FROM pg_proc p
+                   JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'admin_location_clusters'
+                    AND pg_get_functiondef(p.oid) LIKE '%cups_per_hour%')),
+
+    (20, '0020_driver_stops', 'Tombol "Mangkal di sini": lama mangkal direkam, bukan ditebak',
+         to_regclass('public.driver_stops') IS NOT NULL
+         AND to_regprocedure('public.driver_start_stop(double precision,double precision,double precision,uuid)') IS NOT NULL),
+
+    (21, '0021_catat_belakangan', 'Jendela catat-belakangan 30 menit (bukan 15)',
+         EXISTS (SELECT 1 FROM pg_proc p
+                   JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'admin_location_clusters'
+                    AND pg_get_functiondef(p.oid) LIKE '%30 minutes%'))
 )
 SELECT migrasi,
        penjelasan,

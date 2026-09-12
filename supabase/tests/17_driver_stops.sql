@@ -171,8 +171,96 @@ BEGIN
 END;
 $$;
 
+RESET ROLE;
+
 \echo ''
-\echo '=== 7. Tanpa catatan mangkal, perkiraan tetap jalan dan ditandai ==='
+\echo '=== 6b. Catatan yang mendarat setelah mangkal ditutup tetap terhitung ==='
+-- Kejadian produksi 12 Sep 2026: mangkal ditutup 21:00, dua pesanan
+-- terakhir tercatat 21:17. Dengan jendela 15 menit milik 0020, tiga cup
+-- itu hilang dari titiknya dan laju jatuh 25%. Migrasi 0021 melebarkan
+-- jendela jadi 30 menit.
+--
+-- Arah kesalahannya berlawanan dengan bug 0019: yang ini membuat sebuah
+-- titik terlihat lebih BURUK dari kenyataan. Sama-sama merusak keputusan
+-- sewa — satu bikin salah tanda tangan, satu bikin melewatkan titik bagus.
+--
+-- Jendela tetap punya batas atas: pesanan 45 menit setelah tutup bukan
+-- lagi "catat belakangan", dan tidak boleh ikut terhitung.
+DO $$
+DECLARE v_hari  DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date - 2;
+        v_buka  TIMESTAMPTZ;
+        v_tutup TIMESTAMPTZ;
+        v_order UUID;
+        v_saat  TIMESTAMPTZ;
+        v_cup   INTEGER;
+        v_kode  TEXT;
+BEGIN
+  v_buka  := (v_hari::timestamp + INTERVAL '16 hours') AT TIME ZONE 'Asia/Jakarta';
+  v_tutup := (v_hari::timestamp + INTERVAL '21 hours') AT TIME ZONE 'Asia/Jakarta';
+
+  -- Mangkal 16:00-21:00 = 5 jam persis.
+  INSERT INTO public.driver_stops (driver_id, started_at, ended_at, latitude, longitude)
+  VALUES ('11111111-1111-1111-1111-111111111111',
+          v_buka, v_tutup, -6.3300, 106.8700);
+
+  -- Tiga pesanan: di dalam mangkal, 17 menit setelah tutup, 45 menit setelah tutup.
+  FOREACH v_kode IN ARRAY ARRAY['dalam', 'lewat17', 'lewat45'] LOOP
+    SELECT CASE v_kode
+             WHEN 'dalam'   THEN v_buka  + INTERVAL '2 hours'
+             WHEN 'lewat17' THEN v_tutup + INTERVAL '17 minutes'
+             ELSE                v_tutup + INTERVAL '45 minutes'
+           END,
+           CASE v_kode WHEN 'dalam' THEN 2 WHEN 'lewat17' THEN 3 ELSE 2 END
+      INTO v_saat, v_cup;
+
+    v_order := gen_random_uuid();
+    INSERT INTO public.orders (id, shift_id, driver_id, order_number, total_amount,
+                               payment_method, latitude, longitude, created_at)
+    VALUES (v_order, 'cccccccc-0000-0000-0000-000000000001',
+            '11111111-1111-1111-1111-111111111111',
+            'RMJ-LATE-' || v_kode, v_cup * 13000, 'cash', -6.3300, 106.8700, v_saat);
+    INSERT INTO public.order_items (order_id, product_id, quantity, unit_price, subtotal)
+    VALUES (v_order, 'aaaaaaaa-0000-0000-0000-000000000001',
+            v_cup, 13000, v_cup * 13000);
+  END LOOP;
+END;
+$$;
+
+SET ROLE authenticated;
+SET test.uid = '22222222-2222-2222-2222-222222222222';
+
+DO $$
+DECLARE v_hari DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date - 2; rec RECORD;
+BEGIN
+  SELECT * INTO rec FROM public.admin_location_clusters(v_hari, v_hari, 300);
+
+  IF rec.dwell_source <> 'tercatat' THEN
+    RAISE EXCEPTION 'GAGAL: sumber %, harusnya tercatat', rec.dwell_source;
+  END IF;
+  IF abs(rec.hours_measured - 5.0) > 0.01 THEN
+    RAISE EXCEPTION 'GAGAL: jam %, harusnya 5.0', rec.hours_measured;
+  END IF;
+
+  -- Inti tes: yang 17 menit lewat ikut, yang 45 menit lewat tidak.
+  -- Dengan jendela 15 menit milik 0020, ini akan jadi 2 cup / 0.40.
+  IF rec.cups_measured <> 5 THEN
+    RAISE EXCEPTION 'GAGAL: % cup terukur, harusnya 5 (2 di dalam + 3 yang telat 17 menit)',
+                    rec.cups_measured;
+  END IF;
+  IF abs(rec.cups_per_hour - 1.0) > 0.01 THEN
+    RAISE EXCEPTION 'GAGAL: laju %, harusnya 5 cup / 5 jam = 1.0', rec.cups_per_hour;
+  END IF;
+
+  -- Yang 45 menit lewat tetap masuk total penjualan titik, hanya tidak
+  -- ikut jadi pembilang laju. Total cup karena itu 7, bukan 5.
+  IF rec.cups <> 7 THEN
+    RAISE EXCEPTION 'GAGAL: total % cup, harusnya 7', rec.cups;
+  END IF;
+
+  RAISE NOTICE 'OK: telat catat 17 menit ikut terhitung, telat 45 menit tidak — 5 cup / 5 jam = 1.0';
+END;
+$$;
+
 RESET ROLE;
 DO $$
 DECLARE v_hari DATE := (NOW() AT TIME ZONE 'Asia/Jakarta')::date - 3;
