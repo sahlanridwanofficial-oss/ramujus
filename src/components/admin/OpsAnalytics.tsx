@@ -24,7 +24,7 @@ import { describeRpcError } from '@/lib/rpc'
 import { BREAK_EVEN_CUPS_PER_DAY, MARGIN_PER_CUP } from '@/lib/constants'
 import {
   Loader2, Clock, MapPin, TriangleAlert, ExternalLink,
-  Gauge, CalendarRange, Info, Target, Navigation,
+  Gauge, CalendarRange, Info, Target, Navigation, Tent,
 } from 'lucide-react'
 
 interface HourRow {
@@ -187,6 +187,26 @@ interface DayRow {
   drivers: number
 }
 
+/**
+ * Satu booth event yang dikeluarkan dari peta.
+ *
+ * Penyaring yang bekerja diam-diam tidak bisa dipercaya, karena tidak ada
+ * yang tahu kalau ia salah. Baris-baris ini adalah jendela untuk
+ * memeriksanya: mangkal mana yang ditandai, berapa cup dan rupiah yang
+ * ikut keluar, dan di titik mana.
+ */
+interface EventRow {
+  stop_id: string
+  driver_name: string
+  mulai: string
+  selesai: string | null
+  jam: number | string
+  cups: number
+  omzet: number
+  latitude: number
+  longitude: number
+}
+
 interface MatrixRow {
   dow: number
   hour_wib: number
@@ -222,6 +242,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
   const [carts, setCarts] = useState<CartRow[]>([])
   const [days, setDays] = useState<DayRow[]>([])
   const [matrix, setMatrix] = useState<MatrixRow[]>([])
+  const [events, setEvents] = useState<EventRow[]>([])
   const [grid, setGrid] = useState(300)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -234,12 +255,13 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
       setLoading(true)
       setError(null)
 
-      const [h, c, k, d, m] = await Promise.all([
+      const [h, c, k, d, m, e] = await Promise.all([
         supabase.rpc('admin_hourly_performance', { p_from: from, p_to: to }),
         supabase.rpc('admin_location_clusters', { p_from: from, p_to: to, p_grid_meters: grid }),
         supabase.rpc('admin_cart_productivity', { p_from: from, p_to: to }),
         supabase.rpc('admin_daily_productivity', { p_from: from, p_to: to }),
         supabase.rpc('admin_daypart_matrix', { p_from: from, p_to: to }),
+        supabase.rpc('admin_mangkal_event', { p_from: from, p_to: to }),
       ])
 
       if (cancelled) return
@@ -252,11 +274,12 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
         (c.error && ['admin_location_clusters', c.error] as const) ||
         (k.error && ['admin_cart_productivity', k.error] as const) ||
         (d.error && ['admin_daily_productivity', d.error] as const) ||
-        (m.error && ['admin_daypart_matrix', m.error] as const)
+        (m.error && ['admin_daypart_matrix', m.error] as const) ||
+        (e.error && ['admin_mangkal_event', e.error] as const)
 
       if (firstError) {
         setError(describeRpcError(firstError[1], firstError[0]))
-        setHours([]); setClusters([]); setCarts([]); setDays([]); setMatrix([])
+        setHours([]); setClusters([]); setCarts([]); setDays([]); setMatrix([]); setEvents([])
         setLoading(false)
         return
       }
@@ -266,6 +289,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
       setCarts((k.data ?? []) as CartRow[])
       setDays((d.data ?? []) as DayRow[])
       setMatrix((m.data ?? []) as MatrixRow[])
+      setEvents((e.data ?? []) as EventRow[])
       setLoading(false)
     }
 
@@ -880,6 +904,74 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
           </>
         )}
       </section>
+
+      {/* ── 3b. Booth event yang dikeluarkan dari peta ───────────────
+          Penyaring yang bekerja diam-diam tidak bisa dipercaya, karena
+          tidak ada yang tahu kalau ia salah. Bagian ini membuat isinya
+          kelihatan: yang dikeluarkan apa saja, berapa, dan di mana.
+          Uangnya tetap dihitung di seluruh laporan penjualan — yang
+          dibuang hanya anggapan bahwa tempat itu bisa disewa. */}
+      {events.length > 0 && (
+        <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center gap-2">
+            <Tent strokeWidth={2} className="w-4 h-4 text-zinc-400" />
+            <h2 className="text-xs font-bold text-zinc-900">
+              Dikeluarkan dari peta: {events.length} booth event
+            </h2>
+          </div>
+
+          <div className="divide-y divide-zinc-100">
+            {events.map(ev => (
+              <div key={ev.stop_id} className="px-5 py-3 flex items-center gap-3">
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-zinc-900">
+                    {new Date(ev.mulai).toLocaleString('id-ID', {
+                      timeZone: 'Asia/Jakarta',
+                      day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
+                    })}
+                    {' · '}
+                    <span className="font-medium text-zinc-500">{ev.driver_name}</span>
+                  </p>
+                  <p className="text-[11px] text-zinc-400 tabular-nums mt-0.5">
+                    {num(ev.jam).toFixed(2)} jam · {ev.cups} cup · {formatRupiah(ev.omzet)}
+                    {num(ev.jam) > 0 && (
+                      <> · {(ev.cups / num(ev.jam)).toFixed(2)} cup/jam</>
+                    )}
+                  </p>
+                </div>
+                <a
+                  href={`https://www.google.com/maps?q=${ev.latitude},${ev.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="shrink-0 inline-flex items-center gap-1 text-[10px] font-semibold text-brand hover:underline"
+                >
+                  Peta
+                  <ExternalLink strokeWidth={2.5} className="w-3 h-3" />
+                </a>
+              </div>
+            ))}
+          </div>
+
+          <div className="px-5 py-3.5 border-t border-zinc-100">
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              Booth event — kampus, bazar, pasar malam — punya kerumunan yang sudah
+              berkumpul dan tidak berulang. Kalau ikut masuk peta, ia tampil sebagai
+              titik terbaik yang pernah terukur dan menarik keputusan sewa ke tempat
+              yang tidak ada.{' '}
+              <b className="text-zinc-900">Uangnya tetap dihitung penuh</b> di omzet,
+              total cup, dan analitik menu — yang dibuang hanya anggapan bahwa tempat
+              itu bisa disewa.
+            </p>
+            <p className="text-[11px] text-zinc-400 leading-relaxed mt-1.5">
+              Penandanya dipasang driver lewat tombol{' '}
+              <b className="text-zinc-600">&ldquo;Booth event&rdquo;</b> saat mangkal
+              dimulai, dan bisa dibalik selama mangkalnya masih berjalan. Kalau ada
+              baris di sini yang seharusnya mangkal biasa, cabut penandanya di
+              aplikasi driver sebelum hari itu direkonsiliasi.
+            </p>
+          </div>
+        </section>
+      )}
 
       {/* ── 4. Harian ───────────────────────────────────────────────── */}
       <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
