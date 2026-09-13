@@ -963,11 +963,12 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
               itu bisa disewa.
             </p>
             <p className="text-[11px] text-zinc-400 leading-relaxed mt-1.5">
-              Penandanya dipasang driver lewat tombol{' '}
-              <b className="text-zinc-600">&ldquo;Booth event&rdquo;</b> saat mangkal
-              dimulai, dan bisa dibalik selama mangkalnya masih berjalan. Kalau ada
-              baris di sini yang seharusnya mangkal biasa, cabut penandanya di
-              aplikasi driver sebelum hari itu direkonsiliasi.
+              Penandanya dipasang dari sisi admin, bukan oleh driver — layar driver
+              dipakai sambil melayani antrean, dan tombol tambahan di situ lebih
+              sering jadi salah tekan daripada koreksi. Daftar ini gunanya untuk
+              memeriksa: kalau ada baris yang seharusnya mangkal biasa, atau ada
+              event yang belum tercatat di sini, penandanya dicabut atau dipasang
+              sebelum hari itu direkonsiliasi.
             </p>
           </div>
         </section>

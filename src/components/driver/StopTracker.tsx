@@ -21,7 +21,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { MapPin, Loader2, Navigation, TriangleAlert, Tent } from 'lucide-react'
+import { MapPin, Loader2, Navigation, TriangleAlert } from 'lucide-react'
 
 interface CurrentStop {
   id: string
@@ -30,7 +30,6 @@ interface CurrentStop {
   longitude: number | null
   minutes: number
   cups: number
-  is_event: boolean
 }
 
 const PENDING_KEY = 'ramu.stop-pending.v1'
@@ -41,7 +40,6 @@ interface PendingTap {
   latitude: number | null
   longitude: number | null
   accuracy: number | null
-  is_event?: boolean
 }
 
 function readPending(): PendingTap | null {
@@ -132,7 +130,6 @@ export default function StopTracker({ shiftActive }: { shiftActive: boolean }) {
               p_longitude: tap.longitude,
               p_accuracy: tap.accuracy,
               p_client_stop_id: tap.client_stop_id,
-              p_is_event: tap.is_event ?? false,
             })
           : await supabase.rpc('driver_end_stop')
       if (!err) {
@@ -159,7 +156,7 @@ export default function StopTracker({ shiftActive }: { shiftActive: boolean }) {
     }
   }, [stop?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function mulai(isEvent: boolean) {
+  async function mulai() {
     setBusy(true)
     setError(null)
     const pos = await getPosition()
@@ -169,14 +166,12 @@ export default function StopTracker({ shiftActive }: { shiftActive: boolean }) {
       latitude: pos?.coords.latitude ?? null,
       longitude: pos?.coords.longitude ?? null,
       accuracy: pos?.coords.accuracy ?? null,
-      is_event: isEvent,
     }
     const { error: err } = await supabase.rpc('driver_start_stop', {
       p_latitude: tap.latitude,
       p_longitude: tap.longitude,
       p_accuracy: tap.accuracy,
       p_client_stop_id: tap.client_stop_id,
-      p_is_event: isEvent,
     })
     if (err) {
       writePending(tap)
@@ -184,23 +179,6 @@ export default function StopTracker({ shiftActive }: { shiftActive: boolean }) {
     } else {
       await refresh()
     }
-    setBusy(false)
-  }
-
-  /**
-   * Salah tekan dibalik tanpa menutup mangkalnya. Menutup lalu membuka
-   * ulang akan memotong lama mangkal, dan lama mangkal itulah yang jadi
-   * penyebut cup per jam.
-   */
-  async function balikPenandaEvent() {
-    if (!stop) return
-    setBusy(true)
-    setError(null)
-    const { error: err } = await supabase.rpc('driver_tandai_event_sekarang', {
-      p_is_event: !stop.is_event,
-    })
-    if (err) setError('Gagal mengubah penanda. Coba lagi.')
-    else await refresh()
     setBusy(false)
   }
 
@@ -243,7 +221,7 @@ export default function StopTracker({ shiftActive }: { shiftActive: boolean }) {
           {stop ? (
             <>
               <p className="text-sm font-bold text-zinc-900 leading-tight">
-                {stop.is_event ? 'Booth event' : 'Sedang mangkal'} · {lamanya(stop.minutes)}
+                Sedang mangkal · {lamanya(stop.minutes)}
               </p>
               <p className="text-[11px] text-zinc-500 mt-0.5">
                 {stop.cups} cup terjual sejak mangkal di sini
@@ -271,46 +249,22 @@ export default function StopTracker({ shiftActive }: { shiftActive: boolean }) {
         )}
       </div>
 
-      {/* Dua tombol, bukan satu tombol plus pilihan.
-          Penandaan event harus terjadi di sini, saat gerobak sampai —
-          bukan sebagai koreksi admin berhari-hari kemudian. Booth event
-          punya kerumunan yang sudah berkumpul dan tidak berulang; kalau
-          ia ikut masuk peta, ia tampil sebagai titik terbaik yang pernah
-          terukur dan menarik keputusan sewa ke tempat yang tidak ada. */}
+      {/* Satu tombol, satu arti.
+          Penandaan booth event pernah ada di sini sebagai tombol kedua,
+          lalu dicabut: layar driver dipakai sambil melayani antrean, dan
+          setiap pilihan tambahan di situ adalah peluang salah tekan yang
+          menggeser angka cup per jam. Penandanya tetap ada di database
+          dan dipasang dari sisi admin — lihat admin_tandai_mangkal_event
+          pada 0023, serta daftar "Dikeluarkan dari peta" di Analitik Ops. */}
       {!stop && (
-        <div className="mt-3 grid grid-cols-2 gap-2">
-          <button
-            type="button"
-            onClick={() => mulai(false)}
-            disabled={busy}
-            className="py-2.5 px-3 rounded-lg text-xs font-bold bg-brand text-white hover:bg-brand-dark disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
-          >
-            {busy ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : <><MapPin strokeWidth={2.5} className="w-3.5 h-3.5" /> Mangkal di sini</>}
-          </button>
-          <button
-            type="button"
-            onClick={() => mulai(true)}
-            disabled={busy}
-            className="py-2.5 px-3 rounded-lg text-xs font-bold bg-white text-zinc-700 border border-zinc-200 hover:border-brand hover:text-brand disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
-          >
-            <Tent strokeWidth={2.5} className="w-3.5 h-3.5" /> Booth event
-          </button>
-        </div>
-      )}
-
-      {/* Salah tekan harus bisa dilihat dan dibalik oleh drivernya sendiri,
-          selagi ia masih di tempat dan masih ingat. */}
-      {stop && (
         <button
           type="button"
-          onClick={balikPenandaEvent}
+          onClick={mulai}
           disabled={busy}
-          className="mt-2.5 pt-2.5 border-t border-zinc-200/70 w-full text-left text-[11px] font-semibold text-zinc-500 hover:text-brand transition-colors disabled:opacity-60"
+          className="mt-3 w-full py-2.5 px-3 rounded-lg text-xs font-bold bg-brand text-white hover:bg-brand-dark disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
         >
-          {stop.is_event
-            ? 'Ini bukan booth event — jadikan mangkal biasa'
-            : 'Ini booth event (bazar, kampus, pasar malam) — tandai'}
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" />
+                : <><MapPin strokeWidth={2.5} className="w-3.5 h-3.5" /> Mangkal di sini</>}
         </button>
       )}
 
