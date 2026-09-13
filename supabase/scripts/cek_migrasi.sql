@@ -134,7 +134,12 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
                         AND column_name = 'cara_pesan')
          AND NOT EXISTS (SELECT 1 FROM information_schema.columns
                           WHERE table_schema = 'public' AND table_name = 'orders'
-                            AND column_name = 'customer_type'))
+                            AND column_name = 'customer_type')),
+
+    (25, '0025_edit_pesanan', 'Driver bisa memperbaiki pesanan salah ketik, berjejak',
+         to_regprocedure('public.driver_edit_order(uuid,jsonb)') IS NOT NULL
+         AND to_regprocedure('public.driver_batal_order(uuid,text)') IS NOT NULL
+         AND to_regclass('public.order_audit_log') IS NOT NULL)
 )
 SELECT migrasi,
        penjelasan,

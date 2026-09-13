@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
 import { formatRupiah, formatTime, formatDate } from '@/lib/format'
-import { ShoppingBag, MapPin, Clock, Loader2, ChevronRight, Calendar } from 'lucide-react'
+import { ShoppingBag, MapPin, Clock, Loader2, ChevronRight, Calendar, Pencil } from 'lucide-react'
 import { isCupCategory } from '@/lib/constants'
 import type { Order, OrderItem, Product } from '@/types/database'
 import { jakartaToday, jakartaDayRange } from '@/lib/date'
+import EditPesanan from '@/components/driver/EditPesanan'
 
 interface OrderWithItems extends Order {
   order_items: (OrderItem & { product: Product | null })[]
@@ -21,11 +22,27 @@ export default function HistoryPage() {
     jakartaToday()
   )
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
+  const [editingOrder, setEditingOrder] = useState<string | null>(null)
+  const [products, setProducts] = useState<Product[]>([])
   const supabase = createClient()
+
+  // Hanya pesanan hari ini yang boleh diperbaiki — aturan itu ditegakkan
+  // server, dan di sini tombolnya ikut disembunyikan supaya driver tidak
+  // menekan sesuatu yang pasti ditolak.
+  const bisaDiperbaiki = selectedDate === jakartaToday()
 
   useEffect(() => {
     if (user) loadOrders()
   }, [user, selectedDate])
+
+  useEffect(() => {
+    supabase
+      .from('products')
+      .select('*')
+      .eq('is_available', true)
+      .order('sort_order')
+      .then(({ data }) => { if (data) setProducts(data as Product[]) })
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   async function loadOrders() {
     if (!user) return
@@ -163,7 +180,7 @@ export default function HistoryPage() {
                 </div>
               </button>
 
-              {expandedOrder === order.id && (
+              {expandedOrder === order.id && editingOrder !== order.id && (
                 <div className="border-t border-zinc-100 p-4 bg-zinc-50/80 space-y-2">
                   <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider block mb-1">
                     Detail Item:
@@ -178,7 +195,31 @@ export default function HistoryPage() {
                       </span>
                     </div>
                   ))}
+
+                  {bisaDiperbaiki && (
+                    <button
+                      type="button"
+                      onClick={() => setEditingOrder(order.id)}
+                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-brand hover:underline"
+                    >
+                      <Pencil strokeWidth={2.5} className="w-3 h-3" />
+                      Salah input? Perbaiki
+                    </button>
+                  )}
                 </div>
+              )}
+
+              {editingOrder === order.id && (
+                <EditPesanan
+                  orderId={order.id}
+                  awal={(order.order_items ?? []).map(i => ({
+                    product_id: i.product_id,
+                    quantity: i.quantity,
+                  }))}
+                  produk={products}
+                  onSelesai={() => { setEditingOrder(null); loadOrders() }}
+                  onBatalEdit={() => setEditingOrder(null)}
+                />
               )}
             </div>
           ))}

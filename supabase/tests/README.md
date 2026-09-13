@@ -320,3 +320,31 @@ Tes 05 ikut diubah ke argumen bernama. Sebelumnya posisional, dan ketika
 `create_order` bertambah satu parameter, nilai `'sebut'` diam-diam mendarat di
 parameter yang salah — tesnya tetap "lulus" karena hanya mencetak hasilnya,
 tidak memeriksanya. Sekarang diperiksa.
+
+## 20 — Perbaiki pesanan yang salah ketik (0025)
+
+Sampai 0025 pesanan yang sudah tersimpan tidak bisa diubah sama sekali, jadi
+salah ketik menetap selamanya dan angka keputusan ikut salah. Minggu 13 Sep
+2026 menunjukkan kenapa itu mendesak: 33 cup tercatat dalam rentang satu menit
+saat event kampus, keadaan di mana salah ketik bukan kemungkinan melainkan
+kepastian.
+
+Yang dibuka adalah kemampuan **memperbaiki**, bukan kemampuan menghapus jejak.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Salah ketik 9 dibetulkan jadi 4, dan **lima cup kembali ke alokasi** — bukan hilang jadi selisih setoran |
+| 2 | Menukar menu, bukan hanya jumlah: stok kedua produk ikut benar |
+| 3 | Edit melebihi muatan ditolak **dan pesanan lamanya utuh** — total, item, dan stok persis seperti sebelum percobaan. Tanpa ini, edit gagal meninggalkan pesanan kosong dengan stok sudah dikembalikan |
+| 4 | Batal menghapus pesanan dan mengembalikan cup-nya ke muatan |
+| 5 | Jejak edit dan batal tersimpan, dan **potret sebelumnya tetap ada setelah pesanannya dihapus** |
+| 6 | Driver tidak bisa mengubah atau membatalkan pesanan driver lain |
+| 7 | Pesanan hari kemarin ditolak — memperbaikinya berarti menggeser angka yang mungkin sudah dipakai menghitung |
+| 8 | Setelah hari itu direkonsiliasi, edit dan batal dua-duanya terkunci |
+| 9 | **Jejak tidak bisa dihapus dari aplikasi.** Tanpa ini, selisih kas apa pun bisa dirapikan belakangan dengan menurunkan satu angka penjualan lalu menghapus catatannya |
+
+Pembatalan menghapus barisnya, bukan menandainya. Menandai berarti dua puluh
+lebih fungsi analitik harus ingat menyaring baris itu; satu yang lupa
+menghasilkan angka yang berbeda diam-diam dari angka di sebelahnya. Jejaknya
+disimpan penuh di `order_audit_log`, jadi yang hilang hanya barisnya, bukan
+kejadiannya.
