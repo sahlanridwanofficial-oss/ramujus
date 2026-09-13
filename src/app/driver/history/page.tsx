@@ -26,10 +26,6 @@ export default function HistoryPage() {
   const [products, setProducts] = useState<Product[]>([])
   const supabase = createClient()
 
-  // Hanya pesanan hari ini yang boleh diperbaiki — aturan itu ditegakkan
-  // server, dan di sini tombolnya ikut disembunyikan supaya driver tidak
-  // menekan sesuatu yang pasti ditolak.
-  const bisaDiperbaiki = selectedDate === jakartaToday()
 
   useEffect(() => {
     if (user) loadOrders()
@@ -196,16 +192,19 @@ export default function HistoryPage() {
                     </div>
                   ))}
 
-                  {bisaDiperbaiki && (
-                    <button
-                      type="button"
-                      onClick={() => setEditingOrder(order.id)}
-                      className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-brand hover:underline"
-                    >
-                      <Pencil strokeWidth={2.5} className="w-3 h-3" />
-                      Salah input? Perbaiki
-                    </button>
-                  )}
+                  {/* Tanggal tidak lagi membatasi. Salah ketik sering baru
+                      ketahuan keesokan harinya, dan yang menjaga angka adalah
+                      kunci rekonsiliasi — bukan pergantian tanggal. Kalau
+                      harinya sudah dikunci, server yang menolak dan pesannya
+                      muncul di layar ini. */}
+                  <button
+                    type="button"
+                    onClick={() => setEditingOrder(order.id)}
+                    className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-bold text-brand hover:underline"
+                  >
+                    <Pencil strokeWidth={2.5} className="w-3 h-3" />
+                    Salah input? Perbaiki
+                  </button>
                 </div>
               )}
 

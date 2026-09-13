@@ -139,7 +139,13 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
     (25, '0025_edit_pesanan', 'Driver bisa memperbaiki pesanan salah ketik, berjejak',
          to_regprocedure('public.driver_edit_order(uuid,jsonb)') IS NOT NULL
          AND to_regprocedure('public.driver_batal_order(uuid,text)') IS NOT NULL
-         AND to_regclass('public.order_audit_log') IS NOT NULL)
+         AND to_regclass('public.order_audit_log') IS NOT NULL),
+
+    (26, '0026_edit_tak_terbatas_hari', 'Batas "hanya hari ini" dicabut; kunci rekonsiliasi yang menjaga',
+         EXISTS (SELECT 1 FROM pg_proc p
+                   JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'boleh_ubah_pesanan'
+                    AND position('ORDER_NOT_TODAY' in pg_get_functiondef(p.oid)) = 0))
 )
 SELECT migrasi,
        penjelasan,

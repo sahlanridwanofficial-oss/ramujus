@@ -321,7 +321,7 @@ Tes 05 ikut diubah ke argumen bernama. Sebelumnya posisional, dan ketika
 parameter yang salah — tesnya tetap "lulus" karena hanya mencetak hasilnya,
 tidak memeriksanya. Sekarang diperiksa.
 
-## 20 — Perbaiki pesanan yang salah ketik (0025)
+## 20 — Perbaiki pesanan yang salah ketik (0025, 0026)
 
 Sampai 0025 pesanan yang sudah tersimpan tidak bisa diubah sama sekali, jadi
 salah ketik menetap selamanya dan angka keputusan ikut salah. Minggu 13 Sep
@@ -339,8 +339,8 @@ Yang dibuka adalah kemampuan **memperbaiki**, bukan kemampuan menghapus jejak.
 | 4 | Batal menghapus pesanan dan mengembalikan cup-nya ke muatan |
 | 5 | Jejak edit dan batal tersimpan, dan **potret sebelumnya tetap ada setelah pesanannya dihapus** |
 | 6 | Driver tidak bisa mengubah atau membatalkan pesanan driver lain |
-| 7 | Pesanan hari kemarin ditolak — memperbaikinya berarti menggeser angka yang mungkin sudah dipakai menghitung |
-| 8 | Setelah hari itu direkonsiliasi, edit dan batal dua-duanya terkunci |
+| 7 | Pesanan hari kemarin **tetap bisa diperbaiki** selama harinya belum direkonsiliasi (0026), dan perbaikannya tetap berjejak. 0025 menolaknya dengan penjaga yang keliru: yang menandai "angka sudah dipakai" adalah rekonsiliasi, bukan pergantian tanggal — dan batas tanggal justru membuat salah ketik yang baru ketahuan besok mustahil diperbaiki |
+| 8 | Setelah hari itu direkonsiliasi, edit dan batal dua-duanya terkunci. Sejak 0026 mencabut batas tanggal, **inilah satu-satunya penjaga waktu yang tersisa** |
 | 9 | **Jejak tidak bisa dihapus dari aplikasi.** Tanpa ini, selisih kas apa pun bisa dirapikan belakangan dengan menurunkan satu angka penjualan lalu menghapus catatannya |
 
 Pembatalan menghapus barisnya, bukan menandainya. Menandai berarti dua puluh

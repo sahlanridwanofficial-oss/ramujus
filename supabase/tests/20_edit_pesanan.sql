@@ -1,4 +1,4 @@
--- Pengujian migrasi 0025: driver memperbaiki pesanan yang salah ketik.
+-- Pengujian migrasi 0025 & 0026: driver memperbaiki pesanan yang salah ketik.
 -- Bukan bagian aplikasi.
 \set ON_ERROR_STOP on
 \pset pager off
@@ -238,9 +238,12 @@ END;
 $$;
 
 \echo ''
-\echo '=== 7. Pesanan kemarin tidak bisa diubah ==='
--- Memperbaiki hari kemarin berarti menggeser angka yang mungkin sudah
--- dipakai menghitung. Itu pintu belakang ke audit kas.
+\echo '=== 7. Pesanan kemarin TETAP bisa diperbaiki selama belum direkonsiliasi (0026) ==='
+-- 0025 menolak ini dengan alasan menggeser angka yang mungkin sudah
+-- dipakai. Penjaganya keliru: yang menandai "angka sudah dipakai" adalah
+-- rekonsiliasi, bukan pergantian tanggal. Batas tanggal justru membuat
+-- salah ketik yang baru ketahuan besok mustahil diperbaiki — padahal
+-- begitulah kebanyakan salah ketik ketahuan.
 RESET ROLE;
 DO $$
 DECLARE v_id UUID := gen_random_uuid();
@@ -258,22 +261,34 @@ $$;
 SET ROLE authenticated;
 SET test.uid = '11111111-1111-1111-1111-111111111111';
 DO $$
-DECLARE v_id UUID;
+DECLARE v_id UUID; v public.orders; v_jejak INTEGER;
 BEGIN
   SELECT id INTO v_id FROM public.orders WHERE order_number = 'RMJ-KEMARIN';
-  BEGIN
-    PERFORM public.driver_edit_order(
-      v_id, '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":5}]'::jsonb);
-    RAISE EXCEPTION 'GAGAL: pesanan kemarin bisa diubah';
-  EXCEPTION WHEN sqlstate '22023' THEN
-    IF SQLERRM <> 'ORDER_NOT_TODAY' THEN RAISE; END IF;
-  END;
-  RAISE NOTICE 'OK: pesanan kemarin ditolak';
+
+  v := public.driver_edit_order(
+    v_id, '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":5}]'::jsonb);
+
+  IF v.total_amount <> 65000 THEN
+    RAISE EXCEPTION 'GAGAL: total %, harusnya 5 x 13000 = 65000', v.total_amount;
+  END IF;
+
+  -- Perbaikan hari lalu tetap wajib berjejak; justru di situ jejaknya
+  -- paling penting, karena angkanya sudah sempat terbaca orang lain.
+  SELECT count(*) INTO v_jejak FROM public.order_audit_log
+   WHERE order_number = 'RMJ-KEMARIN' AND action = 'edit';
+  IF v_jejak <> 1 THEN
+    RAISE EXCEPTION 'GAGAL: perbaikan hari lalu tidak berjejak';
+  END IF;
+
+  RAISE NOTICE 'OK: pesanan kemarin bisa diperbaiki, dan jejaknya tercatat';
 END;
 $$;
 
 \echo ''
 \echo '=== 8. Hari yang sudah direkonsiliasi terkunci ==='
+-- Setelah 0026 mencabut batas tanggal, INI satu-satunya penjaga waktu
+-- yang tersisa. Kalau tes ini jatuh, angka penjualan bisa digeser
+-- kapan saja setelah kasnya dicocokkan.
 RESET ROLE;
 UPDATE public.driver_daily_allocations SET status = 'reconciled'
  WHERE id = 'bbbbbbbb-0000-0000-0000-000000000001';
