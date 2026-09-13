@@ -348,3 +348,30 @@ lebih fungsi analitik harus ingat menyaring baris itu; satu yang lupa
 menghasilkan angka yang berbeda diam-diam dari angka di sebelahnya. Jejaknya
 disimpan penuh di `order_audit_log`, jadi yang hilang hanya barisnya, bukan
 kejadiannya.
+
+## 21 — Penandaan event dipasang driver di lapangan (0027)
+
+0023 membuat booth event bisa dikeluarkan dari analitik lokasi, dan penyaringnya
+bekerja. Tapi penandanya hanya bisa dipasang admin, **sesudah kejadian, dan hanya
+bila ada yang ingat memberitahu**. Kalau tidak ada yang cerita, booth event
+menyelinap ke peta sebagai titik terbaik yang pernah terukur — tanpa satu pun
+tanda bahwa ada yang keliru.
+
+Kesalahan yang diam adalah yang paling mahal di sini, karena yang dibelokkan
+adalah keputusan sewa. Yang tahu sebuah tempat itu booth event atau titik biasa
+adalah orang yang berdiri di sana, jadi penandaannya dipindahkan ke sana.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Mangkal biasa tetap bukan event |
+| 2 | Booth event ditandai sejak ketukan pertama — bukan koreksi belakangan |
+| 3 | Salah tekan bisa dibalik **tanpa menutup mangkalnya**. Menutup lalu membuka ulang akan memotong lama mangkal, dan lama mangkal itulah penyebut cup per jam |
+| 4 | `driver_current_stop` melaporkan penandanya, sehingga salah tekan terlihat oleh drivernya sendiri |
+| 5 | Aplikasi versi lama (4 argumen, tersimpan di ponsel sebagai PWA) tetap bisa membuka mangkal, dan hasilnya bukan event |
+| 6 | Hanya ada **satu** `driver_start_stop` — menambah parameter lewat `CREATE OR REPLACE` diam-diam membuat fungsi kedua |
+| 7 | 40 cup booth event benar-benar hilang dari peta; yang tersisa hanya 2 cup jalanan |
+| 8 | **Admin bisa melihat apa yang dikeluarkan, bukan mempercayainya.** `admin_mangkal_event` melaporkan persis 40 cup / Rp520.000 yang keluar dari peta, beserta jam dan titiknya |
+| 9 | Driver tidak bisa membaca daftar itu |
+
+Tes 8 yang paling penting dari sudut pandang kepercayaan: penyaring yang bekerja
+diam-diam tidak bisa dipercaya, karena tidak ada yang tahu kalau ia salah.

@@ -104,9 +104,14 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
                   WHERE n.nspname = 'public' AND p.proname = 'admin_location_clusters'
                     AND pg_get_functiondef(p.oid) LIKE '%cups_per_hour%')),
 
+    -- Penandanya sengaja TIDAK menyebut tanda tangan driver_start_stop:
+    -- 0027 menambah satu parameter, dan penanda yang mengunci tanda tangan
+    -- lama akan melaporkan "BELUM" selamanya padahal migrasinya terpasang.
     (20, '0020_driver_stops', 'Tombol "Mangkal di sini": lama mangkal direkam, bukan ditebak',
          to_regclass('public.driver_stops') IS NOT NULL
-         AND to_regprocedure('public.driver_start_stop(double precision,double precision,double precision,uuid)') IS NOT NULL),
+         AND EXISTS (SELECT 1 FROM pg_proc p
+                       JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public' AND p.proname = 'driver_start_stop')),
 
     (21, '0021_catat_belakangan', 'Jendela catat-belakangan 30 menit (bukan 15)',
          EXISTS (SELECT 1 FROM pg_proc p
@@ -145,7 +150,12 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          EXISTS (SELECT 1 FROM pg_proc p
                    JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = 'boleh_ubah_pesanan'
-                    AND position('ORDER_NOT_TODAY' in pg_get_functiondef(p.oid)) = 0))
+                    AND position('ORDER_NOT_TODAY' in pg_get_functiondef(p.oid)) = 0)),
+
+    (27, '0027_tandai_event_di_lapangan', 'Driver menandai booth event sendiri; admin bisa melihat yang dikeluarkan',
+         to_regprocedure('public.driver_start_stop(double precision,double precision,double precision,uuid,boolean)') IS NOT NULL
+         AND to_regprocedure('public.driver_tandai_event_sekarang(boolean)') IS NOT NULL
+         AND to_regprocedure('public.admin_mangkal_event(date,date)') IS NOT NULL)
 )
 SELECT migrasi,
        penjelasan,
