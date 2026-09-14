@@ -375,3 +375,59 @@ adalah orang yang berdiri di sana, jadi penandaannya dipindahkan ke sana.
 
 Tes 8 yang paling penting dari sudut pandang kepercayaan: penyaring yang bekerja
 diam-diam tidak bisa dipercaya, karena tidak ada yang tahu kalau ia salah.
+
+## 22 — Setiap hari jualan punya awal dan akhir (0028)
+
+Dari data produksi 7–14 September 2026: **Rp677.000 dari Rp1.644.000 — 41% —
+tidak pernah diakui masuk.** Empat dari delapan hari. Dua di antaranya (10 dan
+11 September) tidak punya baris alokasi sama sekali, padahal 22 cup terjual.
+
+Semuanya satu sebab. `create_order` menulis pesanan, lalu melewati seluruh
+pemotongan stok dalam diam ketika alokasinya tidak ada:
+
+```
+IF v_alloc_id IS NOT NULL THEN        -- tidak ada alokasi     -> lewat
+  SELECT ... INTO v_remaining ...
+  IF FOUND THEN                       -- produk tak di alokasi -> lewat
+```
+
+Pesanannya tersimpan lengkap. Yang hilang pembandingnya: berapa yang dibawa
+pagi itu. Tanpa pembanding, selisih setoran mustahil dihitung — bukan karena
+selisihnya nol, melainkan karena pertanyaannya tidak pernah bisa diajukan.
+
+**Jalan yang kelihatannya benar — menolak penjualan pada hari yang belum
+dialokasikan — justru memperburuk.** Driver bukan pihak yang lalai, dan
+menolak pesanannya tidak membatalkan penjualan: pembeli sudah berdiri di depan
+gerobak dan tetap dilayani. Yang batal hanya pencatatannya. Aturan itu akan
+mengubah 22 cup yang tercatat-tapi-tak-berpasangan menjadi 22 cup yang tidak
+ada sama sekali.
+
+Karena itu aturannya dibalik: penjualan **tidak pernah** ditolak, dan sebagai
+gantinya tidak ada lagi jalan keluar yang sunyi. Hari selalu punya baris,
+produk selalu punya baris, dan yang tidak tercatat muncul sebagai muatan 0
+dengan terjual 6 — angka janggal yang menuntut jawaban, bukan celah yang tak
+meninggalkan bekas.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Hari tanpa alokasi: penjualan **tetap masuk**, barisnya dibuat, ditandai `dibuat_otomatis`, muatan tetap 0 (tidak dikarang) |
+| 2 | Produk di luar alokasi dapat barisnya sendiri — lubang `IF FOUND` tertutup |
+| 3 | Admin mencatat muatan di tengah hari **tanpa menimpa** cup yang sudah telanjur terjual (kejadian 12 September: alokasi 13:05 menyusul penjualan 12:17), dan cup ke-7 dari muatan 5 dicatat, bukan ditolak |
+| 4 | Hari yang muatannya tak pernah dicatat **tidak bisa dikunci**, dan sebabnya menyebut jalan keluarnya (`MUATAN_BELUM_DICATAT`), bukan `AUDIT_NUMBERS_IMPOSSIBLE` yang benar tapi buntu |
+| 5 | `admin_akui_muatan_dari_penjualan` menaikkan muatan ke angka terjual, **memotong stok pusat** sebesar selisihnya, meninggalkan jejak, dan sesudahnya hari bisa dikunci |
+| 6 | `DAY_RECONCILED` masih menjaga hari yang angkanya sudah final |
+| 7 | `admin_hari_perlu_perhatian` menagih hari lalu yang menggantung, dan **tidak** menagih hari yang sedang berjalan — daftar yang berisik tiap hari akan berhenti dibaca |
+| 8 | Dua fungsi baru ditolak dengan sebab untuk selain admin, bukan dijawab daftar kosong |
+
+Tes 8 menutup pola yang berulang di proyek ini: daftar kosong dari pertanyaan
+yang tidak pernah diizinkan terbaca sebagai "tidak ada hari yang menggantung" —
+kebohongan yang persis sama bentuknya dengan dashboard yang dulu menampilkan
+"0 cup" padahal driver sudah jualan.
+
+**Dua tes lama ikut berubah, dan perubahannya disengaja.** `01` tes 8 dulu
+menuntut penolakan saat stok tidak cukup; sekarang ia menuntut pencatatan
+beserta selisih yang kelihatan — jaminan keduanya (pesanan gagal tidak
+meninggalkan separuh dirinya) tetap diuji lewat item kedua yang tidak sah.
+`10` dulu berprasyarat "nol baris alokasi"; prasyaratnya kini berbentuk lain
+dengan isi yang sama: barisnya lahir dari penjualan, dan tidak satu cup pun
+muatan pernah tercatat.

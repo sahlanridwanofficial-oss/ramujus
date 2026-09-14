@@ -137,20 +137,49 @@ SELECT p.name, i.initial_quantity, i.sold_quantity,
 SELECT count(*) AS jumlah_log_lokasi FROM public.location_logs;
 
 \echo ''
-\echo '=== TES 8: stok tidak cukup — harus ditolak DAN tidak meninggalkan pesanan separuh ==='
+\echo '=== TES 8: terjual melebihi muatan dicatat; yang batal tetap tidak meninggalkan sisa ==='
+-- Sampai 0027 bagian pertama uji ini menuntut penolakan. 0028 membalikkannya,
+-- dan pembalikannya disengaja: pembeli sudah dilayani sebelum aplikasi sempat
+-- berkata tidak, jadi menolak pesanan tidak membatalkan penjualan — ia cuma
+-- membatalkan CATATANNYA. Pada 10-11 September 2026 aturan lama membuat 22 cup
+-- nyata tidak punya baris alokasi sama sekali.
+--
+-- Yang tetap dijaga adalah jaminan kedua, dan itu yang sesungguhnya soal
+-- keutuhan data: pesanan yang gagal di tengah tidak boleh meninggalkan
+-- separuh dirinya.
 DO $$
-DECLARE v_orders_before INTEGER;
+DECLARE
+  v_orders_before INTEGER;
+  v_muatan        INTEGER;
+  v_terjual       INTEGER;
 BEGIN
+  -- Bagian A: melebihi muatan -> DICATAT, dan selisihnya kelihatan.
+  PERFORM public.create_order(
+    'cccccccc-0000-0000-0000-000000000001'::uuid,
+    '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000002","quantity":99}]'::jsonb);
+
+  SELECT initial_quantity, sold_quantity INTO v_muatan, v_terjual
+    FROM public.driver_allocation_items
+   WHERE product_id = 'aaaaaaaa-0000-0000-0000-000000000002';
+
+  IF v_terjual <= v_muatan THEN
+    RAISE EXCEPTION 'GAGAL: terjual % dari muatan % — kelebihannya tidak tercatat', v_terjual, v_muatan;
+  END IF;
+  RAISE NOTICE 'OK: terjual % dari muatan % — janggal, tercatat, bisa ditanyakan', v_terjual, v_muatan;
+
+  -- Bagian B: gagal di item kedua -> tidak ada pesanan separuh yang tertinggal.
   SELECT count(*) INTO v_orders_before FROM public.orders;
   BEGIN
     PERFORM public.create_order(
       'cccccccc-0000-0000-0000-000000000001'::uuid,
-      '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000002","quantity":99}]'::jsonb);
-    RAISE EXCEPTION 'GAGAL: pesanan melebihi stok diterima!';
+      '[{"product_id":"aaaaaaaa-0000-0000-0000-000000000001","quantity":1},
+        {"product_id":"aaaaaaaa-0000-0000-0000-000000000002","quantity":0}]'::jsonb);
+    RAISE EXCEPTION 'GAGAL: jumlah 0 diterima!';
   EXCEPTION
     WHEN sqlstate '22023' THEN
       RAISE NOTICE 'OK ditolak: %', SQLERRM;
   END;
+
   IF (SELECT count(*) FROM public.orders) <> v_orders_before THEN
     RAISE EXCEPTION 'GAGAL: pesanan gagal meninggalkan baris orders yatim!';
   END IF;
