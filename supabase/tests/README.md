@@ -653,3 +653,35 @@ kapan, dan alasannya. Layar jadi bersih, buktinya tidak hilang.
 Tes 4 dan 5 menjaga kejadian nyata: nota Mangga di produksi sempat punya satu
 baris pembatal yang terlepas dari pasangannya, dan baris yatim itu membuat
 netto rupiahnya jadi **nol** — bahannya seolah gratis.
+
+## 28 — Ekonomi terukur menggantikan margin yang diketik (0035)
+
+Sejak awal proyek, satu angka menyetir setiap vonis uang: `MARGIN_PER_CUP =
+5000`. Dari situ turun titik impas 20 cup/hari, ambang gerobak 2,0 cup/jam,
+dan ambang ruko 4,4 cup/jam — tiga angka yang dipakai memutuskan apakah sebuah
+titik layak disewa. Dua di antaranya bahkan memakai asumsi margin yang
+**berbeda** (Rp5.000 dan Rp6.500) untuk menilai titik yang sama di peta yang
+sama.
+
+Resep ujinya sengaja dua bahan saja supaya setiap angka bisa dihitung tangan:
+Pisang 100 g @ Rp30/g + Cup 1 @ Rp600 = HPP Rp3.600, jual Rp10.000, laba
+Rp6.400 per cup.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Belum ada cup ternilai -> semuanya **NULL, bukan nol**; "impas 0 cup/hari" terdengar seperti fakta padahal artinya "belum tahu" |
+| 2 | Laba per cup, laba kotor, dan laba bersih cocok dengan hitungan tangan |
+| 3 | **Titik impas turun** karena marginnya naik — inti seluruh berkas ini |
+| 4 | Ambang gerobak dan ruko berasal dari **margin yang sama**; yang membedakan cuma biaya tetap dan jam buka |
+| 5 | Biaya tetap mengikuti **hari jualan**, bukan panjang kalender rentangnya |
+| 6 | Parameter diubah di satu tempat, seluruh vonis ikut bergeser |
+| 7 | `parameter_ekonomi` tetap satu baris: tidak bisa ditambah maupun dihapus |
+| 8 | Tertutup untuk driver, lewat fungsi maupun tabel |
+
+Tes 5 menjaga kesalahan yang mudah dibuat: menagih biaya tetap pada hari
+gerobak libur membuat laba bersih tampak lebih buruk daripada kenyataannya.
+Rentang 30 hari dengan jualan satu hari harus menagih biaya tetap satu hari.
+
+Tes 4 membandingkan rasio ruko:gerobak dengan toleransi 0,02 — kedua ambang
+dibulatkan ke dua desimal lebih dulu, jadi membandingkannya dengan rasio tak
+bulat akan selalu meleset sedikit.

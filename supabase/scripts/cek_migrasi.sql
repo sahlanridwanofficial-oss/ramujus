@@ -220,7 +220,14 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          AND EXISTS (SELECT 1 FROM pg_proc p
                        JOIN pg_namespace n ON n.oid = p.pronamespace
                       WHERE n.nspname = 'public' AND p.proname = 'harga_bahan_pada'
-                        AND pg_get_functiondef(p.oid) LIKE '%membatalkan_id = bl.id%'))
+                        AND pg_get_functiondef(p.oid) LIKE '%membatalkan_id = bl.id%')),
+
+    (35, '0035_ekonomi_terukur', 'Laba per cup dari nota belanja, bukan konstanta Rp5.000',
+         to_regclass('public.parameter_ekonomi') IS NOT NULL
+         AND to_regprocedure('public.admin_ekonomi_terkini(date,date,text)') IS NOT NULL
+         -- Barisnya wajib ada: fungsinya membaca biaya tetap dari sini, dan
+         -- tabel kosong akan membuat laba bersih diam-diam NULL.
+         AND EXISTS (SELECT 1 FROM public.parameter_ekonomi WHERE id))
 )
 SELECT migrasi,
        penjelasan,

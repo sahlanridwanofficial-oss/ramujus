@@ -20,11 +20,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { formatRupiah } from '@/lib/format'
-import { describeRpcError } from '@/lib/rpc'
+import { describeRpcError, firstRow } from '@/lib/rpc'
 import { BREAK_EVEN_CUPS_PER_DAY, MARGIN_PER_CUP } from '@/lib/constants'
 import {
   Loader2, Clock, MapPin, TriangleAlert, ExternalLink,
-  Gauge, CalendarRange, Info, Target, Navigation, Tent,
+  Gauge, CalendarRange, Info, Target, Navigation, Tent, Wallet,
 } from 'lucide-react'
 
 interface HourRow {
@@ -80,7 +80,7 @@ const SPREAD_IS_A_ROUTE_M = 150
  * angka di bawah. Ini ambang untuk MEMUTUSKAN SEWA, bukan target harian
  * gerobak — gerobak untung jauh di bawah ini karena nyaris tanpa biaya tetap.
  */
-const RUKO_BREAK_EVEN_CUPS_PER_HOUR = 4.4
+const CADANGAN_RUKO_PER_JAM = 4.4
 
 /**
  * Laju yang harus dicapai satu titik agar GEROBAK di situ tidak rugi.
@@ -97,7 +97,7 @@ const RUKO_BREAK_EVEN_CUPS_PER_HOUR = 4.4
  * Menyembunyikan itu berarti membuang titik yang sebenarnya sudah
  * menghasilkan.
  */
-const GEROBAK_BREAK_EVEN_CUPS_PER_HOUR = 2.0
+const CADANGAN_GEROBAK_PER_JAM = 2.0
 
 /**
  * Bukti minimum sebelum sebuah titik boleh disebut "tembus ambang ruko".
@@ -127,10 +127,10 @@ function isTrustedForLease(c: ClusterRow): boolean {
   return c.dwell_source === 'tercatat' && hasEnoughEvidence(c)
 }
 
-function clearsRukoBar(c: ClusterRow): boolean {
+function clearsRukoBar(c: ClusterRow, bar: Ambang): boolean {
   return (
     c.cups_per_hour != null &&
-    num(c.cups_per_hour) >= RUKO_BREAK_EVEN_CUPS_PER_HOUR &&
+    num(c.cups_per_hour) >= bar.ruko &&
     isTrustedForLease(c)
   )
 }
@@ -144,19 +144,51 @@ function clearsRukoBar(c: ClusterRow): boolean {
  * melambung ke arah yang menggoda. Melonggarkan bukti di sini hanya akan
  * membuat gerobak berdiri berminggu-minggu di titik yang sebenarnya sepi.
  */
-function clearsGerobakBar(c: ClusterRow): boolean {
+function clearsGerobakBar(c: ClusterRow, bar: Ambang): boolean {
   return (
     c.cups_per_hour != null &&
-    num(c.cups_per_hour) >= GEROBAK_BREAK_EVEN_CUPS_PER_HOUR &&
+    num(c.cups_per_hour) >= bar.gerobak &&
     isTrustedForLease(c)
   )
 }
 
+/**
+ * Ambang cup per jam untuk dua struktur biaya yang berjalan bersamaan.
+ *
+ * Sampai 0035 keduanya konstanta modul — dan yang satu memakai asumsi
+ * margin Rp5.000 sementara satunya Rp6.500, untuk menilai titik yang
+ * sama di peta yang sama. Sekarang keduanya datang dari margin yang
+ * sama, terukur dari cup yang benar-benar terjual. Yang membedakan cuma
+ * biaya tetap dan jam bukanya.
+ */
+interface Ambang { gerobak: number; ruko: number }
+
+/**
+ * Ekonomi terukur pada rentang terpilih. Seluruh medannya boleh NULL:
+ * belum ada cup yang bisa dinilai berarti belum tahu, bukan nol.
+ */
+interface EkonomiRow {
+  cup: number
+  cup_ternilai: number
+  omzet: number
+  biaya_bahan: number | null
+  laba_kotor: number | null
+  laba_per_cup: number | null
+  hari_jualan: number
+  biaya_tetap: number | null
+  laba_bersih: number | null
+  impas_per_hari: number | null
+  impas_gerobak_jam: number | null
+  impas_ruko_jam: number | null
+  harga_perkiraan: boolean
+  lengkap: boolean
+}
+
 /** Vonis satu titik terhadap dua struktur biaya yang berjalan bersamaan. */
-function verdictLabel(c: ClusterRow): { text: string; tone: string } {
-  if (!isTrustedForLease(c)) return { text: 'Belum cukup bukti', tone: 'text-amber-600' }
-  if (clearsRukoBar(c))     return { text: 'Gerobak ✓ · Ruko ✓',  tone: 'text-emerald-600' }
-  if (clearsGerobakBar(c))  return { text: 'Gerobak ✓ · Ruko ✗',  tone: 'text-emerald-600' }
+function verdictLabel(c: ClusterRow, bar: Ambang): { text: string; tone: string } {
+  if (!isTrustedForLease(c))     return { text: 'Belum cukup bukti', tone: 'text-amber-600' }
+  if (clearsRukoBar(c, bar))     return { text: 'Gerobak ✓ · Ruko ✓',  tone: 'text-emerald-600' }
+  if (clearsGerobakBar(c, bar))  return { text: 'Gerobak ✓ · Ruko ✗',  tone: 'text-emerald-600' }
   return { text: 'Gerobak ✗ · Ruko ✗', tone: 'text-zinc-400' }
 }
 
@@ -243,6 +275,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
   const [days, setDays] = useState<DayRow[]>([])
   const [matrix, setMatrix] = useState<MatrixRow[]>([])
   const [events, setEvents] = useState<EventRow[]>([])
+  const [ekonomi, setEkonomi] = useState<EkonomiRow | null>(null)
   const [grid, setGrid] = useState(300)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -255,13 +288,14 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
       setLoading(true)
       setError(null)
 
-      const [h, c, k, d, m, e] = await Promise.all([
+      const [h, c, k, d, m, e, x] = await Promise.all([
         supabase.rpc('admin_hourly_performance', { p_from: from, p_to: to }),
         supabase.rpc('admin_location_clusters', { p_from: from, p_to: to, p_grid_meters: grid }),
         supabase.rpc('admin_cart_productivity', { p_from: from, p_to: to }),
         supabase.rpc('admin_daily_productivity', { p_from: from, p_to: to }),
         supabase.rpc('admin_daypart_matrix', { p_from: from, p_to: to }),
         supabase.rpc('admin_mangkal_event', { p_from: from, p_to: to }),
+        supabase.rpc('admin_ekonomi_terkini', { p_dari: from, p_sampai: to }),
       ])
 
       if (cancelled) return
@@ -280,6 +314,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
       if (firstError) {
         setError(describeRpcError(firstError[1], firstError[0]))
         setHours([]); setClusters([]); setCarts([]); setDays([]); setMatrix([]); setEvents([])
+        setEkonomi(null)
         setLoading(false)
         return
       }
@@ -290,12 +325,33 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
       setDays((d.data ?? []) as DayRow[])
       setMatrix((m.data ?? []) as MatrixRow[])
       setEvents((e.data ?? []) as EventRow[])
+      // Ekonomi sengaja tidak ikut memutus halaman. Bila migrasinya belum
+      // terpasang atau belum ada cup yang bisa dinilai, seluruh analitik
+      // lain tetap berguna — yang terjadi hanya ambangnya jatuh ke angka
+      // cadangan, dan itu dikatakan di layar.
+      setEkonomi(x.error ? null : firstRow<EkonomiRow>(x.data))
       setLoading(false)
     }
 
     load()
     return () => { cancelled = true }
   }, [from, to, grid])
+
+  /**
+   * Ambang yang benar-benar dipakai menilai titik.
+   *
+   * Dari ekonomi terukur bila ada; kalau belum, jatuh ke konstanta
+   * cadangan — dan layar mengatakannya, bukan diam-diam memakai tebakan
+   * lama seolah-olah itu hasil pengukuran.
+   */
+  const bar: Ambang = useMemo(() => ({
+    gerobak: num(ekonomi?.impas_gerobak_jam) || CADANGAN_GEROBAK_PER_JAM,
+    ruko:    num(ekonomi?.impas_ruko_jam)    || CADANGAN_RUKO_PER_JAM,
+  }), [ekonomi])
+
+  const impasHarian = num(ekonomi?.impas_per_hari) || BREAK_EVEN_CUPS_PER_DAY
+  const labaPerCup  = num(ekonomi?.laba_per_cup)   || MARGIN_PER_CUP
+  const terukur     = ekonomi?.laba_per_cup != null
 
   const totalDays = days.length
   const maxHourNorm = useMemo(
@@ -365,12 +421,12 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
 
     const totalCups = days.reduce((s, d) => s + d.cups, 0)
     const cupsPerDay = totalDays > 0 ? totalCups / totalDays : 0
-    const gap = BREAK_EVEN_CUPS_PER_DAY - cupsPerDay
+    const gap = impasHarian - cupsPerDay
 
     return { best, topTwoShare, bestBlock, cupsPerDay, gap, avg }
     // thinCoverage bergantung pada totalDays, yang sudah ikut sebagai dependensi.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clusters, hours, days, totalDays])
+  }, [clusters, hours, days, totalDays, impasHarian])
 
   if (loading) {
     return (
@@ -405,6 +461,112 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
 
   return (
     <div className="space-y-5">
+
+      {/* ── Laba bersih ────────────────────────────────────────────
+          Ditaruh paling atas karena ia satu-satunya angka yang menjawab
+          pertanyaan yang sebenarnya dibawa orang ke halaman ini: hari-hari
+          ini menghasilkan uang atau menghabiskannya.
+
+          Omzet sendirian tidak pernah menjawabnya, dan selama ini omzet
+          yang paling besar di layar. */}
+      {ekonomi && ekonomi.laba_bersih != null && (
+        <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center gap-2">
+            <Wallet strokeWidth={2} className="w-4 h-4 text-brand" />
+            <h3 className="text-sm font-bold text-zinc-900">Laba Bersih</h3>
+          </div>
+
+          <div className="px-5 py-5">
+            <div className="flex flex-wrap items-end gap-x-10 gap-y-5">
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">
+                  Laba bersih {ekonomi.hari_jualan} hari jualan
+                </p>
+                <p className={`text-4xl font-extrabold tabular-nums leading-none mt-1.5 ${
+                  num(ekonomi.laba_bersih) >= 0 ? 'text-emerald-600' : 'text-brand'}`}>
+                  {num(ekonomi.laba_bersih) >= 0 ? '' : '\u2212'}
+                  {formatRupiah(Math.abs(Math.round(num(ekonomi.laba_bersih))))}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">Laba per cup</p>
+                <p className="text-2xl font-extrabold text-zinc-900 tabular-nums leading-none mt-1.5">
+                  {formatRupiah(Math.round(num(ekonomi.laba_per_cup)))}
+                </p>
+              </div>
+              <div>
+                <p className="text-[10px] font-mono uppercase tracking-wider text-zinc-400">Impas</p>
+                <p className="text-2xl font-extrabold text-zinc-900 tabular-nums leading-none mt-1.5">
+                  {num(ekonomi.impas_per_hari).toFixed(1)}
+                  <span className="text-sm font-semibold text-zinc-500"> cup/hari</span>
+                </p>
+              </div>
+            </div>
+
+            {/* Susunannya dibuat kelihatan supaya angka besar di atas tidak
+                perlu dipercaya begitu saja. */}
+            <dl className="mt-5 pt-4 border-t border-zinc-100 flex flex-col gap-2 max-w-md">
+              <div className="flex justify-between gap-4 text-[13px]">
+                <dt className="text-zinc-500">Omzet {ekonomi.cup} cup</dt>
+                <dd className="tabular-nums font-semibold text-zinc-900">
+                  {formatRupiah(num(ekonomi.omzet))}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 text-[13px]">
+                <dt className="text-zinc-500">Biaya bahan menurut takaran</dt>
+                <dd className="tabular-nums text-zinc-600">
+                  &minus;{formatRupiah(Math.round(num(ekonomi.biaya_bahan)))}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 text-[13px] pt-2 border-t border-zinc-100">
+                <dt className="font-semibold text-zinc-700">Laba kotor</dt>
+                <dd className="tabular-nums font-bold text-zinc-900">
+                  {formatRupiah(Math.round(num(ekonomi.laba_kotor)))}
+                </dd>
+              </div>
+              <div className="flex justify-between gap-4 text-[13px]">
+                <dt className="text-zinc-500">
+                  Biaya tetap &times; {ekonomi.hari_jualan} hari jualan
+                </dt>
+                <dd className="tabular-nums text-zinc-600">
+                  &minus;{formatRupiah(Math.round(num(ekonomi.biaya_tetap)))}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="px-5 py-3.5 border-t border-zinc-100 flex flex-col gap-2">
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              <b className="text-zinc-900">Belum termasuk susut.</b> Buah busuk, tumpah, dan
+              kelebihan tuang tidak ada di takaran, jadi laba di atas selalu sedikit lebih besar
+              daripada kenyataan. Selisihnya baru bisa diukur setelah isi freezer dihitung bulanan.
+            </p>
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              Biaya tetap ditagihkan per <b className="text-zinc-900">hari jualan</b>, bukan per hari
+              kalender &mdash; hari gerobak libur tidak ikut ditagih.
+            </p>
+            {ekonomi.harga_perkiraan && (
+              <p className="text-[11px] text-amber-800 leading-relaxed flex items-start gap-2">
+                <Info strokeWidth={2} className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span>
+                  Sebagian cup terjual sebelum nota belanja pertama dicatat, jadi dinilai dengan
+                  harga bahan paling awal yang diketahui.
+                </span>
+              </p>
+            )}
+            {!ekonomi.lengkap && ekonomi.cup > ekonomi.cup_ternilai && (
+              <p className="text-[11px] text-amber-800 leading-relaxed flex items-start gap-2">
+                <Info strokeWidth={2} className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span>
+                  {ekonomi.cup - ekonomi.cup_ternilai} dari {ekonomi.cup} cup belum bisa dinilai
+                  &mdash; takarannya belum lengkap atau bahannya belum punya harga. Yang di atas
+                  dihitung dari {ekonomi.cup_ternilai} cup yang ternilai saja.
+                </span>
+              </p>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Kesimpulan yang bisa langsung dikerjakan besok pagi */}
       <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
@@ -462,7 +624,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                       <div className="flex items-baseline gap-1.5">
                         <span
                           className={`text-lg font-bold tabular-nums ${
-                            clearsRukoBar(verdict.best) ? 'text-emerald-600' : 'text-zinc-900'
+                            clearsRukoBar(verdict.best, bar) ? 'text-emerald-600' : 'text-zinc-900'
                           }`}
                         >
                           {num(verdict.best.cups_per_hour).toFixed(2)}
@@ -476,19 +638,19 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                             {num(verdict.best.hours_measured).toFixed(1)} jam. Belum cukup untuk
                             memutuskan sewa.
                           </span>
-                        ) : clearsRukoBar(verdict.best) ? (
-                          <>Tembus dua-duanya — gerobak {GEROBAK_BREAK_EVEN_CUPS_PER_HOUR}/jam
-                          dan ruko {RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam. Dari{' '}
+                        ) : clearsRukoBar(verdict.best, bar) ? (
+                          <>Tembus dua-duanya — gerobak {bar.gerobak}/jam
+                          dan ruko {bar.ruko}/jam. Dari{' '}
                           {verdict.best.measured_stops} kunjungan terukur.</>
-                        ) : clearsGerobakBar(verdict.best) ? (
+                        ) : clearsGerobakBar(verdict.best, bar) ? (
                           <>Tembus ambang <b className="text-emerald-600">gerobak</b>{' '}
-                          ({GEROBAK_BREAK_EVEN_CUPS_PER_HOUR}/jam) — taruh gerobak di sini.
-                          Untuk ruko masih kurang ({RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam). Dari{' '}
+                          ({bar.gerobak}/jam) — taruh gerobak di sini.
+                          Untuk ruko masih kurang ({bar.ruko}/jam). Dari{' '}
                           {verdict.best.measured_stops} kunjungan terukur.</>
                         ) : (
                           <>Belum tembus ambang mana pun — gerobak{' '}
-                          {GEROBAK_BREAK_EVEN_CUPS_PER_HOUR}/jam, ruko{' '}
-                          {RUKO_BREAK_EVEN_CUPS_PER_HOUR}/jam. Dari{' '}
+                          {bar.gerobak}/jam, ruko{' '}
+                          {bar.ruko}/jam. Dari{' '}
                           {verdict.best.measured_stops} kunjungan terukur.</>
                         )}
                       </p>
@@ -554,8 +716,9 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
             </div>
             <p className="mt-1.5 text-[11px] text-zinc-500 leading-relaxed">
               Sekarang <b className="text-zinc-700 tabular-nums">{verdict.cupsPerDay.toFixed(1)}</b>,
-              perlu <b className="text-zinc-700 tabular-nums">{BREAK_EVEN_CUPS_PER_DAY}</b> cup/hari
-              agar tidak rugi (margin {formatRupiah(MARGIN_PER_CUP)}/cup).
+              perlu <b className="text-zinc-700 tabular-nums">{impasHarian.toFixed(1)}</b> cup/hari
+              agar tidak rugi (laba {formatRupiah(Math.round(labaPerCup))}/cup
+              {terukur ? ' — terukur dari nota belanja' : ' — masih tebakan di kode'}).
             </p>
           </div>
         </div>
@@ -787,7 +950,7 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                           <>
                             <span
                               className={`font-bold tabular-nums ${
-                                clearsGerobakBar(c) ? 'text-emerald-600' : 'text-zinc-900'
+                                clearsGerobakBar(c, bar) ? 'text-emerald-600' : 'text-zinc-900'
                               }`}
                             >
                               {num(c.cups_per_hour).toFixed(2)}
@@ -796,8 +959,8 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
                                 membuang titik yang untuk gerobak sudah
                                 menghasilkan, hanya karena ia belum cukup
                                 untuk menanggung sewa. */}
-                            <span className={`block text-[10px] font-semibold ${verdictLabel(c).tone}`}>
-                              {verdictLabel(c).text}
+                            <span className={`block text-[10px] font-semibold ${verdictLabel(c, bar).tone}`}>
+                              {verdictLabel(c, bar).text}
                             </span>
                             <span
                               className={`block text-[10px] tabular-nums ${
@@ -867,10 +1030,10 @@ export default function OpsAnalytics({ from, to }: { from: string; to: string })
               <p className="text-[11px] text-zinc-500 leading-relaxed">
                 <b className="text-zinc-900">Satu titik dinilai dua kali, karena biayanya dua macam.</b>{' '}
                 Gerobak tidak bayar sewa, jadi ambangnya{' '}
-                <b className="text-zinc-900 tabular-nums">{GEROBAK_BREAK_EVEN_CUPS_PER_HOUR} cup/jam</b>{' '}
+                <b className="text-zinc-900 tabular-nums">{bar.gerobak} cup/jam</b>{' '}
                 (Rp2,5jt/bulan ÷ 26 hari ÷ ±9,8 jam mangkal). Ruko kecil menanggung sewa dan
                 satu pegawai, jadi ambangnya{' '}
-                <b className="text-zinc-900 tabular-nums">{RUKO_BREAK_EVEN_CUPS_PER_HOUR} cup/jam</b>.
+                <b className="text-zinc-900 tabular-nums">{bar.ruko} cup/jam</b>.
               </p>
               <p className="text-[11px] text-zinc-500 leading-relaxed">
                 Angka hijau berarti titik itu <b className="text-emerald-600">sudah cukup untuk
