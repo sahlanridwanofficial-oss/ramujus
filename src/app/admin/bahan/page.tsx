@@ -23,6 +23,7 @@ import { formatRupiah } from '@/lib/format'
 import { jakartaToday } from '@/lib/date'
 import { describeRpcError, firstRow } from '@/lib/rpc'
 import { MARGIN_PER_CUP } from '@/lib/constants'
+import HppMenu from '@/components/admin/HppMenu'
 import {
   Receipt, Loader2, TriangleAlert, Plus, TrendingUp, TrendingDown,
   Info, Scale,
@@ -286,6 +287,14 @@ export default function BelanjaBahanPage() {
           </div>
         </section>
       )}
+
+      {/*
+        HPP per menu ditaruh di atas formulir nota, bukan di bawah:
+        pertanyaan yang dibawa orang ke layar ini adalah "menu mana yang
+        tipis", dan mencatat nota adalah cara menjawabnya — bukan
+        sebaliknya.
+      */}
+      <HppMenu />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* ── Formulir nota ───────────────────────────────────── */}

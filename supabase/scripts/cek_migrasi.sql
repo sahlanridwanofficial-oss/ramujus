@@ -180,7 +180,17 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          -- dipastikan tidak ada kebijakan UPDATE/DELETE pada belanja.
          AND NOT EXISTS (SELECT 1 FROM pg_policies
                           WHERE schemaname = 'public' AND tablename = 'belanja'
-                            AND cmd IN ('UPDATE', 'DELETE')))
+                            AND cmd IN ('UPDATE', 'DELETE'))),
+
+    (30, '0030_takaran_dan_hpp', 'Takaran per menu & HPP; bahan tanpa harga bikin HPP kosong, bukan nol',
+         to_regclass('public.takaran') IS NOT NULL
+         AND to_regprocedure('public.admin_hpp_menu(date,text)') IS NOT NULL
+         AND to_regprocedure('public.admin_hpp_rincian(uuid,date,text)') IS NOT NULL
+         AND to_regprocedure('public.admin_simpan_takaran(uuid,jsonb,date)') IS NOT NULL
+         -- Takaran berversi hanya berarti kalau tidak bisa ditimpa langsung.
+         AND NOT EXISTS (SELECT 1 FROM pg_policies
+                          WHERE schemaname = 'public' AND tablename = 'takaran'
+                            AND cmd IN ('INSERT', 'UPDATE', 'DELETE')))
 )
 SELECT migrasi,
        penjelasan,
