@@ -518,3 +518,62 @@ Catatan untuk berkas uji lain: sejak 0030 ke-15 bahan RAMU disemai oleh
 migrasi, jadi berkas uji **tidak boleh menyemai bahan dengan ID karangan** —
 carilah lewat nama, sama seperti yang dilakukan layar admin. `23` sudah
 disesuaikan.
+
+## 25 — Biaya per cup dari takaran, bukan belanja dibagi cup (0031)
+
+Lahir dari angka yang ngawur di layar pada 15 September 2026, hari pertama nota
+belanja dipakai sungguhan:
+
+```
+Belanja 30 hari   Rp1.988.374
+Cup terjual              133
+---------------------------------
+"Biaya per cup"   Rp14.951   <- lebih mahal dari harga jualnya
+```
+
+Sebabnya satu belanja kemasan **1.000 cup** yang akan terpakai tujuh puluh hari
+ke depan, dibagi dengan cup yang terjual seminggu. Rumus "belanja dibagi cup"
+hanya benar kalau tinggi stok di awal dan di akhir rentang kira-kira sama —
+syarat yang jauh dari terpenuhi pada gerobak yang baru pertama kali belanja
+borongan. Itulah pekerjaan hitung stok bulanan.
+
+Yang **bisa** dihitung sekarang, dan sudah benar sejak 0029 memasang harga dan
+0030 memasang takaran: biaya menurut resep.
+
+```
+biaya = SUM( cup terjual tiap menu  ×  HPP menu itu pada hari cup itu terjual )
+```
+
+Angka ini tidak memuat susut, tumpah, dan kelebihan tuang, jadi ia selalu lebih
+murah daripada kenyataan. Perbedaannya justru gunanya: begitu hitung stok ada,
+**selisih antara keduanya adalah bocor.**
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | `admin_belanja_ringkas` melaporkan rupiah belanja apa adanya dan **tidak membaginya dengan apa pun**; bagian kemasan disebut terpisah karena itu yang paling sering dibeli borongan |
+| 2 | Biaya per cup = takaran × harga, cocok dengan hitungan tangan, berikut marginnya |
+| 3 | Topping tidak ikut dihitung sebagai cup — ia tidak punya takaran dan tidak akan pernah punya; ikut dihitung, ia membuat laporan tampak tidak lengkap selamanya |
+| 4 | **Pembaginya cup yang TERNILAI, bukan seluruh cup.** Membagi biaya 4 cup dengan 7 cup melaporkan biaya yang terlalu murah — arah kesalahan yang paling berbahaya, karena margin tampak lebih bagus |
+| 5 | Cup dinilai dengan harga saat ia terjual, bukan harga hari ini. Kalau tidak, laporan bulan lalu berubah tiap kali ada belanja baru |
+| 6 | Rentang tanpa penjualan: satu baris berisi nol dan `NULL`, dan **tidak** ditandai lengkap |
+| 7 | Kedua fungsi tertutup untuk driver |
+
+Tes 4 dan 5 menjaga dua arah kesalahan yang berlawanan tapi berakar sama:
+angka yang tidak diketahui tidak boleh diam-diam diisi — tidak dengan nol
+(tes 4), tidak pula dengan harga hari ini (tes 5).
+
+Migrasi **0032** menambahkan tiga uji lagi ke berkas yang sama. Sebabnya
+keadaan nyata pada hari nota pertama dipakai: seluruh penjualan 7–14 September,
+seluruh nota 15 September — tidak ada satu hari pun yang beririsan, sehingga
+laporannya berbunyi "0 dari 133 cup ternilai".
+
+0030 sudah menyemai takaran berlaku sejak hari jualan pertama dengan alasan
+"resep ini memang yang dipakai sejak awal". Memperlakukan harga berbeda — resep
+boleh dimundurkan, harga tidak — bukan kehati-hatian melainkan
+ketidakkonsistenan yang hasilnya layar kosong.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 8 | Cup yang terjual sebelum nota pertama dinilai dengan harga paling awal yang diketahui, **dan ditandai `harga_perkiraan`** — dipakai diam-diam, layar akan menyebutnya angka terukur |
+| 9 | Rentang yang notanya sudah ada **tidak** ditandai perkiraan |
+| 10 | Batasnya: bahan yang **belum pernah** dibeli tetap tidak punya harga. Yang dimundurkan adalah bukti yang ada; ketiadaan bukti tetap ketiadaan |

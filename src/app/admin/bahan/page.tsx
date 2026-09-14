@@ -58,13 +58,31 @@ interface BelanjaRow {
   koreksi: boolean
 }
 
-interface BiayaRow {
-  belanja_rupiah: number
+/** Biaya menurut takaran x harga — angka yang sudah sah hari ini juga. */
+interface TakaranBiayaRow {
   cup: number
+  cup_ternilai: number
+  biaya_total: number | null
   biaya_per_cup: number | null
-  minggu_ada: number
-  minggu_total: number
+  omzet: number
+  margin_per_cup: number | null
   lengkap: boolean
+  harga_perkiraan: boolean
+  nota_pertama: string | null
+}
+
+/**
+ * Belanja pada rentang, TIDAK dibagi cup.
+ *
+ * Pembagian itu cuma sah kalau tinggi stok di awal dan akhir rentang
+ * kira-kira sama. Satu belanja kemasan 1.000 cup melanggarnya telak.
+ */
+interface BelanjaRingkasRow {
+  rupiah: number
+  rupiah_kemasan: number
+  jumlah_nota: number
+  bahan_terisi: number
+  bahan_total: number
 }
 
 const SATUAN = ['gram', 'ml', 'pcs'] as const
@@ -95,7 +113,8 @@ export default function BelanjaBahanPage() {
   const [supabase] = useState(() => createClient())
   const [bahan, setBahan] = useState<BahanRow[]>([])
   const [riwayat, setRiwayat] = useState<BelanjaRow[]>([])
-  const [biaya, setBiaya] = useState<BiayaRow | null>(null)
+  const [takaran, setTakaran] = useState<TakaranBiayaRow | null>(null)
+  const [belanja, setBelanja] = useState<BelanjaRingkasRow | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [pesan, setPesan] = useState<string | null>(null)
@@ -126,10 +145,11 @@ export default function BelanjaBahanPage() {
   const [nSatuan, setNSatuan] = useState<typeof SATUAN[number]>('gram')
 
   const muat = useCallback(async () => {
-    const [rb, rr, rc] = await Promise.all([
+    const [rb, rr, rt, rl] = await Promise.all([
       supabase.rpc('admin_bahan_ringkas'),
       supabase.rpc('admin_riwayat_belanja', { p_dari: rentang.dari, p_sampai: rentang.sampai }),
-      supabase.rpc('admin_biaya_bahan_per_cup', { p_dari: rentang.dari, p_sampai: rentang.sampai }),
+      supabase.rpc('admin_biaya_per_cup_takaran', { p_dari: rentang.dari, p_sampai: rentang.sampai }),
+      supabase.rpc('admin_belanja_ringkas', { p_dari: rentang.dari, p_sampai: rentang.sampai }),
     ])
 
     if (rb.error) {
@@ -139,7 +159,8 @@ export default function BelanjaBahanPage() {
       setBahan((rb.data ?? []) as BahanRow[])
     }
     if (!rr.error) setRiwayat((rr.data ?? []) as BelanjaRow[])
-    if (!rc.error) setBiaya(firstRow<BiayaRow>(rc.data))
+    if (!rt.error) setTakaran(firstRow<TakaranBiayaRow>(rt.data))
+    if (!rl.error) setBelanja(firstRow<BelanjaRingkasRow>(rl.data))
     setLoading(false)
   }, [supabase, rentang])
 
@@ -256,8 +277,6 @@ export default function BelanjaBahanPage() {
     )
   }
 
-  const tebakanLama = 13000 - MARGIN_PER_CUP
-
   return (
     <div className="space-y-6">
       <div>
@@ -274,8 +293,19 @@ export default function BelanjaBahanPage() {
         </div>
       )}
 
-      {/* ── Biaya bahan per cup ─────────────────────────────────── */}
-      {biaya && (
+      {/* ── Biaya bahan per cup ───────────────────────────────────
+
+          Sampai 0031 panel ini membagi TOTAL BELANJA dengan cup terjual.
+          Pada 15 September 2026 hasilnya Rp14.951 per cup — lebih mahal
+          daripada harga jualnya — karena satu belanja kemasan 1.000 cup
+          yang akan terpakai tujuh puluh hari dibagi cup yang terjual
+          seminggu.
+
+          Rumus itu hanya benar kalau tinggi stok di awal dan akhir
+          rentang kira-kira sama, dan itulah pekerjaan hitung stok
+          bulanan. Yang ditampilkan sekarang: biaya menurut takaran kali
+          harga bahan — angka yang sudah benar hari ini juga. */}
+      {takaran && (
         <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
           <div className="px-5 py-3.5 border-b border-zinc-100 flex items-center gap-2">
             <Receipt strokeWidth={2} className="w-4 h-4 text-brand" />
@@ -284,54 +314,73 @@ export default function BelanjaBahanPage() {
 
           <div className="px-5 py-5 flex flex-wrap items-end gap-x-10 gap-y-4">
             <div>
-              <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">Terukur</p>
-              <p className="text-4xl font-extrabold text-zinc-900 tabular-nums leading-none mt-1.5">
-                {biaya.biaya_per_cup != null ? formatRupiah(Math.round(biaya.biaya_per_cup)) : '—'}
+              <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">
+                Dari takaran &times; harga
               </p>
-              <p className="text-[11px] text-zinc-500 mt-1.5">
-                {formatRupiah(num(biaya.belanja_rupiah))} ÷ {biaya.cup} cup
+              <p className="text-4xl font-extrabold text-zinc-900 tabular-nums leading-none mt-1.5">
+                {takaran.biaya_per_cup != null
+                  ? formatRupiah(Math.round(num(takaran.biaya_per_cup))) : '—'}
+              </p>
+              <p className="text-[11px] text-zinc-500 mt-1.5 tabular-nums">
+                {takaran.cup_ternilai} dari {takaran.cup} cup ternilai
               </p>
             </div>
             <div>
-              <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">Tebakan di kode</p>
-              <p className="text-4xl font-extrabold text-zinc-300 tabular-nums leading-none mt-1.5">
-                {formatRupiah(tebakanLama)}
+              <p className="text-[11px] font-mono uppercase tracking-wider text-zinc-400">Margin per cup</p>
+              <p className="text-4xl font-extrabold text-zinc-900 tabular-nums leading-none mt-1.5">
+                {takaran.margin_per_cup != null
+                  ? formatRupiah(Math.round(num(takaran.margin_per_cup))) : '—'}
               </p>
               <p className="text-[11px] text-zinc-500 mt-1.5">
-                dari margin Rp{MARGIN_PER_CUP.toLocaleString('id-ID')}/cup
+                tebakan di kode: {formatRupiah(MARGIN_PER_CUP)}
               </p>
             </div>
           </div>
 
-          <div className="px-5 py-3.5 border-t border-zinc-100">
-            {biaya.lengkap ? (
-              <p className="text-[11px] text-zinc-500 leading-relaxed">
-                Nota tercatat di {biaya.minggu_ada} dari {biaya.minggu_total} minggu yang ada
-                penjualannya. Angka ini sudah termasuk kulit, buah busuk, tumpah, dan harga yang
-                sedang mahal — semuanya, karena semuanya memang sudah dibayar.
-              </p>
-            ) : (
+          <div className="px-5 py-3.5 border-t border-zinc-100 flex flex-col gap-2.5">
+            {takaran.harga_perkiraan && (
               <p className="text-[11px] text-amber-800 leading-relaxed flex items-start gap-2">
                 <Info strokeWidth={2} className="w-3.5 h-3.5 shrink-0 mt-px" />
                 <span>
-                  <b>Belum bisa dipakai.</b> Nota cuma tercatat di {biaya.minggu_ada} dari{' '}
-                  {biaya.minggu_total} minggu yang ada penjualannya. Minggu tanpa nota bukan berarti
-                  bahannya gratis — angka di atas keluarnya terlalu kecil, dan margin akan tampil
-                  lebih bagus dari aslinya.
+                  <b>Sebagian perkiraan.</b> Ada cup yang terjual sebelum nota pertama dicatat
+                  ({tanggalPendek(takaran.nota_pertama)}), jadi dinilai dengan harga bahan paling
+                  awal yang diketahui. Angkanya akan jadi terukur penuh begitu penjualan dan nota
+                  berjalan berdampingan.
+                </span>
+              </p>
+            )}
+            <p className="text-[11px] text-zinc-500 leading-relaxed">
+              <b className="text-zinc-900">Ini biaya menurut resep</b>, dinilai dengan harga bahan
+              yang berlaku pada hari cupnya terjual. Belum termasuk buah busuk, tumpah, dan
+              kelebihan tuang &mdash; jadi kenyataannya selalu sedikit lebih mahal. Selisih itu baru
+              bisa dilihat setelah isi freezer mulai dihitung bulanan.
+            </p>
+
+            {belanja && num(belanja.rupiah) > 0 && (
+              <p className="text-[11px] text-zinc-400 leading-relaxed border-t border-zinc-100 pt-2.5">
+                Belanja 30 hari terakhir <b className="text-zinc-600">{formatRupiah(num(belanja.rupiah))}</b>
+                {num(belanja.rupiah_kemasan) > 0 && (
+                  <> &mdash; {formatRupiah(num(belanja.rupiah_kemasan))} di antaranya kemasan</>
+                )}.{' '}
+                <b className="text-zinc-600">Sengaja tidak dibagi cup:</b> sebagian besar masih jadi
+                stok yang belum terpakai, dan membaginya sekarang menghasilkan angka yang jauh lebih
+                mahal daripada harga jualnya.
+              </p>
+            )}
+
+            {takaran.cup > 0 && !takaran.lengkap && (
+              <p className="text-[11px] text-amber-800 leading-relaxed flex items-start gap-2">
+                <Info strokeWidth={2} className="w-3.5 h-3.5 shrink-0 mt-px" />
+                <span>
+                  {takaran.cup - takaran.cup_ternilai} cup belum bisa dinilai &mdash; takarannya
+                  belum lengkap, atau bahannya belum punya harga pada hari cup itu terjual. Biaya di
+                  atas dibagi {takaran.cup_ternilai} cup yang ternilai saja, bukan seluruhnya.
                 </span>
               </p>
             )}
           </div>
         </section>
       )}
-
-      {/*
-        HPP per menu ditaruh di atas formulir nota, bukan di bawah:
-        pertanyaan yang dibawa orang ke layar ini adalah "menu mana yang
-        tipis", dan mencatat nota adalah cara menjawabnya — bukan
-        sebaliknya.
-      */}
-      <HppMenu />
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* ── Formulir nota ───────────────────────────────────── */}

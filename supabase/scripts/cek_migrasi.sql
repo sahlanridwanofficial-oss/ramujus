@@ -190,7 +190,17 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          -- Takaran berversi hanya berarti kalau tidak bisa ditimpa langsung.
          AND NOT EXISTS (SELECT 1 FROM pg_policies
                           WHERE schemaname = 'public' AND tablename = 'takaran'
-                            AND cmd IN ('INSERT', 'UPDATE', 'DELETE')))
+                            AND cmd IN ('INSERT', 'UPDATE', 'DELETE'))),
+
+    (31, '0031_biaya_per_cup_dari_takaran', 'Biaya per cup dari takaran; belanja borongan tidak lagi dibagi cup',
+         to_regprocedure('public.admin_biaya_per_cup_takaran(date,date,text)') IS NOT NULL
+         AND to_regprocedure('public.admin_belanja_ringkas(date,date)') IS NOT NULL),
+
+    (32, '0032_harga_paling_awal', 'Penjualan sebelum nota pertama dinilai harga paling awal, ditandai perkiraan',
+         EXISTS (SELECT 1 FROM pg_proc p
+                   JOIN pg_namespace n ON n.oid = p.pronamespace
+                  WHERE n.nspname = 'public' AND p.proname = 'admin_biaya_per_cup_takaran'
+                    AND pg_get_functiondef(p.oid) LIKE '%harga_perkiraan%'))
 )
 SELECT migrasi,
        penjelasan,
