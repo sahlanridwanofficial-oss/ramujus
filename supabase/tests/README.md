@@ -577,3 +577,49 @@ ketidakkonsistenan yang hasilnya layar kosong.
 | 8 | Cup yang terjual sebelum nota pertama dinilai dengan harga paling awal yang diketahui, **dan ditandai `harga_perkiraan`** — dipakai diam-diam, layar akan menyebutnya angka terukur |
 | 9 | Rentang yang notanya sudah ada **tidak** ditandai perkiraan |
 | 10 | Batasnya: bahan yang **belum pernah** dibeli tetap tidak punya harga. Yang dimundurkan adalah bukti yang ada; ketiadaan bukti tetap ketiadaan |
+
+## 26 — Koreksi nota jadi satu tindakan (0033)
+
+Lahir dari keluhan pemakai pada nota pertama yang salah ketik: *"fitur
+koreksinya bikin bingung, jadi ada angka yang double, yang lama masih ada."*
+
+```
+Mangga  15 Sep   360 g   Rp20.000     <- salah
+Mangga  15 Sep   500 g   Rp20.000     <- benar
+Mangga  15 Sep  -360 g  -Rp20.000     <- pembatal
+```
+
+Nettonya 500 g, dan itu benar. Tapi yang terbaca adalah angka dobel dengan yang
+lama masih nangkring di situ. **Buku besar yang jujur tapi tidak terbaca sama
+saja dengan tidak jujur** — yang membacanya berhenti mempercayainya.
+
+Dua sebabnya, dan keduanya diperbaiki:
+
+**Pasangannya tidak pernah tercatat.** Baris pembatal tidak menunjuk baris mana
+yang dibatalkannya, jadi layar hanya bisa menebak dari kesamaan angka — dan
+tebakan itu salah begitu ada dua nota kembar pada hari yang sama.
+
+**Koreksi membutuhkan dua langkah.** Membatalkan lalu mengetik ulang adalah dua
+kali menekan simpan untuk satu peristiwa yang di kepala pemakainya cuma "saya
+salah ketik". Di antara keduanya angkanya sempat salah, dan bila langkah kedua
+terlupa, yang tertinggal adalah stok hilang tanpa penggantinya.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Satu tekan menulis dua baris — pembatal dan penggantinya — dan nettonya 500 g, bukan 860 g |
+| 2 | Riwayat menyebut tiga keadaan terpisah: `berlaku`, `dibatalkan`, `pembatal` — layar bisa melipat yang terakhir |
+| 3 | **Dua nota kembar pada hari yang sama: tepat satu ditandai dibatalkan.** Penebak dari kesamaan angka akan menandai dua-duanya |
+| 4 | Pembatalan murni tidak mengarang pengganti |
+| 5 | Satu nota tidak bisa dibatalkan dua kali — dua pembatal akan mengurangi stok dua kali dari satu peristiwa |
+| 6 | Baris pembatal tidak bisa dibatalkan lagi |
+| 7 | Pembatal memakai **tanggal aslinya**; harga pada hari asal ikut terkoreksi |
+| 8 | Angka mustahil tetap ditolak, dan penolakannya **tidak meninggalkan pembatal yatim** |
+| 9 | Tertutup untuk driver |
+
+Tes 3 yang paling menentukan bentuk rancangannya: tanpa `membatalkan_id`,
+satu-satunya cara memasangkan pembatal dengan aslinya adalah menebak dari angka
+yang sama — dan tebakan itu pasti salah pada kasus yang paling wajar terjadi.
+
+Tes 8 menjaga hal yang mudah terlewat: `admin_perbaiki_belanja` menulis dua
+baris, dan kegagalan di baris kedua tidak boleh meninggalkan baris pertama
+sendirian. Satu pembatal tanpa pengganti adalah stok yang hilang tanpa sebab.
