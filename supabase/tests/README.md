@@ -431,3 +431,50 @@ meninggalkan separuh dirinya) tetap diuji lewat item kedua yang tidak sah.
 `10` dulu berprasyarat "nol baris alokasi"; prasyaratnya kini berbentuk lain
 dengan isi yang sama: barisnya lahir dari penjualan, dan tidak satu cup pun
 muatan pernah tercatat.
+
+## 23 — Belanja bahan masuk stok, harganya punya riwayat (0029)
+
+Margin RAMU selama ini satu angka yang diketik tangan: `MARGIN_PER_CUP = 5000`.
+Dari angka itu turun titik impas 20 cup/hari, ambang gerobak 2,0 cup/jam, dan
+ambang ruko 4,4 cup/jam — tiga angka yang dipakai memutuskan apakah sebuah
+titik layak disewa. Dua di antaranya bahkan memakai asumsi margin yang
+**berbeda** (Rp5.000 dan Rp6.500) untuk menilai titik yang sama di peta yang
+sama.
+
+**Satuannya berat daging, bukan berat beli.** Rancangan pertama menyimpan harga
+per gram buah utuh lalu membaginya dengan rendemen (pisang ±65%, nanas ±50%).
+Itu dibatalkan: rendemen adalah tebakan yang dipasang sekali lalu dipakai
+berbulan-bulan, padahal ia bergerak mengikuti ukuran buah, musim, dan supplier.
+
+Yang dipakai sekarang: buah dikupas, dagingnya ditimbang, dan angka itu yang
+masuk. **Rendemen tidak pernah ada sebagai kolom** — ia terukur sendiri pada
+setiap belanja. Penimbangan itu juga bukan kerja tambahan: freezer berisi
+daging, jadi hitung stok nanti menimbang daging juga.
+
+`jumlah_beli` tetap dicatat (boleh kosong) dan tidak pernah dipakai menghitung
+biaya. Gunanya satu: memisahkan dua sebab kenaikan yang obatnya berbeda —
+harga pasar naik, atau buahnya makin jelek.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Rp20.000 untuk 1 kg yang menghasilkan 650 g daging tercatat **Rp30,77/gram**, bukan Rp20 — dan rendemen 0,65 terukur sendiri, tidak dimasukkan siapa pun |
+| 2 | Belanja kedua menggeser rata-rata secara **tertimbang** (Rp33,86), bukan rata-rata polos dari dua harga (Rp33,13) — belanja 1 kg dan 10 kg tidak boleh berbobot sama |
+| 3 | Rupiah per kilo **persis sama**, daging turun 650 → 520 g: biaya naik Rp30,77 → Rp38,46. Sebabnya buah, bukan harga — dan keduanya terbaca terpisah |
+| 4 | Koreksi menambah baris, tidak mengubah baris lama; angkanya kembali benar |
+| 5 | `UPDATE` dan `DELETE` pada `belanja` ditahan RLS. Riwayat yang bisa berubah surut tidak bisa dipakai memutuskan apa pun |
+| 6 | Tiga angka mustahil ditolak dengan sebabnya: daging lebih berat dari buah utuh, nota bertanggal besok, baris yang tidak mengubah apa pun |
+| 7 | Biaya bahan per cup = belanja ÷ cup, apa adanya, koreksi ikut terhitung |
+| 8 | **Kelengkapan dilaporkan sebagai fakta, bukan ditebak ambang.** Minggu yang ada penjualannya tapi tidak ada notanya ditandai; angkanya tetap terbaca, tidak disembunyikan |
+| 9 | Driver tidak bisa membaca harga bahan — lewat fungsi maupun tabel langsung |
+| 10 | Bahan yang belum pernah dibeli: harga `NULL` (bukan `0`), stok 0, barisnya tetap muncul supaya layar tahu ia perlu diisi |
+
+Tes 8 yang paling mudah salah dirancang. Godaannya memasang ambang: "kalau
+biaya per cup di bawah Rp sekian, berarti notanya belum lengkap" — yaitu
+mengganti satu angka karangan dengan angka karangan lain. Yang dilaporkan di
+sini fakta yang bisa diperiksa: berapa minggu punya catatan belanja, dari
+berapa minggu yang ada penjualannya. Pembandingnya penjualan, bukan kalender,
+karena minggu gerobak libur memang tidak perlu ada notanya.
+
+Tes 3 yang paling berharga di lapangan: supplier Rp18.000/kg dengan daging
+550 g lebih **mahal** daripada Rp20.000/kg dengan daging 650 g — Rp32,7 lawan
+Rp30,8 per gram. Notanya berkata sebaliknya.

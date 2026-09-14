@@ -6,7 +6,8 @@ import { useAuth } from '@/hooks/useAuth'
 import Logo from '@/components/ui/Logo'
 import {
   LayoutGrid, BarChart3, Map, Package, Users,
-  FileText, LogOut, Menu, X, ShieldCheck, PackageCheck, Boxes, BookOpen
+  FileText, LogOut, Menu, X, ShieldCheck, PackageCheck, Boxes, BookOpen,
+  Receipt
 } from 'lucide-react'
 import { useState } from 'react'
 
@@ -15,6 +16,7 @@ const navItems = [
   { href: '/admin/analytics', icon: BarChart3, label: 'Analitik' },
   { href: '/admin/stock', icon: Boxes, label: 'Inventori Stok' },
   { href: '/admin/inventory', icon: PackageCheck, label: 'Stok Gerobak' },
+  { href: '/admin/bahan', icon: Receipt, label: 'Belanja Bahan' },
   { href: '/admin/map', icon: Map, label: 'Peta Lokasi' },
   { href: '/admin/products', icon: Package, label: 'Menu Produk' },
   { href: '/admin/drivers', icon: Users, label: 'Mitra Driver' },
