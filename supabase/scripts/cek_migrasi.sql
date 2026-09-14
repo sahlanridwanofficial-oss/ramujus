@@ -169,7 +169,18 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          AND EXISTS (SELECT 1 FROM pg_proc p
                        JOIN pg_namespace n ON n.oid = p.pronamespace
                       WHERE n.nspname = 'public' AND p.proname = 'create_order'
-                        AND position('IF v_alloc_id IS NOT NULL' in pg_get_functiondef(p.oid)) = 0))
+                        AND position('IF v_alloc_id IS NOT NULL' in pg_get_functiondef(p.oid)) = 0)),
+
+    (29, '0029_belanja_masuk_stok', 'Nota belanja jadi stok bahan; harga per satuan punya riwayat',
+         to_regclass('public.bahan')   IS NOT NULL
+         AND to_regclass('public.belanja') IS NOT NULL
+         AND to_regprocedure('public.admin_biaya_bahan_per_cup(date,date)') IS NOT NULL
+         AND to_regprocedure('public.admin_bahan_ringkas(integer)') IS NOT NULL
+         -- Riwayat harga hanya berarti kalau tidak bisa diubah surut:
+         -- dipastikan tidak ada kebijakan UPDATE/DELETE pada belanja.
+         AND NOT EXISTS (SELECT 1 FROM pg_policies
+                          WHERE schemaname = 'public' AND tablename = 'belanja'
+                            AND cmd IN ('UPDATE', 'DELETE')))
 )
 SELECT migrasi,
        penjelasan,
