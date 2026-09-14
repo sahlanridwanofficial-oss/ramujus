@@ -26,7 +26,7 @@ import { MARGIN_PER_CUP } from '@/lib/constants'
 import HppMenu from '@/components/admin/HppMenu'
 import {
   Receipt, Loader2, TriangleAlert, Plus, TrendingUp, TrendingDown,
-  Info, Scale,
+  Info, Scale, Undo2,
 } from 'lucide-react'
 
 interface BahanRow {
@@ -46,6 +46,7 @@ interface BahanRow {
 interface BelanjaRow {
   id: string
   tanggal: string
+  bahan_id: string
   nama: string
   satuan: string
   jumlah: number
@@ -115,6 +116,9 @@ export default function BelanjaBahanPage() {
   const [fDaging, setFDaging] = useState('')
   const [fBeli, setFBeli] = useState('')
   const [fCatatan, setFCatatan] = useState('')
+  // Nota yang sedang dikoreksi. Bukan untuk diubah — untuk dibatalkan
+  // dengan baris berlawanan, lalu diketik ulang yang benar.
+  const [koreksiDari, setKoreksiDari] = useState<BelanjaRow | null>(null)
 
   // Formulir bahan baru
   const [bukaBahanBaru, setBukaBahanBaru] = useState(false)
@@ -161,6 +165,33 @@ export default function BelanjaBahanPage() {
     }
   }, [fRupiah, fDaging, fBeli, bahanTerpilih])
 
+  /**
+   * Nota salah dibatalkan dengan baris berlawanan, bukan diedit.
+   *
+   * Tombolnya cuma mengisi formulir dengan kebalikan nota itu — jumlah
+   * dan rupiahnya negatif, tanggalnya sama persis. Tanggal harus sama
+   * supaya riwayat harga pada hari itu benar-benar saling meniadakan;
+   * kalau dibatalkan pada tanggal hari ini, hari asalnya tetap
+   * menyimpan harga yang salah.
+   */
+  function mulaiKoreksi(r: BelanjaRow) {
+    setKoreksiDari(r)
+    setFBahan(r.bahan_id)
+    setFTanggal(r.tanggal)
+    setFDaging(String(-num(r.jumlah)))
+    setFRupiah(String(-num(r.total_rupiah)))
+    setFBeli('')
+    setFCatatan(`Batalkan nota ${r.nama} ${tanggalPendek(r.tanggal)}`)
+    setPesan(null)
+    setError(null)
+    document.getElementById('form-nota')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  function batalKoreksi() {
+    setKoreksiDari(null)
+    setFDaging(''); setFRupiah(''); setFBeli(''); setFCatatan('')
+  }
+
   async function simpanNota(e: React.FormEvent) {
     e.preventDefault()
     if (!fBahan) return
@@ -187,7 +218,13 @@ export default function BelanjaBahanPage() {
       )
     } else {
       setError(null)
-      setPesan('Nota tersimpan — stok dan harga rata-ratanya sudah ikut bergerak.')
+      // Setelah pembatalan, bahan dan tanggalnya sengaja DIBIARKAN terisi:
+      // yang hampir selalu dilakukan berikutnya adalah mengetik ulang nota
+      // yang benar untuk bahan dan hari yang sama.
+      setPesan(koreksiDari
+        ? `Nota ${koreksiDari.nama} dibatalkan. Sekarang ketik angka yang benar — bahan dan tanggalnya sudah terisi.`
+        : 'Nota tersimpan — stok dan harga rata-ratanya sudah ikut bergerak.')
+      setKoreksiDari(null)
       setFRupiah(''); setFDaging(''); setFBeli(''); setFCatatan('')
       await muat()
     }
@@ -298,10 +335,36 @@ export default function BelanjaBahanPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* ── Formulir nota ───────────────────────────────────── */}
-        <section className="lg:col-span-2 bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden h-fit">
+        <section id="form-nota" className="lg:col-span-2 bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden h-fit">
           <div className="px-5 py-3.5 border-b border-zinc-100">
-            <h2 className="text-sm font-bold text-zinc-900">Catat Nota</h2>
+            <h2 className="text-sm font-bold text-zinc-900">
+              {koreksiDari ? 'Batalkan Nota' : 'Catat Nota'}
+            </h2>
           </div>
+
+          {koreksiDari && (
+            <div className="px-5 py-3 bg-brand-soft border-b border-brand-border flex items-start gap-2.5">
+              <Undo2 strokeWidth={2} className="w-4 h-4 text-brand shrink-0 mt-px" />
+              <div className="flex-1 min-w-0">
+                <p className="text-[11px] text-zinc-800 leading-relaxed">
+                  Membatalkan <b>{koreksiDari.nama}</b> {tanggalPendek(koreksiDari.tanggal)} —{' '}
+                  {num(koreksiDari.jumlah).toLocaleString('id-ID')} {koreksiDari.satuan} ·{' '}
+                  {formatRupiah(num(koreksiDari.total_rupiah))}.
+                </p>
+                <p className="text-[10px] text-zinc-500 leading-relaxed mt-1">
+                  Nota lama tidak dihapus — dibatalkan dengan baris berlawanan, supaya riwayat
+                  harganya tetap utuh. Setelah ini, ketik angka yang benar.
+                </p>
+                <button
+                  type="button"
+                  onClick={batalKoreksi}
+                  className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 mt-1.5"
+                >
+                  Jangan jadi
+                </button>
+              </div>
+            </div>
+          )}
 
           <form onSubmit={simpanNota} className="px-5 py-4 flex flex-col gap-3.5">
             <div>
@@ -428,12 +491,14 @@ export default function BelanjaBahanPage() {
               disabled={busy || !fBahan}
               className="w-full py-2.5 rounded-lg text-xs font-bold bg-brand text-white hover:bg-brand-dark disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
             >
-              {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan nota'}
+              {busy ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : koreksiDari ? 'Batalkan nota ini' : 'Simpan nota'}
             </button>
 
             <p className="text-[10px] text-zinc-400 leading-relaxed border-t border-zinc-100 pt-3">
-              Nota tidak bisa diedit setelah disimpan. Yang salah dikoreksi dengan nota baru
-              bernilai minus — supaya riwayat harganya tidak pernah berubah surut.
+              Nota tidak bisa diedit setelah disimpan. Yang salah dibatalkan lewat tombol{' '}
+              <b className="text-zinc-500">Koreksi</b> di daftar riwayat, lalu diketik ulang —
+              supaya riwayat harganya tidak pernah berubah surut.
             </p>
           </form>
         </section>
@@ -551,7 +616,7 @@ export default function BelanjaBahanPage() {
             <h2 className="text-sm font-bold text-zinc-900">Riwayat Nota — 30 Hari Terakhir</h2>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[560px]">
+            <table className="w-full text-sm min-w-[640px]">
               <thead>
                 <tr className="border-b border-zinc-100">
                   <th className="text-left px-5 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal">Tanggal</th>
@@ -559,7 +624,8 @@ export default function BelanjaBahanPage() {
                   <th className="text-right px-3 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal">Masuk</th>
                   <th className="text-right px-3 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal">Dibayar</th>
                   <th className="text-right px-3 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal">Per satuan</th>
-                  <th className="text-right px-5 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal">Daging</th>
+                  <th className="text-right px-3 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal">Daging</th>
+                  <th className="text-right px-5 py-2.5 text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-normal"></th>
                 </tr>
               </thead>
               <tbody>
@@ -582,8 +648,22 @@ export default function BelanjaBahanPage() {
                     <td className="text-right px-3 py-2.5 tabular-nums font-semibold text-zinc-900">
                       {rupiahPerSatuan(r.harga_satuan)}
                     </td>
-                    <td className="text-right px-5 py-2.5 tabular-nums text-zinc-600">
+                    <td className="text-right px-3 py-2.5 tabular-nums text-zinc-600">
                       {persen(r.rendemen)}
+                    </td>
+                    <td className="text-right px-5 py-2.5">
+                      {/* Baris pembatalan tidak perlu dibatalkan lagi — dua
+                          baris berlawanan sudah saling meniadakan. */}
+                      {!r.koreksi && (
+                        <button
+                          type="button"
+                          onClick={() => mulaiKoreksi(r)}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-brand transition-colors whitespace-nowrap"
+                        >
+                          <Undo2 strokeWidth={2.5} className="w-3 h-3" />
+                          Koreksi
+                        </button>
+                      )}
                     </td>
                   </tr>
                 ))}
