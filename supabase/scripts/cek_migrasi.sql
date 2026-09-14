@@ -210,7 +210,17 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          -- Satu nota hanya boleh dibatalkan sekali: dua pembatal akan
          -- mengurangi stok dua kali dari satu peristiwa.
          AND EXISTS (SELECT 1 FROM pg_indexes
-                      WHERE schemaname = 'public' AND indexname = 'belanja_satu_pembatalan'))
+                      WHERE schemaname = 'public' AND indexname = 'belanja_satu_pembatalan')),
+
+    (34, '0034_hapus_nota_ke_arsip', 'Nota salah pindah ke arsip; yang dibatalkan berhenti menyetir harga',
+         to_regclass('public.belanja_terhapus') IS NOT NULL
+         AND to_regprocedure('public.admin_hapus_belanja(uuid,text)') IS NOT NULL
+         -- Penandanya sekaligus memastikan bug "harga terakhir membaca nota
+         -- yang sudah dibatalkan" benar-benar tertutup.
+         AND EXISTS (SELECT 1 FROM pg_proc p
+                       JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public' AND p.proname = 'harga_bahan_pada'
+                        AND pg_get_functiondef(p.oid) LIKE '%membatalkan_id = bl.id%'))
 )
 SELECT migrasi,
        penjelasan,

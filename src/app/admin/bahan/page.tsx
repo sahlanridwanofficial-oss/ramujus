@@ -26,7 +26,7 @@ import { MARGIN_PER_CUP } from '@/lib/constants'
 import HppMenu from '@/components/admin/HppMenu'
 import {
   Receipt, Loader2, TriangleAlert, Plus, TrendingUp, TrendingDown,
-  Info, Scale, Undo2,
+  Info, Scale, Undo2, Trash2, Eye, EyeOff,
 } from 'lucide-react'
 
 interface BahanRow {
@@ -140,6 +140,10 @@ export default function BelanjaBahanPage() {
   // Nota yang sedang dikoreksi. Bukan untuk diubah — untuk dibatalkan
   // dengan baris berlawanan, lalu diketik ulang yang benar.
   const [koreksiDari, setKoreksiDari] = useState<BelanjaRow | null>(null)
+  // Nota yang sudah dibatalkan disembunyikan secara bawaan: pasangannya
+  // sudah saling meniadakan, jadi menampilkannya hanya membuat daftar
+  // tampak berisi angka dobel. Tetap bisa dibuka — ia jejak, bukan sampah.
+  const [tampilkanDibatalkan, setTampilkanDibatalkan] = useState(false)
 
   // Formulir bahan baru
   const [bukaBahanBaru, setBukaBahanBaru] = useState(false)
@@ -211,6 +215,38 @@ export default function BelanjaBahanPage() {
     setPesan(null)
     setError(null)
     document.getElementById('form-nota')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  /**
+   * Menghapus nota dari riwayat.
+   *
+   * "Hapus" di sini berarti PINDAH ke arsip, bukan lenyap: layarnya
+   * bersih, buktinya tidak hilang, dan riwayat harga tetap tidak bisa
+   * berubah surut tanpa bekas. Pasangan pembatalan ikut terbawa —
+   * menghapus nota tanpa pembatalnya meninggalkan baris negatif yatim
+   * yang justru benar-benar masuk perhitungan.
+   */
+  async function hapusNota(r: BelanjaRow) {
+    const alasan = window.prompt(
+      `Hapus nota ${r.nama} ${tanggalPendek(r.tanggal)} — ` +
+      `${num(r.jumlah).toLocaleString('id-ID')} ${r.satuan} · ${formatRupiah(num(r.total_rupiah))}?\n\n` +
+      'Notanya pindah ke arsip, bukan hilang. Alasannya (boleh dikosongkan):'
+    )
+    if (alasan === null) return
+
+    setBusy(true)
+    const { error: err } = await supabase.rpc('admin_hapus_belanja', {
+      p_belanja_id: r.id,
+      p_alasan: alasan || null,
+    })
+    if (err) setError(describeRpcError(err, 'admin_hapus_belanja'))
+    else {
+      setError(null)
+      setPesan(`Nota ${r.nama} dihapus dari riwayat dan dipindahkan ke arsip.`)
+      if (koreksiDari?.id === r.id) batalKoreksi()
+      await muat()
+    }
+    setBusy(false)
   }
 
   /** Nota yang memang tidak pernah terjadi — dibatalkan tanpa pengganti. */
@@ -597,9 +633,11 @@ export default function BelanjaBahanPage() {
             </button>
 
             <p className="text-[10px] text-zinc-400 leading-relaxed border-t border-zinc-100 pt-3">
-              Nota tidak pernah ditimpa. <b className="text-zinc-500">Perbaiki</b> di daftar riwayat
-              menandai yang lama sebagai dibatalkan dan menulis penggantinya — dua baris di buku
-              besar, satu tekan di layar, dan riwayat harganya tidak pernah berubah surut.
+              Nota tidak pernah ditimpa. <b className="text-zinc-500">Perbaiki</b> menandai yang
+              lama sebagai dibatalkan dan menulis penggantinya — dua baris di buku besar, satu
+              tekan di layar. <b className="text-zinc-500">Hapus</b> memindahkannya ke arsip
+              beserta pasangannya, untuk nota yang memang tidak pernah ada peristiwanya. Dua-duanya
+              menjaga riwayat harga tidak berubah surut tanpa bekas.
             </p>
           </form>
         </section>
@@ -713,8 +751,20 @@ export default function BelanjaBahanPage() {
       {/* ── Riwayat ─────────────────────────────────────────── */}
       {riwayat.length > 0 && (
         <section className="bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-zinc-100">
+          <div className="px-5 py-3.5 border-b border-zinc-100 flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-sm font-bold text-zinc-900">Riwayat Nota — 30 Hari Terakhir</h2>
+            {riwayat.some(r => r.keadaan === 'dibatalkan') && (
+              <button
+                type="button"
+                onClick={() => setTampilkanDibatalkan(v => !v)}
+                className="inline-flex items-center gap-1.5 text-[11px] font-bold text-zinc-400 hover:text-zinc-700 transition-colors"
+              >
+                {tampilkanDibatalkan
+                  ? <><EyeOff strokeWidth={2.5} className="w-3.5 h-3.5" /> Sembunyikan yang dibatalkan</>
+                  : <><Eye strokeWidth={2.5} className="w-3.5 h-3.5" /> Tampilkan yang dibatalkan
+                      ({riwayat.filter(r => r.keadaan === 'dibatalkan').length})</>}
+              </button>
+            )}
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[640px]">
@@ -734,7 +784,10 @@ export default function BelanjaBahanPage() {
                     — dan menampilkannya berjajar dengan aslinya persis yang
                     bikin angkanya tampak dobel. Yang dibatalkan tetap
                     ditampilkan, dicoret, supaya jejaknya tidak hilang. */}
-                {riwayat.filter(r => r.keadaan !== 'pembatal').map(r => (
+                {riwayat
+                  .filter(r => r.keadaan !== 'pembatal')
+                  .filter(r => tampilkanDibatalkan || r.keadaan !== 'dibatalkan')
+                  .map(r => (
                   <tr
                     key={r.id}
                     className={`border-b border-zinc-50 last:border-0 ${
@@ -775,16 +828,31 @@ export default function BelanjaBahanPage() {
                       {/* Yang sudah dibatalkan tidak bisa dibatalkan lagi —
                           dua pembatal untuk satu nota akan mengurangi stok
                           dua kali dari satu peristiwa. */}
-                      {r.keadaan === 'berlaku' && (
+                      <span className="inline-flex items-center gap-2.5">
+                        {r.keadaan === 'berlaku' && (
+                          <button
+                            type="button"
+                            onClick={() => mulaiKoreksi(r)}
+                            className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-brand transition-colors whitespace-nowrap"
+                          >
+                            <Undo2 strokeWidth={2.5} className="w-3 h-3" />
+                            Perbaiki
+                          </button>
+                        )}
+                        {/* Hapus tersedia juga untuk yang sudah dibatalkan:
+                            pasangannya ikut terbawa, dan itu satu-satunya
+                            cara membersihkan nota yang memang tidak pernah
+                            ada peristiwanya. */}
                         <button
                           type="button"
-                          onClick={() => mulaiKoreksi(r)}
-                          className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-brand transition-colors whitespace-nowrap"
+                          onClick={() => hapusNota(r)}
+                          disabled={busy}
+                          className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-300 hover:text-brand transition-colors whitespace-nowrap disabled:opacity-60"
                         >
-                          <Undo2 strokeWidth={2.5} className="w-3 h-3" />
-                          Perbaiki
+                          <Trash2 strokeWidth={2.5} className="w-3 h-3" />
+                          Hapus
                         </button>
-                      )}
+                      </span>
                     </td>
                   </tr>
                 ))}
