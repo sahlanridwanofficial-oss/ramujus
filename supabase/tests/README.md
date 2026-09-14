@@ -478,3 +478,43 @@ karena minggu gerobak libur memang tidak perlu ada notanya.
 Tes 3 yang paling berharga di lapangan: supplier Rp18.000/kg dengan daging
 550 g lebih **mahal** daripada Rp20.000/kg dengan daging 650 g — Rp32,7 lawan
 Rp30,8 per gram. Notanya berkata sebaliknya.
+
+## 24 — Takaran per menu, dan HPP yang dihitung darinya (0030)
+
+0029 memasang harga bahan yang terukur dari nota. Berkas ini memakainya untuk
+menjawab pertanyaan yang sejak awal tidak pernah bisa dijawab: **menu mana yang
+tipis, dan kalau biayanya naik, naik karena bahan apa.**
+
+Takarannya per satu cup, dalam satuan pakai — untuk buah, berat **daging**,
+sejalan dengan 0029. Tidak ada satu pun titik konversi di seluruh rantai: nota
+masuk sebagai gram daging, resep memakai gram daging, stok berkurang dalam gram
+daging.
+
+**Takaran berversi.** Kunci utamanya `(product_id, berlaku_dari, bahan_id)`.
+Resep yang berubah jadi versi baru bertanggal, bukan menimpa yang lama —
+supaya HPP Oktober tetap dihitung dengan resep yang berlaku di Oktober.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Takaran tersimpan sebagai satu versi utuh |
+| 2 | **Belum ada satu pun harga → HPP `NULL`, margin `NULL`, bukan untung penuh.** Nama ketiga bahan yang kurang ikut dikembalikan supaya layar bisa menyebutnya |
+| 3 | Dua dari tiga bahan sudah berharga tetap **tidak cukup** — satu yang kurang membatalkan seluruh angkanya |
+| 4 | Lengkap: HPP dan margin benar, dan **rinciannya berjumlah persis sama dengan HPP** — kalau tidak, pemecahan "naik karena bahan apa" menunjuk angka yang salah |
+| 5 | Rincian mengurutkan bahan termahal lebih dulu |
+| 6 | **Resep diubah hari ini tidak menggeser HPP kemarin.** Inti kenapa takaran berversi |
+| 7 | Versi bertanggal lebih tua ditolak (`VERSI_MUNDUR`) — HPP bulan yang sudah dilaporkan tidak bisa ditulis ulang |
+| 8 | Menu tanpa takaran sama sekali: `NULL`, dan barisnya **tetap muncul** supaya layar tahu ia perlu diisi |
+| 9 | Dua dasar harga memberi angka berbeda dan tidak tertukar — `terakhir` untuk keputusan harga jual, `rata` untuk laporan |
+| 10 | `takaran` tidak punya kebijakan RLS untuk INSERT/UPDATE/DELETE; perubahan hanya lewat `admin_simpan_takaran` |
+| 11 | Driver tidak bisa membaca HPP maupun resep |
+
+Tes 2, 3, dan 8 menjaga aturan yang sama dari tiga arah, dan aturan itu yang
+paling gampang dilanggar: **bahan tanpa harga membuat HPP `NULL`, bukan nol.**
+Kalau ketiadaan harga dibaca sebagai nol, menu yang datanya paling tidak
+lengkap justru tampil paling untung — pola yang persis sama dengan dasbor yang
+dulu menampilkan "0 cup" padahal driver sudah jualan.
+
+Catatan untuk berkas uji lain: sejak 0030 ke-15 bahan RAMU disemai oleh
+migrasi, jadi berkas uji **tidak boleh menyemai bahan dengan ID karangan** —
+carilah lewat nama, sama seperti yang dilakukan layar admin. `23` sudah
+disesuaikan.

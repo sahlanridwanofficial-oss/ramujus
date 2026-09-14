@@ -23,9 +23,9 @@ INSERT INTO public.products (id, name, price, category, sort_order, stock_quanti
 INSERT INTO public.shifts (id, driver_id, status) VALUES
   ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'active');
 
-INSERT INTO public.bahan (id, nama, satuan) VALUES
-  ('bbbbbbbb-0000-0000-0000-000000000001', 'Pisang',   'gram'),
-  ('bbbbbbbb-0000-0000-0000-000000000002', 'Susu UHT', 'ml');
+-- Bahan TIDAK disemai di sini: migrasi 0030 memasang ke-15 bahan RAMU
+-- dengan UUID-nya sendiri. Tes mencarinya lewat nama, sama seperti yang
+-- dilakukan layar admin.
 
 SET ROLE authenticated;
 SET test.uid = '22222222-2222-2222-2222-222222222222';
@@ -39,14 +39,14 @@ DO $$
 DECLARE r RECORD;
 BEGIN
   PERFORM public.admin_catat_belanja(
-    p_bahan_id     => 'bbbbbbbb-0000-0000-0000-000000000001',
+    p_bahan_id     => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
     p_tanggal      => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
     p_jumlah       => 650,
     p_total_rupiah => 20000,
     p_jumlah_beli  => 1000);
 
   SELECT * INTO r FROM public.admin_bahan_ringkas()
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Pisang');
 
   IF r.harga_terakhir <> 30.77 THEN
     RAISE EXCEPTION 'GAGAL: harga per gram %, harusnya 30,77 (20000 / 650 daging)', r.harga_terakhir;
@@ -70,14 +70,14 @@ DO $$
 DECLARE r RECORD; v_harap NUMERIC;
 BEGIN
   PERFORM public.admin_catat_belanja(
-    p_bahan_id     => 'bbbbbbbb-0000-0000-0000-000000000001',
+    p_bahan_id     => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
     p_tanggal      => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
     p_jumlah       => 1240,
     p_total_rupiah => 44000,
     p_jumlah_beli  => 2000);
 
   SELECT * INTO r FROM public.admin_bahan_ringkas()
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Pisang');
 
   -- 64.000 / 1.890 = 33,86.  Rata-rata polos (30,77 + 35,48) / 2 = 33,13.
   v_harap := ROUND(64000::numeric / 1890, 2);
@@ -105,7 +105,7 @@ DO $$
 DECLARE r RECORD;
 BEGIN
   PERFORM public.admin_catat_belanja(
-    p_bahan_id     => 'bbbbbbbb-0000-0000-0000-000000000001',
+    p_bahan_id     => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
     p_tanggal      => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
     p_jumlah       => 520,
     p_total_rupiah => 20000,
@@ -113,7 +113,7 @@ BEGIN
     p_catatan      => 'supplier baru, buahnya kecil-kecil');
 
   SELECT * INTO r FROM public.admin_bahan_ringkas()
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Pisang');
 
   IF r.rendemen_terakhir <> 0.52 THEN
     RAISE EXCEPTION 'GAGAL: rendemen %, harusnya 0,52', r.rendemen_terakhir;
@@ -133,20 +133,20 @@ DO $$
 DECLARE v_baris INTEGER; v_stok NUMERIC;
 BEGIN
   PERFORM public.admin_catat_belanja(
-    p_bahan_id     => 'bbbbbbbb-0000-0000-0000-000000000001',
+    p_bahan_id     => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
     p_tanggal      => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
     p_jumlah       => -520,
     p_total_rupiah => -20000,
     p_catatan      => 'batal, dikembalikan ke penjual');
 
   SELECT count(*)::INTEGER INTO v_baris FROM public.belanja
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Pisang');
   IF v_baris <> 4 THEN
     RAISE EXCEPTION 'GAGAL: % baris — koreksi harus MENAMBAH baris, bukan mengubah', v_baris;
   END IF;
 
   SELECT stok_masuk_total INTO v_stok FROM public.admin_bahan_ringkas()
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Pisang');
   IF v_stok <> 1890 THEN
     RAISE EXCEPTION 'GAGAL: stok %, harusnya balik ke 1.890 g', v_stok;
   END IF;
@@ -175,7 +175,7 @@ BEGIN
   END IF;
 
   SELECT stok_masuk_total INTO v_masih FROM public.admin_bahan_ringkas()
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000001';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Pisang');
   IF v_masih <> 1890 THEN
     RAISE EXCEPTION 'GAGAL: angka bergeser jadi % setelah percobaan ubah/hapus', v_masih;
   END IF;
@@ -191,7 +191,7 @@ BEGIN
   -- Daging lebih berat dari buah utuhnya.
   BEGIN
     PERFORM public.admin_catat_belanja(
-      p_bahan_id => 'bbbbbbbb-0000-0000-0000-000000000001',
+      p_bahan_id => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
       p_tanggal  => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
       p_jumlah => 1200, p_total_rupiah => 20000, p_jumlah_beli => 1000);
     RAISE EXCEPTION 'GAGAL: daging 1.200 g dari buah 1.000 g diterima';
@@ -202,7 +202,7 @@ BEGIN
   -- Nota bertanggal besok.
   BEGIN
     PERFORM public.admin_catat_belanja(
-      p_bahan_id => 'bbbbbbbb-0000-0000-0000-000000000001',
+      p_bahan_id => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
       p_tanggal  => (NOW() AT TIME ZONE 'Asia/Jakarta')::date + 1,
       p_jumlah => 100, p_total_rupiah => 5000);
     RAISE EXCEPTION 'GAGAL: nota bertanggal besok diterima';
@@ -213,7 +213,7 @@ BEGIN
   -- Baris yang tidak mengubah apa pun.
   BEGIN
     PERFORM public.admin_catat_belanja(
-      p_bahan_id => 'bbbbbbbb-0000-0000-0000-000000000001',
+      p_bahan_id => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
       p_tanggal  => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
       p_jumlah => 0, p_total_rupiah => 0);
     RAISE EXCEPTION 'GAGAL: baris kosong diterima';
@@ -317,7 +317,7 @@ BEGIN
 
   BEGIN
     PERFORM public.admin_catat_belanja(
-      p_bahan_id => 'bbbbbbbb-0000-0000-0000-000000000001',
+      p_bahan_id => (SELECT id FROM public.bahan WHERE nama = 'Pisang'),
       p_tanggal  => (NOW() AT TIME ZONE 'Asia/Jakarta')::date,
       p_jumlah => 100, p_total_rupiah => 1);
     RAISE EXCEPTION 'GAGAL: driver bisa mencatat belanja';
@@ -342,7 +342,7 @@ BEGIN
   PERFORM set_config('test.uid', '22222222-2222-2222-2222-222222222222', true);
 
   SELECT * INTO r FROM public.admin_bahan_ringkas()
-   WHERE bahan_id = 'bbbbbbbb-0000-0000-0000-000000000002';
+   WHERE bahan_id = (SELECT id FROM public.bahan WHERE nama = 'Susu UHT');
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'GAGAL: bahan tanpa belanja hilang dari daftar — layar tidak akan tahu ia perlu diisi';
