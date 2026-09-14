@@ -415,6 +415,14 @@ export default function BelanjaBahanPage() {
         </section>
       )}
 
+      {/*
+        HPP per menu ditaruh di atas formulir nota, bukan di bawah:
+        pertanyaan yang dibawa orang ke layar ini adalah "menu mana yang
+        tipis", dan mencatat nota adalah cara menjawabnya — bukan
+        sebaliknya.
+      */}
+      <HppMenu />
+
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         {/* ── Formulir nota ───────────────────────────────────── */}
         <section id="form-nota" className="lg:col-span-2 bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden h-fit">

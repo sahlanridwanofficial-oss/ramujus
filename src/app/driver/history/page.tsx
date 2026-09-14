@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { useAuth } from '@/hooks/useAuth'
-import { formatRupiah, formatTime, formatDate } from '@/lib/format'
+import { formatRupiah, formatTime } from '@/lib/format'
 import { ShoppingBag, MapPin, Clock, Loader2, ChevronRight, Calendar, Pencil } from 'lucide-react'
 import { isCupCategory } from '@/lib/constants'
 import type { Order, OrderItem, Product } from '@/types/database'

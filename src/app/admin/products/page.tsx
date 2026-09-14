@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import type { Product, ProductCategory } from '@/types/database'
 import { PRODUCT_CATEGORIES } from '@/lib/constants'
+import { describeRpcError } from '@/lib/rpc'
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([])
@@ -37,12 +38,21 @@ export default function ProductsPage() {
         .select('*')
         .order('sort_order')
 
-      if (data) {
-        setProducts(data)
-      } else {
+      // Galat yang ditelan tampil di layar sebagai "belum ada produk" —
+      // dua keadaan yang sangat berbeda dengan tampilan yang sama persis.
+      // Itu pola yang sama yang dulu membuat dasbor menampilkan "0 cup"
+      // padahal driver sudah jualan.
+      if (error) {
+        setSaveError(describeRpcError(error, 'products'))
         setProducts([])
+      } else {
+        setSaveError(null)
+        setProducts(data ?? [])
       }
-    } catch {
+    } catch (e) {
+      setSaveError(
+        `Gagal memuat daftar produk: ${e instanceof Error ? e.message : 'penyebab tidak diketahui'}.`
+      )
       setProducts([])
     } finally {
       setLoading(false)
