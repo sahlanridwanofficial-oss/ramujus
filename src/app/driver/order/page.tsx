@@ -7,9 +7,9 @@ import { useGeolocation } from '@/hooks/useGeolocation'
 import { formatRupiah } from '@/lib/format'
 import { PAYMENT_METHODS } from '@/lib/constants'
 import {
-  Minus, Plus, ShoppingCart, MapPin, CheckCircle2,
+  Minus, Plus, ShoppingCart, CheckCircle2,
   Loader2, Banknote, QrCode, ArrowRightLeft, X, ArrowLeft,
-  Receipt, PackageCheck, AlertCircle, CloudOff
+  Receipt, AlertCircle, CloudOff
 } from 'lucide-react'
 import type { Product, CartItem, Shift } from '@/types/database'
 import { enqueueOrder, newClientOrderId, isPermanentFailure } from '@/lib/offlineQueue'
