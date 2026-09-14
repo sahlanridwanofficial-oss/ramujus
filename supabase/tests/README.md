@@ -623,3 +623,33 @@ yang sama — dan tebakan itu pasti salah pada kasus yang paling wajar terjadi.
 Tes 8 menjaga hal yang mudah terlewat: `admin_perbaiki_belanja` menulis dua
 baris, dan kegagalan di baris kedua tidak boleh meninggalkan baris pertama
 sendirian. Satu pembatal tanpa pengganti adalah stok yang hilang tanpa sebab.
+
+## 27 — Nota salah bisa dihapus; yang dibatalkan berhenti menyetir harga (0034)
+
+Dari satu keluhan yang sama: *"kalau tidak dihapus, itu masuk ke perhitungan."*
+
+**Bug yang ditemukan sambil memeriksanya.** `harga_bahan_pada()` dan
+`admin_bahan_ringkas()` memilih harga terakhir dengan satu-satunya saringan
+`jumlah > 0` — dan baris yang sudah dibatalkan lolos saringan itu. Batalkan
+nota terbaru tanpa menggantinya, dan harga bahan itu **tetap** diambil dari
+nota yang barusan dinyatakan salah. Belum menggigit di produksi hanya karena
+kebetulan nota terbaru tiap bahan kebetulan yang masih berlaku.
+
+**Hapus = pindah ke arsip, bukan lenyap.** Menghapus baris begitu saja membuat
+riwayat harga bisa berubah surut — persis yang dijaga 0029 sejak awal. Jadi
+menghapus berarti memindahkan ke `belanja_terhapus`, lengkap dengan siapa,
+kapan, dan alasannya. Layar jadi bersih, buktinya tidak hilang.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | **Nota yang dibatalkan tidak boleh jadi harga terakhir** — harganya jatuh kembali ke nota yang masih berlaku, bukan bertahan di angka yang sudah dinyatakan salah |
+| 2 | Menghapus memindahkan ke arsip, lengkap dengan penghapus dan alasannya |
+| 3 | Yang dihapus benar-benar hilang dari perhitungan, bukan cuma dari pandangan |
+| 4 | Pasangan pembatalan dihapus **bersama** — nota tanpa pembatalnya meninggalkan baris negatif yatim yang benar-benar masuk perhitungan |
+| 5 | Dari arah pembatal pun pasangannya ikut — menghapus pembatal sendirian akan menghidupkan kembali angka yang salah |
+| 6 | Arsip tidak bisa dikosongkan maupun diubah dari aplikasi; tanpa itu "hapus" jadi benar-benar melenyapkan |
+| 7 | Tertutup untuk driver, lewat fungsi maupun tabel |
+
+Tes 4 dan 5 menjaga kejadian nyata: nota Mangga di produksi sempat punya satu
+baris pembatal yang terlepas dari pasangannya, dan baris yatim itu membuat
+netto rupiahnya jadi **nol** — bahannya seolah gratis.
