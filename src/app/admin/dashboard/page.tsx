@@ -7,6 +7,7 @@ import { formatRupiah } from '@/lib/format'
 import { jakartaToday, jakartaDayRange } from '@/lib/date'
 import { CUP_CATEGORY } from '@/lib/constants'
 import { describeRpcError, firstRow, LATEST_MIGRATION } from '@/lib/rpc'
+import HariPerluPerhatian from '@/components/admin/HariPerluPerhatian'
 import {
   ShoppingBag, TrendingUp, Users, DollarSign,
   Loader2, ArrowUpRight, Clock, CheckCircle2, PackageX, TriangleAlert,
@@ -351,6 +352,15 @@ export default function AdminDashboard() {
           <ArrowUpRight className="w-4 h-4 text-amber-700 shrink-0" />
         </Link>
       )}
+
+      {/*
+        Hari jualan yang belum ditutup. Ditaruh di atas peringatan stok
+        karena urutannya bukan selera: stok habis menghentikan penjualan
+        besok, tapi hari yang tidak pernah ditutup membuat uang hari ini
+        tidak pernah bisa dicocokkan — dan makin lama digantung, makin
+        kecil kemungkinan ada yang masih ingat angkanya.
+      */}
+      <HariPerluPerhatian />
 
       {/* Peringatan stok menipis/habis */}
       {(lowStock.out > 0 || lowStock.low > 0) && (

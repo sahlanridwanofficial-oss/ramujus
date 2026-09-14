@@ -29,11 +29,18 @@ interface ProductAllocItem {
 function InventoryContent() {
   const searchParams = useSearchParams()
   const initialDriverId = searchParams.get('driverId') || ''
+  // Tanggal ikut dibaca dari tautan supaya peringatan "hari belum ditutup" di
+  // dasbor bisa membuka hari yang dimaksud langsung. Tanpa ini, tautannya
+  // mendarat di hari ini dan tanggalnya harus dicari ulang — dan hari yang
+  // harus dicari ulang adalah hari yang akhirnya dibiarkan.
+  const initialDate = searchParams.get('date') || jakartaToday()
+  const initialTab: 'morning' | 'night' =
+    searchParams.get('tab') === 'night' ? 'night' : 'morning'
 
-  const [activeTab, setActiveTab] = useState<'morning' | 'night'>('morning')
+  const [activeTab, setActiveTab] = useState<'morning' | 'night'>(initialTab)
   const [drivers, setDrivers] = useState<Profile[]>([])
   const [selectedDriverId, setSelectedDriverId] = useState<string>(initialDriverId)
-  const [selectedDate, setSelectedDate] = useState<string>(jakartaToday())
+  const [selectedDate, setSelectedDate] = useState<string>(initialDate)
   const [products, setProducts] = useState<Product[]>([])
 
   const [allocItems, setAllocItems] = useState<{ [productId: string]: ProductAllocItem }>({})

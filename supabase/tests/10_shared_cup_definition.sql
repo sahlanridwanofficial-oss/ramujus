@@ -23,9 +23,15 @@ INSERT INTO public.shifts (id, driver_id, status) VALUES
   ('cccccccc-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'active'),
   ('cccccccc-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 'active');
 
--- PENTING: tidak ada driver_daily_allocations sama sekali di sini.
--- Justru itu keadaan yang membuat angka lama berbeda — sold_quantity tidak
--- pernah bertambah karena tidak ada alokasi untuk dinaikkan.
+-- PENTING: tidak ada driver_daily_allocations yang disemai di sini, dan
+-- tidak ada satu cup pun muatan yang dicatat admin. Justru itu keadaan yang
+-- membuat angka lama berbeda — sold_quantity tidak pernah bertambah karena
+-- tidak ada alokasi untuk dinaikkan.
+--
+-- Sejak 0028 create_order membuatkan barisnya sendiri saat penjualan pertama
+-- masuk, jadi barisnya akan ada — tapi dengan initial_quantity 0, yang
+-- artinya tetap tidak ada muatan yang pernah tercatat. Itulah keadaan yang
+-- diuji berkas ini.
 
 SET ROLE authenticated;
 
@@ -58,14 +64,29 @@ $$;
 
 -- ------------------------------------------------------------
 \echo ''
-\echo '=== 1. Tanpa alokasi, driver tetap melihat cup yang benar (bug yang dilaporkan) ==='
+\echo '=== 1. Tanpa muatan dicatat, driver tetap melihat cup yang benar (bug yang dilaporkan) ==='
 SET test.uid = '11111111-1111-1111-1111-111111111111';
 SELECT orders_today, cups_today, items_today, revenue_today FROM public.driver_daily_summary();
 DO $$
-DECLARE o INTEGER; c INTEGER; i INTEGER; r BIGINT; v_alloc INTEGER;
+DECLARE o INTEGER; c INTEGER; i INTEGER; r BIGINT; v_alloc INTEGER; v_muatan INTEGER;
 BEGIN
-  SELECT count(*) INTO v_alloc FROM public.driver_daily_allocations;
-  IF v_alloc <> 0 THEN RAISE EXCEPTION 'Prasyarat uji salah: ada % alokasi', v_alloc; END IF;
+  -- Sejak 0028 hari yang belum dialokasikan DIBUATKAN barisnya oleh
+  -- create_order, jadi "nol baris alokasi" tidak mungkin lagi. Yang diuji
+  -- di sini tetap sama isinya: driver melihat cup yang benar walau MUATAN
+  -- gerobaknya tidak pernah dicatat siapa pun. Prasyaratnya yang berubah
+  -- bentuk — dari "tidak ada barisnya" jadi "barisnya lahir dari penjualan,
+  -- muatannya 0".
+  SELECT count(*) INTO v_alloc FROM public.driver_daily_allocations
+   WHERE NOT dibuat_otomatis;
+  IF v_alloc <> 0 THEN
+    RAISE EXCEPTION 'Prasyarat uji salah: ada % alokasi yang dicatat admin', v_alloc;
+  END IF;
+
+  SELECT COALESCE(sum(initial_quantity), 0) INTO v_muatan
+    FROM public.driver_allocation_items;
+  IF v_muatan <> 0 THEN
+    RAISE EXCEPTION 'Prasyarat uji salah: ada % cup muatan tercatat', v_muatan;
+  END IF;
 
   SELECT orders_today, cups_today, items_today, revenue_today
     INTO o, c, i, r FROM public.driver_daily_summary();
@@ -76,7 +97,7 @@ BEGIN
   IF o <> 2 OR i <> 6 OR r <> 90000 THEN
     RAISE EXCEPTION 'GAGAL: transaksi=% item=% omzet=%', o, i, r;
   END IF;
-  RAISE NOTICE 'OK: 5 cup, 6 item, 2 transaksi, Rp90.000 — tanpa satu pun baris alokasi';
+  RAISE NOTICE 'OK: 5 cup, 6 item, 2 transaksi, Rp90.000 — tanpa satu cup pun muatan tercatat';
 END;
 $$;
 

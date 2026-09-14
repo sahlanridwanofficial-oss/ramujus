@@ -155,7 +155,21 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
     (27, '0027_tandai_event_di_lapangan', 'Driver menandai booth event sendiri; admin bisa melihat yang dikeluarkan',
          to_regprocedure('public.driver_start_stop(double precision,double precision,double precision,uuid,boolean)') IS NOT NULL
          AND to_regprocedure('public.driver_tandai_event_sekarang(boolean)') IS NOT NULL
-         AND to_regprocedure('public.admin_mangkal_event(date,date)') IS NOT NULL)
+         AND to_regprocedure('public.admin_mangkal_event(date,date)') IS NOT NULL),
+
+    (28, '0028_hari_punya_awal_dan_akhir', 'Tiap hari jualan punya baris alokasi; tidak ada cup tanpa pertanggungjawaban',
+         to_regprocedure('public.admin_hari_perlu_perhatian()') IS NOT NULL
+         AND to_regprocedure('public.admin_akui_muatan_dari_penjualan(uuid)') IS NOT NULL
+         AND EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'driver_daily_allocations'
+                        AND column_name = 'dibuat_otomatis')
+         -- Penandanya juga memastikan pagar diam-diam di create_order sudah
+         -- hilang: selama "IF v_alloc_id IS NOT NULL" masih ada, penjualan
+         -- pada hari tak teralokasi tetap lolos tanpa bekas.
+         AND EXISTS (SELECT 1 FROM pg_proc p
+                       JOIN pg_namespace n ON n.oid = p.pronamespace
+                      WHERE n.nspname = 'public' AND p.proname = 'create_order'
+                        AND position('IF v_alloc_id IS NOT NULL' in pg_get_functiondef(p.oid)) = 0))
 )
 SELECT migrasi,
        penjelasan,
