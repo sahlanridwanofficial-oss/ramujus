@@ -55,7 +55,9 @@ interface BelanjaRow {
   harga_satuan: number | null
   rendemen: number | null
   catatan: string | null
-  koreksi: boolean
+  /** 'berlaku' | 'dibatalkan' | 'pembatal' */
+  keadaan: string
+  membatalkan_id: string | null
 }
 
 /** Biaya menurut takaran x harga — angka yang sudah sah hari ini juga. */
@@ -187,25 +189,48 @@ export default function BelanjaBahanPage() {
   }, [fRupiah, fDaging, fBeli, bahanTerpilih])
 
   /**
-   * Nota salah dibatalkan dengan baris berlawanan, bukan diedit.
+   * Memperbaiki nota — satu tindakan, bukan dua.
    *
-   * Tombolnya cuma mengisi formulir dengan kebalikan nota itu — jumlah
-   * dan rupiahnya negatif, tanggalnya sama persis. Tanggal harus sama
-   * supaya riwayat harga pada hari itu benar-benar saling meniadakan;
-   * kalau dibatalkan pada tanggal hari ini, hari asalnya tetap
-   * menyimpan harga yang salah.
+   * Formulirnya diisi angka ASLINYA supaya yang diketik pemakai adalah
+   * angka yang BENAR, bukan kebalikan dari yang salah. Versi pertama
+   * mengisi formulir dengan nilai negatif dan menyuruh menyimpan dua
+   * kali; hasilnya tiga baris yang tampak dobel, dan pemakainya bingung
+   * mana yang berlaku.
+   *
+   * Di balik layar tetap dua baris — pembatal yang menunjuk aslinya,
+   * lalu penggantinya — karena buku besar belanja tetap hanya-tambah.
    */
   function mulaiKoreksi(r: BelanjaRow) {
     setKoreksiDari(r)
     setFBahan(r.bahan_id)
     setFTanggal(r.tanggal)
-    setFDaging(String(-num(r.jumlah)))
-    setFRupiah(String(-num(r.total_rupiah)))
-    setFBeli('')
-    setFCatatan(`Batalkan nota ${r.nama} ${tanggalPendek(r.tanggal)}`)
+    setFDaging(String(num(r.jumlah)))
+    setFRupiah(String(num(r.total_rupiah)))
+    setFBeli(r.jumlah_beli != null ? String(num(r.jumlah_beli)) : '')
+    setFCatatan(r.catatan ?? '')
     setPesan(null)
     setError(null)
     document.getElementById('form-nota')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  /** Nota yang memang tidak pernah terjadi — dibatalkan tanpa pengganti. */
+  async function batalkanSaja() {
+    if (!koreksiDari) return
+    if (!window.confirm(
+      `Batalkan nota ${koreksiDari.nama} ${tanggalPendek(koreksiDari.tanggal)} tanpa pengganti?`
+    )) return
+    setBusy(true)
+    const { error: err } = await supabase.rpc('admin_perbaiki_belanja', {
+      p_belanja_id: koreksiDari.id,
+    })
+    if (err) setError(describeRpcError(err, 'admin_perbaiki_belanja'))
+    else {
+      setError(null)
+      setPesan(`Nota ${koreksiDari.nama} dibatalkan.`)
+      batalKoreksi()
+      await muat()
+    }
+    setBusy(false)
   }
 
   function batalKoreksi() {
@@ -219,14 +244,22 @@ export default function BelanjaBahanPage() {
     setBusy(true)
     setPesan(null)
 
-    const { error: err } = await supabase.rpc('admin_catat_belanja', {
-      p_bahan_id: fBahan,
-      p_tanggal: fTanggal,
-      p_jumlah: Number(fDaging),
-      p_total_rupiah: Number(fRupiah),
-      p_jumlah_beli: fBeli ? Number(fBeli) : null,
-      p_catatan: fCatatan || null,
-    })
+    const { error: err } = koreksiDari
+      ? await supabase.rpc('admin_perbaiki_belanja', {
+          p_belanja_id: koreksiDari.id,
+          p_jumlah: Number(fDaging),
+          p_total_rupiah: Number(fRupiah),
+          p_jumlah_beli: fBeli ? Number(fBeli) : null,
+          p_catatan: fCatatan || null,
+        })
+      : await supabase.rpc('admin_catat_belanja', {
+          p_bahan_id: fBahan,
+          p_tanggal: fTanggal,
+          p_jumlah: Number(fDaging),
+          p_total_rupiah: Number(fRupiah),
+          p_jumlah_beli: fBeli ? Number(fBeli) : null,
+          p_catatan: fCatatan || null,
+        })
 
     if (err) {
       const m = err.message ?? ''
@@ -243,7 +276,7 @@ export default function BelanjaBahanPage() {
       // yang hampir selalu dilakukan berikutnya adalah mengetik ulang nota
       // yang benar untuk bahan dan hari yang sama.
       setPesan(koreksiDari
-        ? `Nota ${koreksiDari.nama} dibatalkan. Sekarang ketik angka yang benar — bahan dan tanggalnya sudah terisi.`
+        ? `Nota ${koreksiDari.nama} diperbaiki. Yang lama ditandai dibatalkan, angkanya sudah pakai yang baru.`
         : 'Nota tersimpan — stok dan harga rata-ratanya sudah ikut bergerak.')
       setKoreksiDari(null)
       setFRupiah(''); setFDaging(''); setFBeli(''); setFCatatan('')
@@ -387,7 +420,7 @@ export default function BelanjaBahanPage() {
         <section id="form-nota" className="lg:col-span-2 bg-white rounded-2xl border border-zinc-200/80 shadow-card overflow-hidden h-fit">
           <div className="px-5 py-3.5 border-b border-zinc-100">
             <h2 className="text-sm font-bold text-zinc-900">
-              {koreksiDari ? 'Batalkan Nota' : 'Catat Nota'}
+              {koreksiDari ? 'Perbaiki Nota' : 'Catat Nota'}
             </h2>
           </div>
 
@@ -396,21 +429,32 @@ export default function BelanjaBahanPage() {
               <Undo2 strokeWidth={2} className="w-4 h-4 text-brand shrink-0 mt-px" />
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] text-zinc-800 leading-relaxed">
-                  Membatalkan <b>{koreksiDari.nama}</b> {tanggalPendek(koreksiDari.tanggal)} —{' '}
-                  {num(koreksiDari.jumlah).toLocaleString('id-ID')} {koreksiDari.satuan} ·{' '}
-                  {formatRupiah(num(koreksiDari.total_rupiah))}.
+                  Memperbaiki <b>{koreksiDari.nama}</b> {tanggalPendek(koreksiDari.tanggal)} —
+                  tercatat {num(koreksiDari.jumlah).toLocaleString('id-ID')} {koreksiDari.satuan} ·{' '}
+                  {formatRupiah(num(koreksiDari.total_rupiah))}.{' '}
+                  <b>Ketik angka yang benar</b>, lalu simpan sekali.
                 </p>
                 <p className="text-[10px] text-zinc-500 leading-relaxed mt-1">
-                  Nota lama tidak dihapus — dibatalkan dengan baris berlawanan, supaya riwayat
-                  harganya tetap utuh. Setelah ini, ketik angka yang benar.
+                  Nota lama tidak dihapus — ia ditandai dibatalkan dan dicoret di riwayat, supaya
+                  riwayat harganya tetap utuh. Tanggal dan bahannya ikut yang lama.
                 </p>
-                <button
-                  type="button"
-                  onClick={batalKoreksi}
-                  className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800 mt-1.5"
-                >
-                  Jangan jadi
-                </button>
+                <div className="flex items-center gap-3 mt-1.5">
+                  <button
+                    type="button"
+                    onClick={batalKoreksi}
+                    className="text-[10px] font-bold text-zinc-500 hover:text-zinc-800"
+                  >
+                    Jangan jadi
+                  </button>
+                  <button
+                    type="button"
+                    onClick={batalkanSaja}
+                    disabled={busy}
+                    className="text-[10px] font-bold text-zinc-500 hover:text-brand disabled:opacity-60"
+                  >
+                    Batalkan saja, tanpa pengganti
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -541,13 +585,13 @@ export default function BelanjaBahanPage() {
               className="w-full py-2.5 rounded-lg text-xs font-bold bg-brand text-white hover:bg-brand-dark disabled:opacity-60 transition-colors flex items-center justify-center gap-1.5"
             >
               {busy ? <Loader2 className="w-4 h-4 animate-spin" />
-                    : koreksiDari ? 'Batalkan nota ini' : 'Simpan nota'}
+                    : koreksiDari ? 'Simpan perbaikan' : 'Simpan nota'}
             </button>
 
             <p className="text-[10px] text-zinc-400 leading-relaxed border-t border-zinc-100 pt-3">
-              Nota tidak bisa diedit setelah disimpan. Yang salah dibatalkan lewat tombol{' '}
-              <b className="text-zinc-500">Koreksi</b> di daftar riwayat, lalu diketik ulang —
-              supaya riwayat harganya tidak pernah berubah surut.
+              Nota tidak pernah ditimpa. <b className="text-zinc-500">Perbaiki</b> di daftar riwayat
+              menandai yang lama sebagai dibatalkan dan menulis penggantinya — dua baris di buku
+              besar, satu tekan di layar, dan riwayat harganya tidak pernah berubah surut.
             </p>
           </form>
         </section>
@@ -678,39 +722,59 @@ export default function BelanjaBahanPage() {
                 </tr>
               </thead>
               <tbody>
-                {riwayat.map(r => (
-                  <tr key={r.id} className={`border-b border-zinc-50 last:border-0 ${r.koreksi ? 'bg-amber-50/50' : ''}`}>
-                    <td className="px-5 py-2.5 text-zinc-600 tabular-nums whitespace-nowrap">
+                {/* Baris pembatal DILIPAT. Ia mekanismenya, bukan peristiwanya
+                    — dan menampilkannya berjajar dengan aslinya persis yang
+                    bikin angkanya tampak dobel. Yang dibatalkan tetap
+                    ditampilkan, dicoret, supaya jejaknya tidak hilang. */}
+                {riwayat.filter(r => r.keadaan !== 'pembatal').map(r => (
+                  <tr
+                    key={r.id}
+                    className={`border-b border-zinc-50 last:border-0 ${
+                      r.keadaan === 'dibatalkan' ? 'text-zinc-300' : ''}`}
+                  >
+                    <td className={`px-5 py-2.5 tabular-nums whitespace-nowrap ${
+                      r.keadaan === 'dibatalkan' ? 'text-zinc-300' : 'text-zinc-600'}`}>
                       {tanggalPendek(r.tanggal)}
-                      {r.koreksi && <span className="block text-[10px] font-bold text-amber-700">koreksi</span>}
+                      {r.keadaan === 'dibatalkan' && (
+                        <span className="block text-[10px] font-bold text-zinc-400">dibatalkan</span>
+                      )}
                     </td>
                     <td className="px-3 py-2.5">
-                      <span className="font-semibold text-zinc-900">{r.nama}</span>
+                      <span className={`font-semibold ${
+                        r.keadaan === 'dibatalkan'
+                          ? 'text-zinc-300 line-through' : 'text-zinc-900'}`}>
+                        {r.nama}
+                      </span>
                       {r.catatan && <span className="block text-[10px] text-zinc-400">{r.catatan}</span>}
                     </td>
-                    <td className="text-right px-3 py-2.5 tabular-nums text-zinc-600">
+                    <td className={`text-right px-3 py-2.5 tabular-nums ${
+                      r.keadaan === 'dibatalkan' ? 'text-zinc-300 line-through' : 'text-zinc-600'}`}>
                       {num(r.jumlah).toLocaleString('id-ID')} {r.satuan}
                     </td>
-                    <td className="text-right px-3 py-2.5 tabular-nums text-zinc-600">
+                    <td className={`text-right px-3 py-2.5 tabular-nums ${
+                      r.keadaan === 'dibatalkan' ? 'text-zinc-300 line-through' : 'text-zinc-600'}`}>
                       {formatRupiah(num(r.total_rupiah))}
                     </td>
-                    <td className="text-right px-3 py-2.5 tabular-nums font-semibold text-zinc-900">
+                    <td className={`text-right px-3 py-2.5 tabular-nums font-semibold ${
+                      r.keadaan === 'dibatalkan' ? 'text-zinc-300 line-through' : 'text-zinc-900'}`}>
                       {rupiahPerSatuan(r.harga_satuan)}
                     </td>
-                    <td className="text-right px-3 py-2.5 tabular-nums text-zinc-600">
+                    <td className={`text-right px-3 py-2.5 tabular-nums ${
+                      r.keadaan === 'dibatalkan' ? 'text-zinc-300' : 'text-zinc-600'}`}>
                       {persen(r.rendemen)}
                     </td>
                     <td className="text-right px-5 py-2.5">
-                      {/* Baris pembatalan tidak perlu dibatalkan lagi — dua
-                          baris berlawanan sudah saling meniadakan. */}
-                      {!r.koreksi && (
+                      {/* Yang sudah dibatalkan tidak bisa dibatalkan lagi —
+                          dua pembatal untuk satu nota akan mengurangi stok
+                          dua kali dari satu peristiwa. */}
+                      {r.keadaan === 'berlaku' && (
                         <button
                           type="button"
                           onClick={() => mulaiKoreksi(r)}
                           className="inline-flex items-center gap-1 text-[10px] font-bold text-zinc-400 hover:text-brand transition-colors whitespace-nowrap"
                         >
                           <Undo2 strokeWidth={2.5} className="w-3 h-3" />
-                          Koreksi
+                          Perbaiki
                         </button>
                       )}
                     </td>

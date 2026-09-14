@@ -200,7 +200,17 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          EXISTS (SELECT 1 FROM pg_proc p
                    JOIN pg_namespace n ON n.oid = p.pronamespace
                   WHERE n.nspname = 'public' AND p.proname = 'admin_biaya_per_cup_takaran'
-                    AND pg_get_functiondef(p.oid) LIKE '%harga_perkiraan%'))
+                    AND pg_get_functiondef(p.oid) LIKE '%harga_perkiraan%')),
+
+    (33, '0033_koreksi_satu_tindakan', 'Koreksi nota satu tekan; pasangan pembatalan tercatat, bukan ditebak',
+         to_regprocedure('public.admin_perbaiki_belanja(uuid,numeric,numeric,numeric,text)') IS NOT NULL
+         AND EXISTS (SELECT 1 FROM information_schema.columns
+                      WHERE table_schema = 'public' AND table_name = 'belanja'
+                        AND column_name = 'membatalkan_id')
+         -- Satu nota hanya boleh dibatalkan sekali: dua pembatal akan
+         -- mengurangi stok dua kali dari satu peristiwa.
+         AND EXISTS (SELECT 1 FROM pg_indexes
+                      WHERE schemaname = 'public' AND indexname = 'belanja_satu_pembatalan'))
 )
 SELECT migrasi,
        penjelasan,
