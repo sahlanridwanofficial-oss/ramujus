@@ -240,7 +240,13 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
                                      WHERE x.product_id = t.product_id)
               AND ((b.nama = 'Air' AND t.jumlah = 85
                     AND (p.name LIKE 'KPK%' OR p.name LIKE 'PASUTRI%' OR p.name LIKE 'PASCA%'))
-                OR (b.nama = 'Susu UHT' AND t.jumlah = 80 AND p.name LIKE 'BNN%'))))
+                OR (b.nama = 'Susu UHT' AND t.jumlah = 80 AND p.name LIKE 'BNN%')))),
+
+    (37, '0037_resep_untuk_driver', 'Driver bisa membaca takaran menu di ponselnya',
+         to_regprocedure('public.driver_resep()') IS NOT NULL
+         -- Sekaligus memastikan pintunya tetap satu: fungsinya ada, tetapi
+         -- anon tidak boleh menjalankannya.
+         AND NOT has_function_privilege('anon', 'public.driver_resep()', 'EXECUTE'))
 )
 SELECT migrasi,
        penjelasan,
