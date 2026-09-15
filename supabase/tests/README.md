@@ -685,3 +685,39 @@ Rentang 30 hari dengan jualan satu hari harus menagih biaya tetap satu hari.
 Tes 4 membandingkan rasio ruko:gerobak dengan toleransi 0,02 — kedua ambang
 dibulatkan ke dua desimal lebih dulu, jadi membandingkannya dengan rasio tak
 bulat akan selalu meleset sedikit.
+
+## 29 — Koreksi takaran Air dan Susu UHT (0036)
+
+Resep yang disemai 0030 berasal dari catatan yang ditulis terburu-buru. Dua
+angka salah salin: Air 85 ml seharusnya 80 ml pada KPK, PASUTRI dan PASCA,
+serta Susu UHT 80 ml seharusnya 90 ml pada BNN. PAMAN tidak berubah sama
+sekali.
+
+**Kenapa versi lama yang diperbaiki, bukan dibuatkan versi baru.** Tabel
+`takaran` dibuat berversi supaya resep yang berubah di tengah jalan tidak
+mengubah HPP bulan-bulan sebelumnya. Aturan itu melindungi dari *perubahan*
+resep, bukan dari *salah catat*. Gerobaknya tidak mengganti resep; takaran ini
+memang yang dipakai sejak 7 September. Kalau dijadikan versi baru, hari-hari
+pertama akan selamanya dihitung memakai takaran yang tidak pernah dituang.
+
+Basis data uji lahir tanpa produk, sehingga semaian 0030 dan koreksi 0036
+sama-sama tidak menemukan apa pun saat dipasang. Berkas uji ini menyemai
+keadaan salahnya lebih dulu, lalu memanggil berkas migrasinya dengan `\ir`
+supaya yang diuji benar-benar berkas itu, bukan salinan logikanya.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Air menjadi 80 ml, tepat pada tiga menu |
+| 2 | Susu UHT BNN menjadi 90 ml, sedangkan **PAMAN tetap 80 ml** |
+| 3 | Sembilan baris PAMAN utuh, tidak satu pun bergeser |
+| 4 | Koreksi memperbaiki versi yang ada dan tetap mulai 7 September, bukan menambah versi baru |
+| 5 | Empat baris kemasan bertahan di setiap menu |
+| 6 | Dijalankan ulang tidak menggeser apa pun, dan versi yang dibuat admin sesudahnya tidak disentuh |
+
+Tes 2 menjaga jebakan yang paling mudah terinjak: BNN dan PAMAN sama-sama
+memakai Susu UHT 80 ml sebelum koreksi, dan hanya BNN yang berubah. Tanpa
+saringan nama menu, PAMAN ikut naik jadi 90 ml tanpa suara.
+
+Tes 5 menjaga jebakan kedua. Daftar resep yang dikirim pemakai hanya menyebut
+isi, tanpa kemasan. Koreksi yang menulis ulang seluruh versi akan melenyapkan
+cup dan tutupnya, lalu HPP turun seolah kemasannya gratis.

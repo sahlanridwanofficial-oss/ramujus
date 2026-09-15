@@ -227,7 +227,20 @@ WITH penanda(urutan, migrasi, penjelasan, ada) AS (
          AND to_regprocedure('public.admin_ekonomi_terkini(date,date,text)') IS NOT NULL
          -- Barisnya wajib ada: fungsinya membaca biaya tetap dari sini, dan
          -- tabel kosong akan membuat laba bersih diam-diam NULL.
-         AND EXISTS (SELECT 1 FROM public.parameter_ekonomi WHERE id))
+         AND EXISTS (SELECT 1 FROM public.parameter_ekonomi WHERE id)),
+
+    (36, '0036_takaran_air_dan_susu', 'Koreksi takaran: Air 80 ml, Susu UHT BNN 90 ml',
+         -- Penandanya angka takarannya sendiri, bukan keberadaan objek:
+         -- migrasi ini hanya memperbaiki data, tidak membuat apa pun.
+         NOT EXISTS (
+           SELECT 1 FROM public.takaran t
+             JOIN public.products p ON p.id = t.product_id
+             JOIN public.bahan b ON b.id = t.bahan_id
+            WHERE t.berlaku_dari = (SELECT min(x.berlaku_dari) FROM public.takaran x
+                                     WHERE x.product_id = t.product_id)
+              AND ((b.nama = 'Air' AND t.jumlah = 85
+                    AND (p.name LIKE 'KPK%' OR p.name LIKE 'PASUTRI%' OR p.name LIKE 'PASCA%'))
+                OR (b.nama = 'Susu UHT' AND t.jumlah = 80 AND p.name LIKE 'BNN%'))))
 )
 SELECT migrasi,
        penjelasan,
