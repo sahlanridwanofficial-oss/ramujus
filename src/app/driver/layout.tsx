@@ -6,11 +6,12 @@ import { useAuth } from '@/hooks/useAuth'
 import Logo from '@/components/ui/Logo'
 import FleetTracker from '@/components/driver/FleetTracker'
 import QueueStatus from '@/components/driver/QueueStatus'
-import { LayoutGrid, PlusCircle, History, User, LogOut } from 'lucide-react'
+import { LayoutGrid, PlusCircle, BookOpen, History, User, LogOut } from 'lucide-react'
 
 const navItems = [
   { href: '/driver/dashboard', icon: LayoutGrid, label: 'Beranda' },
   { href: '/driver/order', icon: PlusCircle, label: 'Pesanan' },
+  { href: '/driver/resep', icon: BookOpen, label: 'Resep' },
   { href: '/driver/history', icon: History, label: 'Riwayat' },
   { href: '/driver/profile', icon: User, label: 'Profil' },
 ]

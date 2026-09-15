@@ -22,7 +22,7 @@ export interface RpcErrorLike {
 }
 
 /** Migrasi terbaru yang harus dijalankan agar seluruh angka admin lengkap. */
-export const LATEST_MIGRATION = 'supabase/migrations/0036_takaran_air_dan_susu.sql'
+export const LATEST_MIGRATION = 'supabase/migrations/0037_resep_untuk_driver.sql'
 
 /**
  * Benar bila fungsi yang dipanggil tidak dikenal database — hampir selalu

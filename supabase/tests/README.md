@@ -721,3 +721,38 @@ saringan nama menu, PAMAN ikut naik jadi 90 ml tanpa suara.
 Tes 5 menjaga jebakan kedua. Daftar resep yang dikirim pemakai hanya menyebut
 isi, tanpa kemasan. Koreksi yang menulis ulang seluruh versi akan melenyapkan
 cup dan tutupnya, lalu HPP turun seolah kemasannya gratis.
+
+## 30 — Resep bisa dibaca driver (0037)
+
+Takaran sudah tercatat rapi sejak 0030, tetapi hanya admin yang boleh
+membacanya. Orang yang benar-benar menuangkannya justru tidak bisa membukanya
+di ponselnya sendiri.
+
+Akibatnya takaran hidup di dua tempat: di basis data, dan di kepala
+Mahaliriki. Ketika keduanya berbeda, yang menang selalu yang di kepala, dan
+HPP yang dihitung sistem diam-diam mengukur minuman yang tidak pernah dibuat.
+Koreksi 0036 persis kejadian itu.
+
+**Takaran saja, tanpa rupiah.** Driver perlu tahu cara membuatnya, bukan
+biayanya. Pemisahan itu ditaruh di lapisan basis data, bukan di layar, sebab
+layar bisa diubah tanpa sengaja sedangkan fungsinya tidak pernah menyentuh
+tabel `belanja` sama sekali.
+
+| Tes | Perilaku yang dijamin |
+|-----|----------------------|
+| 1 | Driver bisa membaca takarannya sendiri |
+| 2 | Versi yang berlaku **hari ini**, bukan versi terbaru; resep yang disiapkan untuk pekan depan tidak bocor |
+| 3 | Tidak ada kolom biaya, dan definisi fungsinya tidak menyebut `belanja` maupun `harga_bahan_pada` |
+| 4 | Menu yang sudah ditarik tetap tersimpan, tetapi tidak ditampilkan |
+| 5 | Kemasan jatuh ke bawah karena urutannya menurun menurut jumlah, bukan karena daftar nama yang harus dirawat |
+| 6 | Tabel `takaran` dan `belanja` tetap tertutup untuk driver; pintunya hanya lewat fungsi |
+| 7 | Akun nonaktif ditolak |
+| 8 | Admin ikut diizinkan supaya layarnya bisa diperiksa; `anon` tetap tertutup |
+
+Tes 3 yang paling menentukan bentuk rancangannya. Membatasi kolom di layar
+saja akan runtuh pada perubahan berikutnya; membatasinya di fungsi membuat
+kebocoran mustahil terjadi tanpa mengubah migrasi.
+
+Tes 2 menjaga kesalahan yang mahal di lapangan: versi takaran yang baru
+berlaku pekan depan tidak boleh terbaca hari ini, sebab driver akan langsung
+menuang menurut angka yang belum waktunya.
